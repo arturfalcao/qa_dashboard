@@ -21,7 +21,7 @@ interface AnnotationForm {
   y: number
   comment: string
   defectType?: DefectType
-  defectSeverity?: DefectSeverity
+  severity?: DefectSeverity
 }
 
 const PHOTO_ANGLE_LABELS: Record<PhotoAngle, string> = {
@@ -134,7 +134,7 @@ export function EnhancedPhotoGallery({
       y: Math.round(y * 100) / 100,
       comment: '',
       defectType: DefectType.OTHER,
-      defectSeverity: DefectSeverity.MINOR,
+      severity: DefectSeverity.MINOR,
     })
   }, [annotationMode, selectedPhoto, readonly])
 
@@ -148,7 +148,7 @@ export function EnhancedPhotoGallery({
         pendingAnnotation.y,
         pendingAnnotation.comment,
         pendingAnnotation.defectType,
-        pendingAnnotation.defectSeverity
+        pendingAnnotation.severity
       )
 
       onAnnotationCreate?.(annotation)
@@ -294,8 +294,8 @@ export function EnhancedPhotoGallery({
                   key={annotation.id}
                   className={cn(
                     'absolute w-6 h-6 rounded-full border-2 transform -translate-x-1/2 -translate-y-1/2 z-10',
-                    annotation.defectSeverity
-                      ? SEVERITY_COLORS[annotation.defectSeverity]
+                    annotation.severity
+                      ? SEVERITY_COLORS[annotation.severity]
                       : 'bg-blue-500 border-blue-600',
                     selectedAnnotation?.id === annotation.id && 'ring-2 ring-white'
                   )}
@@ -309,7 +309,7 @@ export function EnhancedPhotoGallery({
                   }}
                   title={annotation.comment}
                 >
-                  {annotation.defectSeverity === DefectSeverity.CRITICAL && (
+                  {annotation.severity === DefectSeverity.CRITICAL && (
                     <AlertTriangle className="w-3 h-3 text-white m-auto" />
                   )}
                 </button>
@@ -368,8 +368,8 @@ export function EnhancedPhotoGallery({
                         Severity
                       </label>
                       <select
-                        value={pendingAnnotation.defectSeverity}
-                        onChange={(e) => setPendingAnnotation(prev => prev ? { ...prev, defectSeverity: e.target.value as DefectSeverity } : null)}
+                        value={pendingAnnotation.severity}
+                        onChange={(e) => setPendingAnnotation(prev => prev ? { ...prev, severity: e.target.value as DefectSeverity } : null)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                       >
                         {Object.values(DefectSeverity).map((severity) => (
@@ -426,16 +426,16 @@ export function EnhancedPhotoGallery({
                         <strong>Type:</strong> {selectedAnnotation.defectType.replace('_', ' ').toUpperCase()}
                       </div>
                     )}
-                    {selectedAnnotation.defectSeverity && (
+                    {selectedAnnotation.severity && (
                       <div className="mb-2">
                         <strong>Severity:</strong>
                         <span className={cn(
                           'ml-2 px-2 py-1 text-xs font-medium rounded-full text-white',
-                          selectedAnnotation.defectSeverity === DefectSeverity.CRITICAL && 'bg-red-500',
-                          selectedAnnotation.defectSeverity === DefectSeverity.MAJOR && 'bg-orange-500',
-                          selectedAnnotation.defectSeverity === DefectSeverity.MINOR && 'bg-yellow-500'
+                          selectedAnnotation.severity === DefectSeverity.CRITICAL && 'bg-red-500',
+                          selectedAnnotation.severity === DefectSeverity.MAJOR && 'bg-orange-500',
+                          selectedAnnotation.severity === DefectSeverity.MINOR && 'bg-yellow-500'
                         )}>
-                          {selectedAnnotation.defectSeverity.toUpperCase()}
+                          {selectedAnnotation.severity.toUpperCase()}
                         </span>
                       </div>
                     )}

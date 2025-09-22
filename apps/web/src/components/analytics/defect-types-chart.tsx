@@ -19,6 +19,10 @@ const COLORS = {
   stitching: '#f97316',
   misprint: '#8b5cf6',
   measurement: '#3b82f6',
+  fabric_defect: '#10b981',
+  hardware_issue: '#f59e0b',
+  discoloration: '#ec4899',
+  tear_damage: '#84cc16',
   other: '#6b7280',
 }
 

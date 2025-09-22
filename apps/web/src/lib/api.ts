@@ -228,7 +228,7 @@ class ApiClient {
     y: number,
     comment: string,
     defectType?: DefectType,
-    defectSeverity?: DefectSeverity
+    severity?: DefectSeverity
   ): Promise<PhotoAnnotation> {
     return this.request<PhotoAnnotation>('/photo-annotations', {
       method: 'POST',
@@ -238,7 +238,7 @@ class ApiClient {
         y,
         comment,
         defectType,
-        defectSeverity,
+        severity,
       }),
     })
   }
@@ -254,7 +254,7 @@ class ApiClient {
       y?: number
       comment?: string
       defectType?: DefectType
-      defectSeverity?: DefectSeverity
+      severity?: DefectSeverity
     }
   ): Promise<PhotoAnnotation> {
     return this.request<PhotoAnnotation>(`/photo-annotations/${annotationId}`, {
