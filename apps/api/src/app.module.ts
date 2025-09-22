@@ -21,6 +21,8 @@ import { Garment } from './database/entities/garment.entity';
 import { Inspection } from './database/entities/inspection.entity';
 import { Approval } from './database/entities/approval.entity';
 import { Event } from './database/entities/event.entity';
+import { InspectionPhoto } from './database/entities/inspection-photo.entity';
+import { PhotoAnnotation } from './database/entities/photo-annotation.entity';
 
 @Module({
   imports: [
@@ -30,7 +32,7 @@ import { Event } from './database/entities/event.entity';
     TypeOrmModule.forRoot({
       type: 'postgres',
       url: process.env.DATABASE_URL,
-      entities: [Tenant, User, Vendor, Style, Batch, Garment, Inspection, Approval, Event],
+      entities: [Tenant, User, Vendor, Style, Batch, Garment, Inspection, Approval, Event, InspectionPhoto, PhotoAnnotation],
       synchronize: false,
       logging: process.env.NODE_ENV === 'development',
     }),
