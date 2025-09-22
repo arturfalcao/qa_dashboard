@@ -1,11 +1,18 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Inspection } from '../entities/inspection.entity';
 import { StorageService } from '../../storage/storage.service';
 
+type InspectionWithPhotoUrls = Inspection & {
+  photoUrlBefore?: string;
+  photoUrlAfter?: string;
+};
+
 @Injectable()
 export class InspectionService {
+  private readonly logger = new Logger(InspectionService.name);
+
   constructor(
     @InjectRepository(Inspection)
     private inspectionRepository: Repository<Inspection>,
@@ -16,7 +23,7 @@ export class InspectionService {
     tenantId: string,
     since?: string,
     limit = 50,
-  ): Promise<Inspection[]> {
+  ): Promise<InspectionWithPhotoUrls[]> {
     const query = this.inspectionRepository
       .createQueryBuilder('inspection')
       .leftJoinAndSelect('inspection.garment', 'garment')
@@ -33,30 +40,20 @@ export class InspectionService {
 
     const inspections = await query.getMany();
 
-    // Add presigned URLs for photos
-    for (const inspection of inspections) {
-      if (inspection.photoKeyBefore) {
-        try {
-          inspection['photoUrlBefore'] = await this.storageService.getPresignedDownloadUrl(
-            inspection.photoKeyBefore,
-          );
-        } catch (error) {
-          console.error('Error getting presigned URL for before photo:', error);
-        }
-      }
-      
-      if (inspection.photoKeyAfter) {
-        try {
-          inspection['photoUrlAfter'] = await this.storageService.getPresignedDownloadUrl(
-            inspection.photoKeyAfter,
-          );
-        } catch (error) {
-          console.error('Error getting presigned URL for after photo:', error);
-        }
-      }
-    }
+    return Promise.all(
+      inspections.map(async inspection => {
+        const inspectionWithUrls = inspection as InspectionWithPhotoUrls;
+        const [photoUrlBefore, photoUrlAfter] = await Promise.all([
+          this.resolvePhotoUrl(inspection.photoKeyBefore),
+          this.resolvePhotoUrl(inspection.photoKeyAfter),
+        ]);
 
-    return inspections;
+        inspectionWithUrls.photoUrlBefore = photoUrlBefore;
+        inspectionWithUrls.photoUrlAfter = photoUrlAfter;
+
+        return inspectionWithUrls;
+      }),
+    );
   }
 
   async createInspection(inspection: Partial<Inspection>): Promise<Inspection> {
@@ -66,7 +63,7 @@ export class InspectionService {
 
   async getInspectionsByGarmentIds(garmentIds: string[]): Promise<Inspection[]> {
     if (garmentIds.length === 0) return [];
-    
+
     return await this.inspectionRepository
       .createQueryBuilder('inspection')
       .leftJoinAndSelect('inspection.garment', 'garment')
@@ -76,5 +73,19 @@ export class InspectionService {
       .where('inspection.garmentId IN (:...garmentIds)', { garmentIds })
       .orderBy('inspection.inspectedAt', 'DESC')
       .getMany();
+  }
+
+  private async resolvePhotoUrl(photoKey?: string): Promise<string | undefined> {
+    if (!photoKey) {
+      return undefined;
+    }
+
+    try {
+      return await this.storageService.getPresignedDownloadUrl(photoKey);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Failed to generate presigned URL for photo key "${photoKey}": ${message}`);
+      return undefined;
+    }
   }
 }
