@@ -1,12 +1,21 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Batch } from '../entities/batch.entity';
-import { Approval } from '../entities/approval.entity';
-import { Inspection } from '../entities/inspection.entity';
-import { Garment } from '../entities/garment.entity';
-import { BatchStatus, ApprovalDecision, UserRole, EventType } from '@qa-dashboard/shared';
-import { EventService } from './event.service';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { Batch } from "../entities/batch.entity";
+import { Approval } from "../entities/approval.entity";
+import { Inspection } from "../entities/inspection.entity";
+import { Garment } from "../entities/garment.entity";
+import {
+  BatchStatus,
+  ApprovalDecision,
+  UserRole,
+  EventType,
+} from "@qa-dashboard/shared";
+import { EventService } from "./event.service";
 
 @Injectable()
 export class BatchService {
@@ -25,8 +34,8 @@ export class BatchService {
   async getBatches(tenantId: string): Promise<any[]> {
     const batches = await this.batchRepository.find({
       where: { tenantId },
-      relations: ['vendor', 'style'],
-      order: { createdAt: 'DESC' },
+      relations: ["vendor", "style"],
+      order: { createdAt: "DESC" },
     });
 
     // Get counts for each batch
@@ -61,11 +70,11 @@ export class BatchService {
   async getBatchById(tenantId: string, batchId: string): Promise<any> {
     const batch = await this.batchRepository.findOne({
       where: { id: batchId, tenantId },
-      relations: ['vendor', 'style', 'approvals', 'approvals.user'],
+      relations: ["vendor", "style", "approvals", "approvals.user"],
     });
 
     if (!batch) {
-      throw new NotFoundException('Batch not found');
+      throw new NotFoundException("Batch not found");
     }
 
     // Get aggregated data
@@ -99,7 +108,7 @@ export class BatchService {
     comment?: string,
   ): Promise<void> {
     if (userRole !== UserRole.CLIENT_ADMIN) {
-      throw new ForbiddenException('Only client admins can approve batches');
+      throw new ForbiddenException("Only client admins can approve batches");
     }
 
     const batch = await this.batchRepository.findOne({
@@ -107,11 +116,11 @@ export class BatchService {
     });
 
     if (!batch) {
-      throw new NotFoundException('Batch not found');
+      throw new NotFoundException("Batch not found");
     }
 
     if (batch.status !== BatchStatus.AWAITING_APPROVAL) {
-      throw new ForbiddenException('Batch is not awaiting approval');
+      throw new ForbiddenException("Batch is not awaiting approval");
     }
 
     // Create approval record
@@ -131,7 +140,7 @@ export class BatchService {
     // Create event
     await this.eventService.createEvent(tenantId, EventType.BATCH_DECIDED, {
       batchId,
-      decision: 'approved',
+      decision: "approved",
       decidedBy: userId,
     });
   }
@@ -144,7 +153,7 @@ export class BatchService {
     comment: string,
   ): Promise<void> {
     if (userRole !== UserRole.CLIENT_ADMIN) {
-      throw new ForbiddenException('Only client admins can reject batches');
+      throw new ForbiddenException("Only client admins can reject batches");
     }
 
     const batch = await this.batchRepository.findOne({
@@ -152,11 +161,11 @@ export class BatchService {
     });
 
     if (!batch) {
-      throw new NotFoundException('Batch not found');
+      throw new NotFoundException("Batch not found");
     }
 
     if (batch.status !== BatchStatus.AWAITING_APPROVAL) {
-      throw new ForbiddenException('Batch is not awaiting approval');
+      throw new ForbiddenException("Batch is not awaiting approval");
     }
 
     // Create approval record
@@ -176,7 +185,7 @@ export class BatchService {
     // Create event
     await this.eventService.createEvent(tenantId, EventType.BATCH_DECIDED, {
       batchId,
-      decision: 'rejected',
+      decision: "rejected",
       decidedBy: userId,
     });
   }

@@ -1,13 +1,13 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Inspection } from '../database/entities/inspection.entity';
-import { Batch } from '../database/entities/batch.entity';
-import { StorageService } from '../storage/storage.service';
-import { AnalyticsService } from '../database/services/analytics.service';
-import * as puppeteer from 'puppeteer';
-import * as fs from 'fs/promises';
-import * as path from 'path';
+import { Injectable } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { Inspection } from "../database/entities/inspection.entity";
+import { Batch } from "../database/entities/batch.entity";
+import { StorageService } from "../storage/storage.service";
+import { AnalyticsService } from "../database/services/analytics.service";
+import * as puppeteer from "puppeteer";
+import * as fs from "fs/promises";
+import * as path from "path";
 
 @Injectable()
 export class ExportsService {
@@ -20,22 +20,26 @@ export class ExportsService {
     private analyticsService: AnalyticsService,
   ) {}
 
-  async generatePDF(tenantId: string, batchId?: string, range?: 'last_7d' | 'last_30d'): Promise<string> {
+  async generatePDF(
+    tenantId: string,
+    batchId?: string,
+    range?: "last_7d" | "last_30d",
+  ): Promise<string> {
     let whereClause = { tenantId };
-    let title = 'QA Dashboard Report';
-    
+    let title = "QA Dashboard Report";
+
     if (batchId) {
       const batch = await this.batchRepository.findOne({
         where: { id: batchId, tenantId },
-        relations: ['vendor', 'style'],
+        relations: ["vendor", "style"],
       });
       if (!batch) {
-        throw new Error('Batch not found');
+        throw new Error("Batch not found");
       }
       title = `Batch Report - ${batch.poNumber}`;
       whereClause = { ...whereClause, garment: { batchId } } as any;
     } else if (range) {
-      const days = range === 'last_7d' ? 7 : 30;
+      const days = range === "last_7d" ? 7 : 30;
       const since = new Date();
       since.setDate(since.getDate() - days);
       whereClause = { ...whereClause, inspectedAt: { $gte: since } } as any;
@@ -43,17 +47,27 @@ export class ExportsService {
     }
 
     // Get data
-    const [defectRate, throughput, defectTypes, approvalTime] = await Promise.all([
-      this.analyticsService.getDefectRate(tenantId, range || 'last_7d'),
-      this.analyticsService.getThroughput(tenantId, 'day', range || 'last_7d'),
-      this.analyticsService.getDefectTypes(tenantId, range || 'last_7d'),
-      this.analyticsService.getApprovalTime(tenantId, range || 'last_7d'),
-    ]);
+    const [defectRate, throughput, defectTypes, approvalTime] =
+      await Promise.all([
+        this.analyticsService.getDefectRate(tenantId, range || "last_7d"),
+        this.analyticsService.getThroughput(
+          tenantId,
+          "day",
+          range || "last_7d",
+        ),
+        this.analyticsService.getDefectTypes(tenantId, range || "last_7d"),
+        this.analyticsService.getApprovalTime(tenantId, range || "last_7d"),
+      ]);
 
     const inspections = await this.inspectionRepository.find({
       where: whereClause,
-      relations: ['garment', 'garment.batch', 'garment.batch.vendor', 'garment.batch.style'],
-      order: { inspectedAt: 'DESC' },
+      relations: [
+        "garment",
+        "garment.batch",
+        "garment.batch.vendor",
+        "garment.batch.style",
+      ],
+      order: { inspectedAt: "DESC" },
       take: 100,
     });
 
@@ -69,36 +83,46 @@ export class ExportsService {
     });
 
     // Generate PDF using Puppeteer
-    const browser = await puppeteer.launch({ headless: 'new' });
+    const browser = await puppeteer.launch({ headless: "new" });
     const page = await browser.newPage();
-    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
-    
+    await page.setContent(htmlContent, { waitUntil: "networkidle0" });
+
     const pdfBuffer = await page.pdf({
-      format: 'A4',
+      format: "A4",
       printBackground: true,
       margin: {
-        top: '1cm',
-        right: '1cm',
-        bottom: '1cm',
-        left: '1cm',
+        top: "1cm",
+        right: "1cm",
+        bottom: "1cm",
+        left: "1cm",
       },
     });
 
     await browser.close();
 
     // Upload to storage
-    const key = this.storageService.generateKey(tenantId, `report-${Date.now()}.pdf`);
-    await this.storageService.uploadFileWithKey(key, pdfBuffer, 'application/pdf');
+    const key = this.storageService.generateKey(
+      tenantId,
+      `report-${Date.now()}.pdf`,
+    );
+    await this.storageService.uploadFileWithKey(
+      key,
+      pdfBuffer,
+      "application/pdf",
+    );
 
     // Return presigned URL
     return await this.storageService.getPresignedDownloadUrl(key);
   }
 
-  async generateCSV(tenantId: string, range?: 'last_7d' | 'last_30d'): Promise<string> {
+  async generateCSV(
+    tenantId: string,
+    range?: "last_7d" | "last_30d",
+  ): Promise<string> {
     let whereClause = { tenantId };
-    
+
     if (range) {
-      const days = range === 'last_7d' ? 7 : 30;
+      const days = range === "last_7d" ? 7 : 30;
       const since = new Date();
       since.setDate(since.getDate() - days);
       whereClause = { ...whereClause, inspectedAt: { $gte: since } } as any;
@@ -106,53 +130,71 @@ export class ExportsService {
 
     const inspections = await this.inspectionRepository.find({
       where: whereClause,
-      relations: ['garment', 'garment.batch', 'garment.batch.vendor', 'garment.batch.style'],
-      order: { inspectedAt: 'DESC' },
+      relations: [
+        "garment",
+        "garment.batch",
+        "garment.batch.vendor",
+        "garment.batch.style",
+      ],
+      order: { inspectedAt: "DESC" },
     });
 
     // Generate CSV content
-    const csvHeader = [
-      'Inspection ID',
-      'Garment Serial',
-      'Batch PO',
-      'Vendor',
-      'Style',
-      'Size',
-      'Color',
-      'Has Defect',
-      'Defect Type',
-      'Notes',
-      'Inspected At',
-    ].join(',') + '\n';
+    const csvHeader =
+      [
+        "Inspection ID",
+        "Garment Serial",
+        "Batch PO",
+        "Vendor",
+        "Style",
+        "Size",
+        "Color",
+        "Has Defect",
+        "Defect Type",
+        "Notes",
+        "Inspected At",
+      ].join(",") + "\n";
 
-    const csvRows = inspections.map(inspection => [
-      inspection.id,
-      inspection.garment?.serial || '',
-      inspection.garment?.batch?.poNumber || '',
-      inspection.garment?.batch?.vendor?.name || '',
-      inspection.garment?.batch?.style?.styleCode || '',
-      inspection.garment?.size || '',
-      inspection.garment?.color || '',
-      inspection.hasDefect ? 'Yes' : 'No',
-      inspection.defectType || '',
-      (inspection.notes || '').replace(/,/g, ';').replace(/\n/g, ' '),
-      inspection.inspectedAt.toISOString(),
-    ].map(field => `"${field}"`).join(',') + '\n').join('');
+    const csvRows = inspections
+      .map(
+        (inspection) =>
+          [
+            inspection.id,
+            inspection.garment?.serial || "",
+            inspection.garment?.batch?.poNumber || "",
+            inspection.garment?.batch?.vendor?.name || "",
+            inspection.garment?.batch?.style?.styleCode || "",
+            inspection.garment?.size || "",
+            inspection.garment?.color || "",
+            inspection.hasDefect ? "Yes" : "No",
+            inspection.defectType || "",
+            (inspection.notes || "").replace(/,/g, ";").replace(/\n/g, " "),
+            inspection.inspectedAt.toISOString(),
+          ]
+            .map((field) => `"${field}"`)
+            .join(",") + "\n",
+      )
+      .join("");
 
     const csvContent = csvHeader + csvRows;
-    const csvBuffer = Buffer.from(csvContent, 'utf-8');
+    const csvBuffer = Buffer.from(csvContent, "utf-8");
 
     // Upload to storage
-    const key = this.storageService.generateKey(tenantId, `export-${Date.now()}.csv`);
-    await this.storageService.uploadFileWithKey(key, csvBuffer, 'text/csv');
+    const key = this.storageService.generateKey(
+      tenantId,
+      `export-${Date.now()}.csv`,
+    );
+    await this.storageService.uploadFileWithKey(key, csvBuffer, "text/csv");
 
     // Return presigned URL
     return await this.storageService.getPresignedDownloadUrl(key);
   }
 
   private generatePDFTemplate(data: any): string {
-    const defectRateOverall = data.defectRate.data.find(d => d.name === 'Overall') || { defectRate: 0, totalInspected: 0, totalDefects: 0 };
-    
+    const defectRateOverall = data.defectRate.data.find(
+      (d) => d.name === "Overall",
+    ) || { defectRate: 0, totalInspected: 0, totalDefects: 0 };
+
     return `
       <!DOCTYPE html>
       <html>
@@ -264,13 +306,17 @@ export class ExportsService {
         <div class="section">
           <h2>Defect Type Breakdown</h2>
           <div class="defect-types">
-            ${data.defectTypes.data.map(defect => `
+            ${data.defectTypes.data
+              .map(
+                (defect) => `
               <div class="defect-type">
                 <div class="defect-count">${defect.count}</div>
                 <div>${defect.type}</div>
                 <div>${defect.percentage.toFixed(1)}%</div>
               </div>
-            `).join('')}
+            `,
+              )
+              .join("")}
           </div>
         </div>
 

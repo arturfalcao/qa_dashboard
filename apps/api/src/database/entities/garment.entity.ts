@@ -1,18 +1,28 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, CreateDateColumn, UpdateDateColumn, Unique, JoinColumn } from 'typeorm';
-import { Tenant } from './tenant.entity';
-import { Batch } from './batch.entity';
-import { Inspection } from './inspection.entity';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  OneToMany,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Unique,
+  JoinColumn,
+} from "typeorm";
+import { Tenant } from "./tenant.entity";
+import { Batch } from "./batch.entity";
+import { Inspection } from "./inspection.entity";
 
-@Entity('garments')
-@Unique(['batchId', 'serial'])
+@Entity("garments")
+@Unique(["batchId", "serial"])
 export class Garment {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ name: 'tenant_id' })
+  @Column({ name: "tenant_id" })
   tenantId: string;
 
-  @Column({ name: 'batch_id' })
+  @Column({ name: "batch_id" })
   batchId: string;
 
   @Column({ length: 100 })
@@ -24,20 +34,20 @@ export class Garment {
   @Column({ length: 50 })
   color: string;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: "created_at" })
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn({ name: "updated_at" })
   updatedAt: Date;
 
-  @ManyToOne(() => Tenant, tenant => tenant.garments, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'tenant_id' })
+  @ManyToOne(() => Tenant, (tenant) => tenant.garments, { onDelete: "CASCADE" })
+  @JoinColumn({ name: "tenant_id" })
   tenant: Tenant;
 
-  @ManyToOne(() => Batch, batch => batch.garments, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'batch_id' })
+  @ManyToOne(() => Batch, (batch) => batch.garments, { onDelete: "CASCADE" })
+  @JoinColumn({ name: "batch_id" })
   batch: Batch;
 
-  @OneToMany(() => Inspection, inspection => inspection.garment)
+  @OneToMany(() => Inspection, (inspection) => inspection.garment)
   inspections: Inspection[];
 }

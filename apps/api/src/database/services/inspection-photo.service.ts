@@ -1,10 +1,10 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { InspectionPhoto } from '../entities/inspection-photo.entity';
-import { Inspection } from '../entities/inspection.entity';
-import { PhotoAngle } from '@qa-dashboard/shared';
-import { StorageService } from '../../storage/storage.service';
+import { Injectable } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { InspectionPhoto } from "../entities/inspection-photo.entity";
+import { Inspection } from "../entities/inspection.entity";
+import { PhotoAngle } from "@qa-dashboard/shared";
+import { StorageService } from "../../storage/storage.service";
 
 export interface CreateInspectionPhotoDto {
   inspectionId: string;
@@ -33,7 +33,7 @@ export class InspectionPhotoService {
     });
 
     if (!inspection) {
-      throw new Error('Inspection not found or access denied');
+      throw new Error("Inspection not found or access denied");
     }
 
     const photo = this.inspectionPhotoRepository.create({
@@ -53,13 +53,15 @@ export class InspectionPhotoService {
   ): Promise<InspectionPhoto[]> {
     const photos = await this.inspectionPhotoRepository.find({
       where: { tenantId, inspectionId },
-      relations: ['annotations', 'annotations.user'],
-      order: { capturedAt: 'ASC' },
+      relations: ["annotations", "annotations.user"],
+      order: { capturedAt: "ASC" },
     });
 
     // Add presigned URLs for photos
     for (const photo of photos) {
-      photo.photoUrl = await this.storageService.getPresignedUrl(photo.photoKey);
+      photo.photoUrl = await this.storageService.getPresignedUrl(
+        photo.photoKey,
+      );
     }
 
     return photos;
@@ -71,26 +73,25 @@ export class InspectionPhotoService {
   ): Promise<InspectionPhoto | null> {
     const photo = await this.inspectionPhotoRepository.findOne({
       where: { id: photoId, tenantId },
-      relations: ['annotations', 'annotations.user', 'inspection'],
+      relations: ["annotations", "annotations.user", "inspection"],
     });
 
     if (photo) {
-      photo.photoUrl = await this.storageService.getPresignedUrl(photo.photoKey);
+      photo.photoUrl = await this.storageService.getPresignedUrl(
+        photo.photoKey,
+      );
     }
 
     return photo;
   }
 
-  async deletePhoto(
-    tenantId: string,
-    photoId: string,
-  ): Promise<void> {
+  async deletePhoto(tenantId: string, photoId: string): Promise<void> {
     const photo = await this.inspectionPhotoRepository.findOne({
       where: { id: photoId, tenantId },
     });
 
     if (!photo) {
-      throw new Error('Photo not found or access denied');
+      throw new Error("Photo not found or access denied");
     }
 
     // Delete the physical file from storage
@@ -107,13 +108,15 @@ export class InspectionPhotoService {
   ): Promise<InspectionPhoto[]> {
     const photos = await this.inspectionPhotoRepository.find({
       where: { tenantId, inspectionId, angle },
-      relations: ['annotations', 'annotations.user'],
-      order: { capturedAt: 'DESC' },
+      relations: ["annotations", "annotations.user"],
+      order: { capturedAt: "DESC" },
     });
 
     // Add presigned URLs for photos
     for (const photo of photos) {
-      photo.photoUrl = await this.storageService.getPresignedUrl(photo.photoKey);
+      photo.photoUrl = await this.storageService.getPresignedUrl(
+        photo.photoKey,
+      );
     }
 
     return photos;
@@ -122,14 +125,14 @@ export class InspectionPhotoService {
   async updatePhoto(
     tenantId: string,
     photoId: string,
-    updates: Partial<Pick<InspectionPhoto, 'angle' | 'capturedAt'>>,
+    updates: Partial<Pick<InspectionPhoto, "angle" | "capturedAt">>,
   ): Promise<InspectionPhoto> {
     const photo = await this.inspectionPhotoRepository.findOne({
       where: { id: photoId, tenantId },
     });
 
     if (!photo) {
-      throw new Error('Photo not found or access denied');
+      throw new Error("Photo not found or access denied");
     }
 
     Object.assign(photo, updates);

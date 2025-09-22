@@ -1,9 +1,9 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { PhotoAnnotation } from '../entities/photo-annotation.entity';
-import { InspectionPhoto } from '../entities/inspection-photo.entity';
-import { DefectType, DefectSeverity } from '@qa-dashboard/shared';
+import { Injectable } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { PhotoAnnotation } from "../entities/photo-annotation.entity";
+import { InspectionPhoto } from "../entities/inspection-photo.entity";
+import { DefectType, DefectSeverity } from "@qa-dashboard/shared";
 
 export interface CreatePhotoAnnotationDto {
   photoId: string;
@@ -42,7 +42,7 @@ export class PhotoAnnotationService {
     });
 
     if (!photo) {
-      throw new Error('Photo not found or access denied');
+      throw new Error("Photo not found or access denied");
     }
 
     const annotation = this.photoAnnotationRepository.create({
@@ -65,8 +65,8 @@ export class PhotoAnnotationService {
   ): Promise<PhotoAnnotation[]> {
     return await this.photoAnnotationRepository.find({
       where: { tenantId, photoId },
-      relations: ['user'],
-      order: { createdAt: 'ASC' },
+      relations: ["user"],
+      order: { createdAt: "ASC" },
     });
   }
 
@@ -81,7 +81,7 @@ export class PhotoAnnotationService {
     });
 
     if (!annotation) {
-      throw new Error('Annotation not found or access denied');
+      throw new Error("Annotation not found or access denied");
     }
 
     Object.assign(annotation, updateDto);
@@ -100,7 +100,7 @@ export class PhotoAnnotationService {
     });
 
     if (result.affected === 0) {
-      throw new Error('Annotation not found or access denied');
+      throw new Error("Annotation not found or access denied");
     }
   }
 
@@ -110,7 +110,7 @@ export class PhotoAnnotationService {
   ): Promise<PhotoAnnotation | null> {
     return await this.photoAnnotationRepository.findOne({
       where: { id: annotationId, tenantId },
-      relations: ['user', 'photo'],
+      relations: ["user", "photo"],
     });
   }
 }

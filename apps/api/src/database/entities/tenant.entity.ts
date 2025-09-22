@@ -1,16 +1,23 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
-import { User } from './user.entity';
-import { Vendor } from './vendor.entity';
-import { Style } from './style.entity';
-import { Batch } from './batch.entity';
-import { Garment } from './garment.entity';
-import { Inspection } from './inspection.entity';
-import { Approval } from './approval.entity';
-import { Event } from './event.entity';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  OneToMany,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from "typeorm";
+import { User } from "./user.entity";
+import { Vendor } from "./vendor.entity";
+import { Style } from "./style.entity";
+import { Batch } from "./batch.entity";
+import { Garment } from "./garment.entity";
+import { Inspection } from "./inspection.entity";
+import { Approval } from "./approval.entity";
+import { Event } from "./event.entity";
 
-@Entity('tenants')
+@Entity("tenants")
 export class Tenant {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryGeneratedColumn("uuid")
   id: string;
 
   @Column({ length: 255 })
@@ -19,33 +26,33 @@ export class Tenant {
   @Column({ length: 100, unique: true })
   slug: string;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: "created_at" })
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn({ name: "updated_at" })
   updatedAt: Date;
 
-  @OneToMany(() => User, user => user.tenant)
+  @OneToMany(() => User, (user) => user.tenant)
   users: User[];
 
-  @OneToMany(() => Vendor, vendor => vendor.tenant)
+  @OneToMany(() => Vendor, (vendor) => vendor.tenant)
   vendors: Vendor[];
 
-  @OneToMany(() => Style, style => style.tenant)
+  @OneToMany(() => Style, (style) => style.tenant)
   styles: Style[];
 
-  @OneToMany(() => Batch, batch => batch.tenant)
+  @OneToMany(() => Batch, (batch) => batch.tenant)
   batches: Batch[];
 
-  @OneToMany(() => Garment, garment => garment.tenant)
+  @OneToMany(() => Garment, (garment) => garment.tenant)
   garments: Garment[];
 
-  @OneToMany(() => Inspection, inspection => inspection.tenant)
+  @OneToMany(() => Inspection, (inspection) => inspection.tenant)
   inspections: Inspection[];
 
-  @OneToMany(() => Approval, approval => approval.tenant)
+  @OneToMany(() => Approval, (approval) => approval.tenant)
   approvals: Approval[];
 
-  @OneToMany(() => Event, event => event.tenant)
+  @OneToMany(() => Event, (event) => event.tenant)
   events: Event[];
 }
