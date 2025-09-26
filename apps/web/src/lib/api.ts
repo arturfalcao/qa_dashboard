@@ -218,6 +218,7 @@ class ApiClient {
     city?: string
     country?: string
     capabilities?: Array<{ roleId: string; co2OverrideKg?: number | null; notes?: string | null }>
+    certifications?: Array<{ certification: string }>
   }): Promise<Factory> {
     return this.request<Factory>('/factories', {
       method: 'POST',
@@ -232,6 +233,7 @@ class ApiClient {
       city?: string
       country?: string
       capabilities?: Array<{ roleId: string; co2OverrideKg?: number | null; notes?: string | null }>
+      certifications?: Array<{ certification: string }>
     },
   ): Promise<Factory> {
     return this.request<Factory>(`/factories/${id}`, {
@@ -293,6 +295,87 @@ class ApiClient {
     return this.request<{ downloadUrl: string }>('/exports/csv', {
       method: 'POST',
       body: JSON.stringify(query),
+    })
+  }
+
+  // Reports
+  async getReports(type?: string): Promise<any[]> {
+    const params = new URLSearchParams()
+    if (type) params.append('type', type)
+    return this.request<any[]>(`/reports?${params.toString()}`)
+  }
+
+  async getReport(id: string): Promise<any> {
+    return this.request<any>(`/reports/${id}`)
+  }
+
+  async downloadReport(id: string): Promise<Blob> {
+    const response = await fetch(`${API_BASE_URL}/reports/${id}/download`, {
+      headers: {
+        ...this.getAuthHeader(),
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to download report: ${response.statusText}`)
+    }
+
+    return response.blob()
+  }
+
+  async generateExecutiveSummary(params: any, language = 'EN'): Promise<any> {
+    return this.request<any>(`/reports/executive-summary?language=${language}`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    })
+  }
+
+  async generateLotInspectionReport(lotId: string, params: any = {}, language = 'EN'): Promise<any> {
+    return this.request<any>(`/reports/lot-inspection/${lotId}?language=${language}`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    })
+  }
+
+  async generateMeasurementComplianceSheet(lotId: string, params: any = {}, language = 'EN'): Promise<any> {
+    return this.request<any>(`/reports/measurement-compliance/${lotId}?language=${language}`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    })
+  }
+
+  async generatePackagingReadinessReport(lotId: string, params: any = {}, language = 'EN'): Promise<any> {
+    return this.request<any>(`/reports/packaging-readiness/${lotId}?language=${language}`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    })
+  }
+
+  async generateSupplierPerformanceSnapshot(params: any, language = 'EN'): Promise<any> {
+    return this.request<any>(`/reports/supplier-performance?language=${language}`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    })
+  }
+
+  async generateInlineQcCheckpoints(lotId: string, params: any = {}, language = 'EN'): Promise<any> {
+    return this.request<any>(`/reports/inline-qc/${lotId}?language=${language}`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    })
+  }
+
+  async generateDppSummary(params: any, language = 'EN'): Promise<any> {
+    return this.request<any>(`/reports/dpp-summary?language=${language}`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    })
+  }
+
+  async generateGenericReport(request: any): Promise<any> {
+    return this.request<any>('/reports/generate', {
+      method: 'POST',
+      body: JSON.stringify(request),
     })
   }
 

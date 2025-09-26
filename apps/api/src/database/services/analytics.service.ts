@@ -53,7 +53,7 @@ export class AnalyticsService {
               .from(Defect, "defect")
               .groupBy("defect.inspection_id"),
           "defects",
-          "defects.inspectionId = ins.id",
+          "defects.\"inspectionId\" = ins.id",
         )
         .groupBy("factory.id, factory.name");
     } else if (groupBy === "style") {
@@ -71,7 +71,7 @@ export class AnalyticsService {
               .from(Defect, "defect")
               .groupBy("defect.inspection_id"),
           "defects",
-          "defects.inspectionId = ins.id",
+          "defects.\"inspectionId\" = ins.id",
         )
         .groupBy("lot.styleRef");
     } else {

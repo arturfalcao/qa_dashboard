@@ -20,29 +20,34 @@ services:
     image: minio/minio:latest
     command: server /data --console-address ":9001"
     ports:
-      - "9002:9000"
-      - "9003:9001"
+      - "9000:9000"
+      - "9001:9001"
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin123
     volumes:
       - minio_data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 20s
-      retries: 3
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
 
   minio-setup:
     image: minio/mc:latest
     depends_on:
       minio:
         condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
     entrypoint: |
       sh -c "
-      mc alias set minio http://minio:9000 minioadmin minioadmin123
-      mc mb minio/qc-images --ignore-existing
-      mc policy set public minio/qc-images
+      set -e
+      mc alias set minio http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD}
+      mc mb minio/pp-photos --ignore-existing
+      mc mb minio/pp-reports --ignore-existing
+      mc anonymous set download minio/pp-photos
       "
 
   api:
@@ -59,7 +64,8 @@ services:
       MINIO_PORT: 9000
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin123
-      MINIO_BUCKET: qc-images
+      MINIO_PHOTOS_BUCKET: pp-photos
+      MINIO_REPORTS_BUCKET: pp-reports
       NODE_ENV: development
     depends_on:
       postgres:

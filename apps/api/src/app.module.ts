@@ -9,6 +9,8 @@ import { JwtAuthGuard } from "./auth/jwt-auth.guard";
 import { DatabaseModule } from "./database/database.module";
 import { StorageModule } from "./storage/storage.module";
 import { ExportsModule } from "./exports/exports.module";
+import { DppModule } from "./dpp/dpp.module";
+import { ReportsModule } from "./reports/reports.module";
 import { ObservabilityModule } from "./observability/observability.module";
 import { AuditInterceptor } from "./common/interceptors/audit.interceptor";
 import { TracingInterceptor } from "./observability/tracing.interceptor";
@@ -28,6 +30,8 @@ import dataSourceOptions from "./database/typeorm.config";
     StorageModule,
     ObservabilityModule,
     ExportsModule,
+    DppModule,
+    ReportsModule,
   ],
   providers: [
     {

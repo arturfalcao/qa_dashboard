@@ -5,7 +5,7 @@ import { Inspection } from "../database/entities/inspection.entity";
 import { Lot } from "../database/entities/lot.entity";
 import { StorageService } from "../storage/storage.service";
 import { AnalyticsService } from "../database/services/analytics.service";
-import * as puppeteer from "puppeteer";
+import { launchPuppeteer } from "../common/puppeteer";
 
 @Injectable()
 export class ExportsService {
@@ -69,7 +69,7 @@ export class ExportsService {
       approvalTime,
     });
 
-    const browser = await puppeteer.launch({ headless: "new" });
+    const browser = await launchPuppeteer();
     const page = await browser.newPage();
     await page.setContent(htmlContent, { waitUntil: "networkidle0" });
     const pdfBuffer = await page.pdf({ format: "A4", printBackground: true });

@@ -13,10 +13,10 @@ export class StorageService {
     this.reportsBucket = process.env.MINIO_REPORTS_BUCKET || "pp-reports";
     this.minioClient = new Minio.Client({
       endPoint: process.env.MINIO_ENDPOINT || "localhost",
-      port: 9002,
+      port: parseInt(process.env.MINIO_PORT || "9000"),
       useSSL: process.env.MINIO_USE_SSL === "true",
-      accessKey: process.env.MINIO_ACCESS_KEY || "minioadmin",
-      secretKey: process.env.MINIO_SECRET_KEY || "minioadmin123",
+      accessKey: process.env.MINIO_ACCESS_KEY || "minio",
+      secretKey: process.env.MINIO_SECRET_KEY || "minio123",
     });
     void this.ensureBuckets();
   }
@@ -62,6 +62,21 @@ export class StorageService {
       key,
       60 * 10,
     ); // 10 minutes
+  }
+
+  async getFileBuffer(
+    key: string,
+    bucket: "photos" | "reports" = "photos",
+  ): Promise<Buffer> {
+    const targetBucket = this.getBucket(bucket);
+    const stream = await this.minioClient.getObject(targetBucket, key);
+
+    const chunks: Buffer[] = [];
+    return new Promise((resolve, reject) => {
+      stream.on('data', (chunk) => chunks.push(chunk));
+      stream.on('end', () => resolve(Buffer.concat(chunks)));
+      stream.on('error', reject);
+    });
   }
 
   async uploadFile(

@@ -21,6 +21,21 @@ const supplierSchema = z.object({
   roles: z.array(supplierRoleSchema).optional(),
 });
 
+// DPP Hub schemas
+const materialCompositionSchema = z.object({
+  fiber: z.string().min(1),
+  percentage: z.number().min(0).max(100),
+  properties: z.record(z.any()).optional(),
+});
+
+const certificationSchema = z.object({
+  type: z.string().min(1),
+  number: z.string().optional(),
+  auditLink: z.string().optional(),
+  validUntil: z.string().optional(),
+  issuer: z.string().optional(),
+});
+
 const createLotSchema = z
   .object({
     suppliers: z.array(supplierSchema).min(1).optional(),
@@ -28,6 +43,11 @@ const createLotSchema = z
     styleRef: z.string().min(1),
     quantityTotal: z.number().int().positive(),
     status: z.nativeEnum(LotStatus).optional(),
+    // DPP Hub fields
+    materialComposition: z.array(materialCompositionSchema).optional(),
+    dyeLot: z.string().optional(),
+    certifications: z.array(certificationSchema).optional(),
+    dppMetadata: z.record(z.any()).optional(),
   })
   .refine((data) => (data.suppliers?.length ?? 0) > 0 || !!data.factoryId, {
     message: "At least one supplier must be selected",
@@ -40,6 +60,11 @@ const updateLotSchema = z.object({
   styleRef: z.string().min(1).optional(),
   quantityTotal: z.number().int().positive().optional(),
   status: z.nativeEnum(LotStatus).optional(),
+  // DPP Hub fields
+  materialComposition: z.array(materialCompositionSchema).optional(),
+  dyeLot: z.string().optional(),
+  certifications: z.array(certificationSchema).optional(),
+  dppMetadata: z.record(z.any()).optional(),
 });
 
 @ApiTags("lots")
@@ -62,6 +87,12 @@ export class LotController {
     @Body(new ZodValidationPipe(createLotSchema)) body: z.infer<typeof createLotSchema>,
     @CurrentUser() user?: { roles?: UserRole[] },
   ) {
+    console.log('🎯 CREATE LOT - Request received:', {
+      clientId,
+      body: JSON.stringify(body, null, 2),
+      user: user?.roles || 'no user'
+    });
+
     if (!clientId) {
       throw new ForbiddenException("Missing client context");
     }
@@ -81,12 +112,24 @@ export class LotController {
           notes: role.notes,
         })) ?? [],
     }));
+
+    console.log('🎯 CREATE LOT - DPP Hub data:', {
+      materialComposition: body.materialComposition,
+      dyeLot: body.dyeLot,
+      certifications: body.certifications,
+      dppMetadata: body.dppMetadata
+    });
+
     return this.lotService.createLot(clientId, {
       factoryId,
       suppliers: suppliersPayload,
       styleRef,
       quantityTotal,
       status,
+      materialComposition: body.materialComposition as any,
+      dyeLot: body.dyeLot,
+      certifications: body.certifications as any,
+      dppMetadata: body.dppMetadata,
     });
   }
 
@@ -143,12 +186,24 @@ export class LotController {
           notes: role.notes,
         })) ?? [],
     }));
+
+    console.log('🎯 UPDATE LOT - DPP Hub data:', {
+      materialComposition: body.materialComposition,
+      dyeLot: body.dyeLot,
+      certifications: body.certifications,
+      dppMetadata: body.dppMetadata
+    });
+
     return this.lotService.updateLot(clientId, id, {
       factoryId,
       suppliers: suppliersPayload,
       styleRef,
       quantityTotal,
       status,
+      materialComposition: body.materialComposition as any,
+      dyeLot: body.dyeLot,
+      certifications: body.certifications as any,
+      dppMetadata: body.dppMetadata,
     });
   }
 

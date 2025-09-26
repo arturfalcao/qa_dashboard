@@ -12,6 +12,7 @@ import { Lot } from "./lot.entity";
 import { Client } from "./client.entity";
 import { FactoryRole } from "./factory-role.entity";
 import { LotFactory } from "./lot-factory.entity";
+import { FactoryCertification } from "./factory-certification.entity";
 
 @Entity("factories")
 export class Factory {
@@ -51,4 +52,9 @@ export class Factory {
 
   @OneToMany(() => FactoryRole, (factoryRole) => factoryRole.factory, { cascade: true })
   capabilities: FactoryRole[];
+
+  @OneToMany(() => FactoryCertification, (certification) => certification.factory, {
+    cascade: true,
+  })
+  certifications: FactoryCertification[];
 }

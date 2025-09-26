@@ -115,8 +115,23 @@ export class LotService {
       styleRef: string;
       quantityTotal: number;
       status?: LotStatus;
+      materialComposition?: Array<{
+        fiber: string;
+        percentage: number;
+        properties?: Record<string, any>;
+      }>;
+      dyeLot?: string;
+      certifications?: Array<{
+        type: string;
+        number?: string;
+        auditLink?: string;
+        validUntil?: string;
+        issuer?: string;
+      }>;
+      dppMetadata?: Record<string, any>;
     },
   ): Promise<any> {
+    console.log('CreateLot payload.dppMetadata:', payload.dppMetadata);
     const { suppliers, primaryFactoryId } = await this.normalizeSuppliers(clientId, payload);
 
     const lot = this.lotRepository.create({
@@ -127,6 +142,10 @@ export class LotService {
       status: payload.status ?? LotStatus.PLANNED,
       defectRate: 0,
       inspectedProgress: 0,
+      materialComposition: payload.materialComposition || null,
+      dyeLot: payload.dyeLot || null,
+      certifications: payload.certifications || null,
+      dppMetadata: payload.dppMetadata || null,
     });
 
     const saved = await this.lotRepository.save(lot);
@@ -144,6 +163,20 @@ export class LotService {
       styleRef?: string;
       quantityTotal?: number;
       status?: LotStatus;
+      materialComposition?: Array<{
+        fiber: string;
+        percentage: number;
+        properties?: Record<string, any>;
+      }>;
+      dyeLot?: string;
+      certifications?: Array<{
+        type: string;
+        number?: string;
+        auditLink?: string;
+        validUntil?: string;
+        issuer?: string;
+      }>;
+      dppMetadata?: Record<string, any>;
     },
   ): Promise<any> {
     const lot = await this.lotRepository.findOne({ where: { id: lotId, clientId } });
@@ -193,6 +226,25 @@ export class LotService {
 
     if (payload.quantityTotal !== undefined) {
       lot.quantityTotal = payload.quantityTotal;
+    }
+
+    if (payload.materialComposition !== undefined) {
+      lot.materialComposition = payload.materialComposition;
+    }
+
+    if (payload.dyeLot !== undefined) {
+      lot.dyeLot = payload.dyeLot;
+    }
+
+    if (payload.certifications !== undefined) {
+      lot.certifications = payload.certifications;
+    }
+
+    if (payload.dppMetadata !== undefined) {
+      console.log('Setting dppMetadata:', payload.dppMetadata);
+      lot.dppMetadata = payload.dppMetadata || null;
+    } else {
+      console.log('dppMetadata is undefined in payload');
     }
 
     await this.lotRepository.save(lot);
@@ -572,10 +624,16 @@ export class LotService {
 
     const primaryFactoryId = suppliers.find((supplier) => supplier.isPrimary)?.factoryId ?? lot.factoryId;
 
+    // Get the latest inspection (most recent by createdAt)
+    const latestInspection = lot.inspections && lot.inspections.length > 0
+      ? lot.inspections.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
+      : null;
+
     return {
       ...lot,
       suppliers,
       primaryFactoryId,
+      latestInspection,
     };
   }
 

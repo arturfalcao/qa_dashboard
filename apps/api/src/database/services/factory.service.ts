@@ -5,6 +5,7 @@ import { Factory } from "../entities/factory.entity";
 import { Client } from "../entities/client.entity";
 import { FactoryRole } from "../entities/factory-role.entity";
 import { SupplyChainRole } from "../entities/supply-chain-role.entity";
+import { FactoryCertification } from "../entities/factory-certification.entity";
 
 type FactoryCapabilityInput = {
   roleId: string;
@@ -12,8 +13,17 @@ type FactoryCapabilityInput = {
   notes?: string | null;
 };
 
-type FactoryPayload = Partial<Omit<Factory, "capabilities">> & {
+type FactoryCertificationInput = {
+  certification: string;
+};
+
+type FactoryPayload = {
+  name?: string;
+  city?: string | null;
+  country?: string;
+  clientId?: string | null;
   capabilities?: FactoryCapabilityInput[];
+  certifications?: FactoryCertificationInput[];
 };
 
 @Injectable()
@@ -27,13 +37,15 @@ export class FactoryService {
     private readonly factoryRoleRepository: Repository<FactoryRole>,
     @InjectRepository(SupplyChainRole)
     private readonly supplyChainRoleRepository: Repository<SupplyChainRole>,
+    @InjectRepository(FactoryCertification)
+    private readonly factoryCertificationRepository: Repository<FactoryCertification>,
   ) {}
 
   async listByClient(clientId: string | null): Promise<Factory[]> {
     if (!clientId) {
       return this.factoryRepository.find({
         order: { name: "ASC" },
-        relations: ["capabilities", "capabilities.role"],
+        relations: ["capabilities", "capabilities.role", "certifications"],
       });
     }
 
@@ -42,18 +54,22 @@ export class FactoryService {
     return this.factoryRepository.find({
       where: { clientId },
       order: { name: "ASC" },
-      relations: ["capabilities", "capabilities.role"],
+      relations: ["capabilities", "capabilities.role", "certifications"],
     });
   }
 
   async create(clientId: string | null, data: FactoryPayload): Promise<Factory> {
     const effectiveClientId = clientId ? await this.ensureClientExists(clientId) : null;
-    const { capabilities, ...factoryData } = data;
+    const { capabilities, certifications, ...factoryData } = data;
     const factory = this.factoryRepository.create({ ...factoryData, clientId: effectiveClientId });
     const saved = await this.factoryRepository.save(factory);
 
     if (Array.isArray(capabilities)) {
       await this.syncCapabilities(saved.id, capabilities);
+    }
+
+    if (Array.isArray(certifications)) {
+      await this.syncCertifications(saved.id, certifications);
     }
 
     return this.getFactory(saved.id);
@@ -72,13 +88,17 @@ export class FactoryService {
       factory.clientId = effectiveClientId;
     }
 
-    const { capabilities, ...factoryData } = data;
+    const { capabilities, certifications, ...factoryData } = data;
 
     this.factoryRepository.merge(factory, factoryData);
     const saved = await this.factoryRepository.save(factory);
 
     if (Array.isArray(capabilities)) {
       await this.syncCapabilities(saved.id, capabilities);
+    }
+
+    if (Array.isArray(certifications)) {
+      await this.syncCertifications(saved.id, certifications);
     }
 
     return this.getFactory(saved.id);
@@ -144,7 +164,32 @@ export class FactoryService {
   private async getFactory(id: string): Promise<Factory> {
     return this.factoryRepository.findOneOrFail({
       where: { id },
-      relations: ["capabilities", "capabilities.role"],
+      relations: ["capabilities", "capabilities.role", "certifications"],
     });
+  }
+
+  private async syncCertifications(
+    factoryId: string,
+    certifications: FactoryCertificationInput[] = [],
+  ): Promise<void> {
+    await this.factoryCertificationRepository.delete({ factoryId });
+
+    if (!certifications.length) {
+      return;
+    }
+
+    const records = certifications
+      .map((certification) => certification.certification?.trim())
+      .filter((value): value is string => Boolean(value))
+      .map((value) =>
+        this.factoryCertificationRepository.create({
+          factoryId,
+          certification: value,
+        }),
+      );
+
+    if (records.length) {
+      await this.factoryCertificationRepository.save(records);
+    }
   }
 }

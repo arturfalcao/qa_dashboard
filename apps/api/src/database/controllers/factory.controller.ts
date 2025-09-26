@@ -12,11 +12,26 @@ const capabilitySchema = z.object({
   notes: z.string().max(250).optional(),
 });
 
+const certificationOptions = [
+  "GOTS",
+  "OEKO_TEX_STANDARD_100",
+  "GRS",
+  "RCS",
+  "ISO_14001",
+  "BLUESIGN",
+  "AMFORI_BSCI",
+] as const;
+
+const certificationSchema = z.object({
+  certification: z.enum(certificationOptions),
+});
+
 const createFactorySchema = z.object({
   name: z.string().min(1),
   city: z.string().optional(),
   country: z.string().min(2).max(2).default("PT"),
   capabilities: z.array(capabilitySchema).optional(),
+  certifications: z.array(certificationSchema).optional(),
 });
 
 const updateFactorySchema = createFactorySchema.partial();
@@ -51,13 +66,16 @@ export class FactoryController {
     @Body(new ZodValidationPipe(createFactorySchema)) body: z.infer<typeof createFactorySchema>,
   ) {
     this.ensureWriter(user);
-    const { capabilities, ...factoryData } = body;
+    const { capabilities, certifications, ...factoryData } = body;
     return this.factoryService.create(clientId, {
       ...factoryData,
       capabilities: capabilities?.map((capability) => ({
         roleId: capability.roleId,
         co2OverrideKg: capability.co2OverrideKg,
         notes: capability.notes,
+      })),
+      certifications: certifications?.map((certification) => ({
+        certification: certification.certification,
       })),
     });
   }
@@ -71,13 +89,16 @@ export class FactoryController {
     @Body(new ZodValidationPipe(updateFactorySchema)) body: z.infer<typeof updateFactorySchema>,
   ) {
     this.ensureWriter(user);
-    const { capabilities, ...factoryData } = body;
+    const { capabilities, certifications, ...factoryData } = body;
     return this.factoryService.update(clientId, id, {
       ...factoryData,
       capabilities: capabilities?.map((capability) => ({
         roleId: capability.roleId,
         co2OverrideKg: capability.co2OverrideKg,
         notes: capability.notes,
+      })),
+      certifications: certifications?.map((certification) => ({
+        certification: certification.certification,
       })),
     });
   }

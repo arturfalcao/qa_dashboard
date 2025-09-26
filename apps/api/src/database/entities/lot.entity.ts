@@ -66,6 +66,50 @@ export class Lot {
   })
   inspectedProgress: number;
 
+  // DPP Hub Data
+  @Column({
+    name: "material_composition",
+    type: "jsonb",
+    nullable: true,
+    comment: "Array of materials with fiber type, percentage, and optional properties",
+  })
+  materialComposition: Array<{
+    fiber: string;
+    percentage: number;
+    properties?: Record<string, any>;
+  }> | null;
+
+  @Column({
+    name: "dye_lot",
+    type: "varchar",
+    length: 120,
+    nullable: true,
+    comment: "Dye lot identifier for traceability",
+  })
+  dyeLot: string | null;
+
+  @Column({
+    name: "certifications",
+    type: "jsonb",
+    nullable: true,
+    comment: "Array of certifications with type, number, and audit links",
+  })
+  certifications: Array<{
+    type: string;
+    number?: string;
+    auditLink?: string;
+    validUntil?: string;
+    issuer?: string;
+  }> | null;
+
+  @Column({
+    name: "dpp_metadata",
+    type: "jsonb",
+    nullable: true,
+    comment: "Additional DPP-specific metadata",
+  })
+  dppMetadata: Record<string, any> | null;
+
   @CreateDateColumn({ name: "created_at" })
   createdAt: Date;
 

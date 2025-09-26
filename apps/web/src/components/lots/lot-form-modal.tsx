@@ -61,6 +61,12 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
   const [status, setStatus] = useState<LotStatus>(LotStatus.PLANNED)
   const [error, setError] = useState<string>('')
 
+  // DPP Hub Data fields
+  const [materialComposition, setMaterialComposition] = useState<Array<{fiber: string; percentage: number}>>([])
+  const [dyeLot, setDyeLot] = useState('')
+  const [certifications, setCertifications] = useState<Array<{type: string}>>([])
+  const [dppMetadata, setDppMetadata] = useState('')
+
   useEffect(() => {
     if (initialLot) {
       if (initialLot.suppliers && initialLot.suppliers.length > 0) {
@@ -87,11 +93,23 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
       setStyleRef(initialLot.styleRef)
       setQuantityTotal(initialLot.quantityTotal)
       setStatus(initialLot.status)
+
+      // Load DPP hub data if available
+      setMaterialComposition((initialLot as any).materialComposition || [])
+      setDyeLot((initialLot as any).dyeLot || '')
+      setCertifications(((initialLot as any).certifications || []).map((cert: any) => ({ type: cert.type })))
+      setDppMetadata((initialLot as any).dppMetadata ? JSON.stringify((initialLot as any).dppMetadata, null, 2) : '')
     } else {
       setSuppliers([])
       setStyleRef('')
       setQuantityTotal(0)
       setStatus(LotStatus.PLANNED)
+
+      // Reset DPP hub data for new lots
+      setMaterialComposition([])
+      setDyeLot('')
+      setCertifications([])
+      setDppMetadata('')
     }
     setError('')
   }, [initialLot, isOpen])
@@ -154,6 +172,11 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
       quantityTotal: number
       status: LotStatus
       factoryId?: string
+      // DPP Hub fields
+      materialComposition?: Array<{ fiber: string; percentage: number; properties?: Record<string, any> }>
+      dyeLot?: string
+      certifications?: Array<{ type: string }>
+      dppMetadata?: Record<string, any>
     }) =>
       initialLot
         ? apiClient.updateLot(initialLot.id, payload)
@@ -284,7 +307,7 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-lg rounded-lg bg-white shadow-xl">
+      <div className="w-full max-w-3xl max-h-[90vh] rounded-lg bg-white shadow-xl flex flex-col">
         <div className="border-b px-6 py-4">
           <h3 className="text-lg font-semibold text-gray-900">
             {initialLot ? 'Edit Lot' : 'Create New Lot'}
@@ -295,7 +318,7 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
         </div>
 
         <form
-          className="space-y-4 px-6 py-5"
+          className="flex-1 overflow-y-auto space-y-4 px-6 py-5"
           onSubmit={(e) => {
             e.preventDefault()
             if (!canEdit) {
@@ -394,14 +417,33 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
                 roles: supplier.roles,
               }))
 
-            setError('')
-            createMutation.mutate({
+            // Parse DPP metadata if provided
+            let parsedDppMetadata: Record<string, any> | undefined = undefined
+            if (dppMetadata.trim()) {
+              try {
+                parsedDppMetadata = JSON.parse(dppMetadata.trim())
+              } catch (err) {
+                setError('DPP Metadata must be valid JSON')
+                return
+              }
+            }
+
+            const payload = {
               suppliers: submissionSuppliers,
               factoryId: primaryFactoryId,
               styleRef: trimmedStyleRef,
               quantityTotal,
               status,
-            })
+              // DPP Hub data
+              materialComposition: materialComposition.length > 0 ? materialComposition : undefined,
+              dyeLot: dyeLot.trim() || undefined,
+              certifications: certifications.length > 0 ? certifications : undefined,
+              dppMetadata: parsedDppMetadata,
+            }
+
+            console.log('Lot payload:', JSON.stringify(payload, null, 2))
+            setError('')
+            createMutation.mutate(payload)
           }}
         >
           {error && (
@@ -602,6 +644,133 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
               </option>
             ))}
           </select>
+        </div>
+
+        {/* DPP Hub Data Section */}
+        <div className="border-t pt-4">
+          <h4 className="mb-4 text-sm font-semibold text-gray-900">DPP Hub Data</h4>
+          <p className="mb-4 text-xs text-gray-500">
+            Digital Product Passport data for EU compliance and traceability
+          </p>
+
+          {/* Material Composition */}
+          <div className="mb-4">
+            <label className="mb-2 block text-sm font-medium text-gray-700">Material Composition</label>
+            <div className="space-y-2">
+              {materialComposition.map((material, index) => (
+                <div key={index} className="flex items-center space-x-3">
+                  <input
+                    type="text"
+                    placeholder="Fiber (e.g. Cotton)"
+                    value={material.fiber}
+                    onChange={(e) => {
+                      const updated = [...materialComposition]
+                      updated[index].fiber = e.target.value
+                      setMaterialComposition(updated)
+                    }}
+                    className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+                  />
+                  <input
+                    type="number"
+                    placeholder="% (e.g. 80)"
+                    min={0}
+                    max={100}
+                    value={material.percentage || ''}
+                    onChange={(e) => {
+                      const updated = [...materialComposition]
+                      updated[index].percentage = Number(e.target.value)
+                      setMaterialComposition(updated)
+                    }}
+                    className="w-24 rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const updated = materialComposition.filter((_, i) => i !== index)
+                      setMaterialComposition(updated)
+                    }}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setMaterialComposition([...materialComposition, { fiber: '', percentage: 0 }])
+                }}
+                className="text-sm text-primary-600 hover:text-primary-700"
+              >
+                + Add Material
+              </button>
+            </div>
+          </div>
+
+          {/* Dye Lot */}
+          <div className="mb-4">
+            <label className="mb-2 block text-sm font-medium text-gray-700">Dye Lot</label>
+            <input
+              type="text"
+              value={dyeLot}
+              onChange={(e) => setDyeLot(e.target.value)}
+              className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+              placeholder="e.g. HM-SS25-517-D1"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Dye lot identifier for traceability
+            </p>
+          </div>
+
+          {/* Certifications */}
+          <div className="mb-4">
+            <label className="mb-2 block text-sm font-medium text-gray-700">Certifications</label>
+            <div className="space-y-2">
+              {[
+                'Global Organic Textile Standard (GOTS)',
+                'OEKO-TEX Standard 100',
+                'Global Recycled Standard (GRS)',
+                'Recycled Claim Standard (RCS)',
+                'ISO 14001',
+                'Bluesign',
+                'amfori BSCI'
+              ].map((certType) => (
+                <label key={certType} className="flex items-center space-x-3 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={certifications.some(cert => cert.type === certType)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setCertifications([...certifications, { type: certType }])
+                      } else {
+                        setCertifications(certifications.filter(cert => cert.type !== certType))
+                      }
+                    }}
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500"
+                  />
+                  <span className="text-gray-700">{certType}</span>
+                </label>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Select the certifications applicable to this lot
+            </p>
+          </div>
+
+          {/* DPP Metadata */}
+          <div className="mb-4">
+            <label className="mb-2 block text-sm font-medium text-gray-700">DPP Metadata</label>
+            <textarea
+              value={dppMetadata}
+              onChange={(e) => setDppMetadata(e.target.value)}
+              rows={4}
+              className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+              placeholder='Additional metadata as JSON, e.g. {"origin": "Portugal", "sustainabilityScore": 95}'
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Optional JSON metadata for additional DPP information
+            </p>
+          </div>
         </div>
 
           <div className="flex justify-end space-x-3 pt-2">

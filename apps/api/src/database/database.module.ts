@@ -21,6 +21,7 @@ import { Notification } from "./entities/notification.entity";
 import { SupplyChainRole } from "./entities/supply-chain-role.entity";
 import { FactoryRole } from "./entities/factory-role.entity";
 import { LotFactoryRole } from "./entities/lot-factory-role.entity";
+import { FactoryCertification } from "./entities/factory-certification.entity";
 
 import { InspectionService } from "./services/inspection.service";
 import { LotService } from "./services/lot.service";
@@ -55,6 +56,7 @@ import { StorageModule } from "../storage/storage.module";
       LotFactory,
       SupplyChainRole,
       FactoryRole,
+      FactoryCertification,
       LotFactoryRole,
       Inspection,
       Defect,

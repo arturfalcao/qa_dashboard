@@ -29,6 +29,16 @@ const toInputString = (value?: number | string | null) => {
   return numeric.toString()
 }
 
+const CERTIFICATION_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'GOTS', label: 'Global Organic Textile Standard (GOTS)' },
+  { value: 'OEKO_TEX_STANDARD_100', label: 'OEKO-TEX Standard 100' },
+  { value: 'GRS', label: 'Global Recycled Standard (GRS)' },
+  { value: 'RCS', label: 'Recycled Claim Standard (RCS)' },
+  { value: 'ISO_14001', label: 'ISO 14001' },
+  { value: 'BLUESIGN', label: 'Bluesign' },
+  { value: 'AMFORI_BSCI', label: 'amfori BSCI' },
+]
+
 export function FactoryFormModal({ isOpen, onClose, initialFactory }: FactoryFormModalProps) {
   const { user } = useAuth()
   const queryClient = useQueryClient()
@@ -36,6 +46,7 @@ export function FactoryFormModal({ isOpen, onClose, initialFactory }: FactoryFor
   const [city, setCity] = useState('')
   const [country, setCountry] = useState('PT')
   const [selectedCapabilities, setSelectedCapabilities] = useState<Record<string, CapabilityDraft>>({})
+  const [selectedCertifications, setSelectedCertifications] = useState<string[]>([])
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -54,11 +65,15 @@ export function FactoryFormModal({ isOpen, onClose, initialFactory }: FactoryFor
         {},
       )
       setSelectedCapabilities(capabilityDrafts)
+      setSelectedCertifications(
+        (initialFactory.certifications ?? []).map((certification) => certification.certification),
+      )
     } else {
       setName('')
       setCity('')
       setCountry('PT')
       setSelectedCapabilities({})
+      setSelectedCertifications([])
     }
     setError('')
   }, [initialFactory, isOpen])
@@ -75,6 +90,7 @@ export function FactoryFormModal({ isOpen, onClose, initialFactory }: FactoryFor
       city?: string
       country?: string
       capabilities?: Array<{ roleId: string; co2OverrideKg?: number | null; notes?: string | null }>
+      certifications?: Array<{ certification: string }>
     }) =>
       initialFactory
         ? apiClient.updateFactory(initialFactory.id, payload)
@@ -150,6 +166,14 @@ export function FactoryFormModal({ isOpen, onClose, initialFactory }: FactoryFor
 
   const selectedRoleIds = Object.keys(selectedCapabilities)
 
+  const toggleCertification = (value: string) => {
+    setSelectedCertifications((current) =>
+      current.includes(value)
+        ? current.filter((item) => item !== value)
+        : [...current, value],
+    )
+  }
+
   if (!isOpen) return null
 
   const canEdit = user?.roles?.some((role) => [UserRole.ADMIN, UserRole.OPS_MANAGER].includes(role))
@@ -159,7 +183,7 @@ export function FactoryFormModal({ isOpen, onClose, initialFactory }: FactoryFor
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-lg bg-white shadow-xl">
+      <div className="w-full max-w-2xl max-h-[90vh] rounded-lg bg-white shadow-xl flex flex-col">
         <div className="border-b px-6 py-4">
           <h3 className="text-lg font-semibold text-gray-900">
             {initialFactory ? 'Edit Factory' : 'Add Factory'}
@@ -169,7 +193,7 @@ export function FactoryFormModal({ isOpen, onClose, initialFactory }: FactoryFor
           </p>
         </div>
         <form
-          className="space-y-4 px-6 py-5"
+          className="flex-1 overflow-y-auto space-y-4 px-6 py-5"
           onSubmit={(e) => {
             e.preventDefault()
             if (!name.trim()) {
@@ -215,6 +239,7 @@ export function FactoryFormModal({ isOpen, onClose, initialFactory }: FactoryFor
                 capabilities.length > 0
                   ? (capabilities as Array<{ roleId: string; co2OverrideKg?: number; notes?: string }>)
                   : undefined,
+              certifications: selectedCertifications.map((certification) => ({ certification })),
             })
           }}
         >
@@ -330,6 +355,27 @@ export function FactoryFormModal({ isOpen, onClose, initialFactory }: FactoryFor
             </div>
             <p className="mt-1 text-xs text-gray-500">
               These capabilities define which production stages the factory can take on.
+            </p>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700">Certifications</label>
+            <div className="space-y-2">
+              {CERTIFICATION_OPTIONS.map((option) => (
+                <label key={option.value} className="flex items-start space-x-3 text-sm">
+                  <input
+                    type="checkbox"
+                    className="mt-1 h-4 w-4 text-primary-600 focus:ring-primary-500"
+                    checked={selectedCertifications.includes(option.value)}
+                    onChange={() => toggleCertification(option.value)}
+                    disabled={mutation.isPending}
+                  />
+                  <span className="text-gray-700">{option.label}</span>
+                </label>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Certifications are displayed in the DPP hub and supplier reports.
             </p>
           </div>
 
