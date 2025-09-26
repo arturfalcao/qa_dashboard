@@ -12,7 +12,7 @@ interface DefectRateData {
 interface DefectRateChartProps {
   data: DefectRateData[]
   isLoading: boolean
-  groupBy: 'style' | 'vendor'
+  groupBy: 'style' | 'factory'
 }
 
 export function DefectRateChart({ data, isLoading, groupBy }: DefectRateChartProps) {
@@ -20,7 +20,7 @@ export function DefectRateChart({ data, isLoading, groupBy }: DefectRateChartPro
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-medium text-gray-900 mb-4">
-          Defect Rate by {groupBy === 'vendor' ? 'Vendor' : 'Style'}
+          Defect Rate by {groupBy === 'factory' ? 'Factory' : 'Style'}
         </h3>
         <div className="h-64 flex items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
@@ -35,7 +35,7 @@ export function DefectRateChart({ data, isLoading, groupBy }: DefectRateChartPro
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
       <h3 className="text-lg font-medium text-gray-900 mb-4">
-        Defect Rate by {groupBy === 'vendor' ? 'Vendor' : 'Style'}
+        Defect Rate by {groupBy === 'factory' ? 'Factory' : 'Style'}
       </h3>
       
       {chartData.length === 0 ? (
@@ -59,8 +59,8 @@ export function DefectRateChart({ data, isLoading, groupBy }: DefectRateChartPro
                 label={{ value: 'Defect Rate (%)', angle: -90, position: 'insideLeft' }}
               />
               <Tooltip 
-                formatter={(value, name) => [`${Number(value).toFixed(1)}%`, 'Defect Rate']}
-                labelFormatter={(value) => `${groupBy === 'vendor' ? 'Vendor' : 'Style'}: ${value}`}
+                formatter={(value) => [`${Number(value).toFixed(1)}%`, 'Defect Rate']}
+                labelFormatter={(value) => `${groupBy === 'factory' ? 'Factory' : 'Style'}: ${value}`}
                 contentStyle={{
                   backgroundColor: 'white',
                   border: '1px solid #e5e7eb',

@@ -2,7 +2,6 @@
 
 import { useState, useRef, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { InspectionPhoto, PhotoAnnotation, PhotoAngle, DefectType, DefectSeverity } from '@qa-dashboard/shared'
 import { apiClient } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { ZoomIn, ZoomOut, RotateCcw, Eye, Plus, Edit, Trash2, AlertTriangle } from 'lucide-react'
@@ -10,8 +9,8 @@ import Image from 'next/image'
 
 interface EnhancedPhotoGalleryProps {
   inspectionId: string
-  onAnnotationCreate?: (annotation: PhotoAnnotation) => void
-  onAnnotationUpdate?: (annotation: PhotoAnnotation) => void
+  onAnnotationCreate?: (annotation: any) => void
+  onAnnotationUpdate?: (annotation: any) => void
   onAnnotationDelete?: (annotationId: string) => void
   readonly?: boolean
 }
@@ -20,24 +19,51 @@ interface AnnotationForm {
   x: number
   y: number
   comment: string
-  defectType?: DefectType
-  severity?: DefectSeverity
+  defectType?: string
+  severity?: string
 }
 
-const PHOTO_ANGLE_LABELS: Record<PhotoAngle, string> = {
-  [PhotoAngle.FRONT]: 'Front View',
-  [PhotoAngle.BACK]: 'Back View',
-  [PhotoAngle.SIDE_LEFT]: 'Left Side',
-  [PhotoAngle.SIDE_RIGHT]: 'Right Side',
-  [PhotoAngle.DETAIL_MACRO]: 'Detail/Macro',
-  [PhotoAngle.HANGING]: 'Hanging',
-  [PhotoAngle.FLAT_LAY]: 'Flat Lay',
+const PHOTO_ANGLE_LABELS: Record<string, string> = {
+  FRONT: 'Front View',
+  BACK: 'Back View',
+  SIDE_LEFT: 'Left Side',
+  SIDE_RIGHT: 'Right Side',
+  DETAIL_MACRO: 'Detail/Macro',
+  HANGING: 'Hanging',
+  FLAT_LAY: 'Flat Lay',
 }
 
-const SEVERITY_COLORS: Record<DefectSeverity, string> = {
-  [DefectSeverity.CRITICAL]: 'bg-red-500 border-red-600',
-  [DefectSeverity.MAJOR]: 'bg-orange-500 border-orange-600',
-  [DefectSeverity.MINOR]: 'bg-yellow-500 border-yellow-600',
+const SEVERITY_COLORS: Record<string, string> = {
+  CRITICAL: 'bg-red-500 border-red-600',
+  MAJOR: 'bg-orange-500 border-orange-600',
+  MINOR: 'bg-yellow-500 border-yellow-600',
+}
+
+const DEFECT_TYPES = [
+  'OTHER',
+  'STITCHING',
+  'MEASUREMENT',
+  'STAIN',
+  'FABRIC',
+  'COLOR_VARIATION',
+]
+
+const DEFECT_SEVERITIES = ['CRITICAL', 'MAJOR', 'MINOR']
+
+type GalleryPhoto = {
+  id: string
+  url: string
+  angle?: string
+  annotation?: any
+}
+
+type GalleryAnnotation = {
+  id: string
+  x: number
+  y: number
+  comment?: string
+  defectType?: string
+  severity?: string
 }
 
 export function EnhancedPhotoGallery({
@@ -47,33 +73,33 @@ export function EnhancedPhotoGallery({
   onAnnotationDelete,
   readonly = false
 }: EnhancedPhotoGalleryProps) {
-  const [selectedPhoto, setSelectedPhoto] = useState<InspectionPhoto | null>(null)
+  const [selectedPhoto, setSelectedPhoto] = useState<GalleryPhoto | null>(null)
   const [zoom, setZoom] = useState(1)
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 })
   const [isPanning, setIsPanning] = useState(false)
   const [lastPanPoint, setLastPanPoint] = useState({ x: 0, y: 0 })
   const [annotationMode, setAnnotationMode] = useState(false)
   const [pendingAnnotation, setPendingAnnotation] = useState<AnnotationForm | null>(null)
-  const [selectedAnnotation, setSelectedAnnotation] = useState<PhotoAnnotation | null>(null)
+  const [selectedAnnotation, setSelectedAnnotation] = useState<GalleryAnnotation | null>(null)
 
   const imageRef = useRef<HTMLImageElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Fetch photos for inspection
-  const { data: photos = [], isLoading } = useQuery({
+  const { data: photos = [], isLoading } = useQuery<GalleryPhoto[]>({
     queryKey: ['inspection-photos', inspectionId],
     queryFn: () => apiClient.getPhotosForInspection(inspectionId),
     enabled: !!inspectionId,
   })
 
   // Fetch annotations for selected photo
-  const { data: annotations = [] } = useQuery({
+  const { data: annotations = [] } = useQuery<GalleryAnnotation[]>({
     queryKey: ['photo-annotations', selectedPhoto?.id],
     queryFn: () => selectedPhoto ? apiClient.getAnnotationsForPhoto(selectedPhoto.id) : Promise.resolve([]),
     enabled: !!selectedPhoto?.id,
   })
 
-  const handlePhotoSelect = useCallback((photo: InspectionPhoto) => {
+  const handlePhotoSelect = useCallback((photo: GalleryPhoto) => {
     setSelectedPhoto(photo)
     setZoom(1)
     setPanOffset({ x: 0, y: 0 })
@@ -133,8 +159,8 @@ export function EnhancedPhotoGallery({
       x: Math.round(x * 100) / 100,
       y: Math.round(y * 100) / 100,
       comment: '',
-      defectType: DefectType.OTHER,
-      severity: DefectSeverity.MINOR,
+      defectType: 'OTHER',
+      severity: 'MINOR',
     })
   }, [annotationMode, selectedPhoto, readonly])
 
@@ -205,7 +231,7 @@ export function EnhancedPhotoGallery({
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               )}
             >
-              {PHOTO_ANGLE_LABELS[photo.angle]}
+              {PHOTO_ANGLE_LABELS[photo.angle ?? ''] ?? 'Photo'}
             </button>
           ))}
         </div>
@@ -280,8 +306,8 @@ export function EnhancedPhotoGallery({
             >
               <Image
                 ref={imageRef}
-                src={selectedPhoto.photoUrl || ''}
-                alt={`${PHOTO_ANGLE_LABELS[selectedPhoto.angle]} view`}
+                src={selectedPhoto.url || ''}
+                alt={`${PHOTO_ANGLE_LABELS[selectedPhoto.angle ?? ''] ?? 'Photo'} view`}
                 width={800}
                 height={600}
                 className="max-w-full max-h-full object-contain"
@@ -295,7 +321,7 @@ export function EnhancedPhotoGallery({
                   className={cn(
                     'absolute w-6 h-6 rounded-full border-2 transform -translate-x-1/2 -translate-y-1/2 z-10',
                     annotation.severity
-                      ? SEVERITY_COLORS[annotation.severity]
+                      ? SEVERITY_COLORS[annotation.severity] ?? 'bg-blue-500 border-blue-600'
                       : 'bg-blue-500 border-blue-600',
                     selectedAnnotation?.id === annotation.id && 'ring-2 ring-white'
                   )}
@@ -309,7 +335,7 @@ export function EnhancedPhotoGallery({
                   }}
                   title={annotation.comment}
                 >
-                  {annotation.severity === DefectSeverity.CRITICAL && (
+                  {annotation.severity === 'CRITICAL' && (
                     <AlertTriangle className="w-3 h-3 text-white m-auto" />
                   )}
                 </button>
@@ -353,10 +379,10 @@ export function EnhancedPhotoGallery({
                       </label>
                       <select
                         value={pendingAnnotation.defectType}
-                        onChange={(e) => setPendingAnnotation(prev => prev ? { ...prev, defectType: e.target.value as DefectType } : null)}
+                        onChange={(e) => setPendingAnnotation(prev => prev ? { ...prev, defectType: e.target.value } : null)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                       >
-                        {Object.values(DefectType).map((type) => (
+                        {DEFECT_TYPES.map((type) => (
                           <option key={type} value={type}>
                             {type.replace('_', ' ').toUpperCase()}
                           </option>
@@ -369,10 +395,10 @@ export function EnhancedPhotoGallery({
                       </label>
                       <select
                         value={pendingAnnotation.severity}
-                        onChange={(e) => setPendingAnnotation(prev => prev ? { ...prev, severity: e.target.value as DefectSeverity } : null)}
+                        onChange={(e) => setPendingAnnotation(prev => prev ? { ...prev, severity: e.target.value } : null)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                       >
-                        {Object.values(DefectSeverity).map((severity) => (
+                        {DEFECT_SEVERITIES.map((severity) => (
                           <option key={severity} value={severity}>
                             {severity.toUpperCase()}
                           </option>
@@ -431,9 +457,9 @@ export function EnhancedPhotoGallery({
                         <strong>Severity:</strong>
                         <span className={cn(
                           'ml-2 px-2 py-1 text-xs font-medium rounded-full text-white',
-                          selectedAnnotation.severity === DefectSeverity.CRITICAL && 'bg-red-500',
-                          selectedAnnotation.severity === DefectSeverity.MAJOR && 'bg-orange-500',
-                          selectedAnnotation.severity === DefectSeverity.MINOR && 'bg-yellow-500'
+                          selectedAnnotation.severity === 'CRITICAL' && 'bg-red-500',
+                          selectedAnnotation.severity === 'MAJOR' && 'bg-orange-500',
+                          selectedAnnotation.severity === 'MINOR' && 'bg-yellow-500'
                         )}>
                           {selectedAnnotation.severity.toUpperCase()}
                         </span>

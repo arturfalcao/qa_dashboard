@@ -1,67 +1,76 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 export enum UserRole {
-  OPERATOR = 'operator',
-  CLIENT_ADMIN = 'client_admin',
-  CLIENT_VIEWER = 'client_viewer',
+  ADMIN = "ADMIN",
+  OPS_MANAGER = "OPS_MANAGER",
+  INSPECTOR = "INSPECTOR",
+  CLIENT_VIEWER = "CLIENT_VIEWER",
+  CLEVEL = "CLEVEL",
 }
 
-export enum BatchStatus {
-  DRAFT = 'draft',
-  IN_PROGRESS = 'in_progress',
-  AWAITING_APPROVAL = 'awaiting_approval',
-  APPROVED = 'approved',
-  REJECTED = 'rejected',
+export enum FactoryCertificationType {
+  GOTS = "GOTS",
+  OEKO_TEX_STANDARD_100 = "OEKO_TEX_STANDARD_100",
+  GRS = "GRS",
+  RCS = "RCS",
+  ISO_14001 = "ISO_14001",
+  BLUESIGN = "BLUESIGN",
+  AMFORI_BSCI = "AMFORI_BSCI",
 }
 
-export enum DefectType {
-  STAIN = 'stain',
-  STITCHING = 'stitching',
-  MISPRINT = 'misprint',
-  MEASUREMENT = 'measurement',
-  FABRIC_DEFECT = 'fabric_defect',
-  HARDWARE_ISSUE = 'hardware_issue',
-  DISCOLORATION = 'discoloration',
-  TEAR_DAMAGE = 'tear_damage',
-  OTHER = 'other',
-}
-
-export enum DefectSeverity {
-  CRITICAL = 'critical',
-  MAJOR = 'major',
-  MINOR = 'minor',
-}
-
-export enum PhotoAngle {
-  FRONT = 'front',
-  BACK = 'back',
-  SIDE_LEFT = 'side_left',
-  SIDE_RIGHT = 'side_right',
-  DETAIL_MACRO = 'detail_macro',
-  HANGING = 'hanging',
-  FLAT_LAY = 'flat_lay',
-}
-
-export enum ProcessStation {
-  RECEIVING = 'receiving',
-  INITIAL_INSPECTION = 'initial_inspection',
-  IRONING = 'ironing',
-  FOLDING = 'folding',
-  QUALITY_CHECK = 'quality_check',
-  PACKING = 'packing',
-  FINAL_INSPECTION = 'final_inspection',
-  DISPATCH = 'dispatch',
-}
-
-export enum EventType {
-  DEFECT_DETECTED = 'DEFECT_DETECTED',
-  BATCH_AWAITING_APPROVAL = 'BATCH_AWAITING_APPROVAL',
-  BATCH_DECIDED = 'BATCH_DECIDED',
+export enum LotStatus {
+  PLANNED = "PLANNED",
+  IN_PRODUCTION = "IN_PRODUCTION",
+  INSPECTION = "INSPECTION",
+  PENDING_APPROVAL = "PENDING_APPROVAL",
+  APPROVED = "APPROVED",
+  REJECTED = "REJECTED",
+  SHIPPED = "SHIPPED",
 }
 
 export enum ApprovalDecision {
-  APPROVED = 'approved',
-  REJECTED = 'rejected',
+  APPROVE = "APPROVE",
+  REJECT = "REJECT",
+}
+
+export enum ReportType {
+  MONTHLY_SCORECARD = "MONTHLY_SCORECARD",
+  LOT = "LOT",
+  EXECUTIVE_QUALITY_SUMMARY = "EXECUTIVE_QUALITY_SUMMARY",
+  LOT_INSPECTION_REPORT = "LOT_INSPECTION_REPORT",
+  MEASUREMENT_COMPLIANCE_SHEET = "MEASUREMENT_COMPLIANCE_SHEET",
+  PACKAGING_READINESS_REPORT = "PACKAGING_READINESS_REPORT",
+  SUPPLIER_PERFORMANCE_SNAPSHOT = "SUPPLIER_PERFORMANCE_SNAPSHOT",
+  CAPA_REPORT = "CAPA_REPORT",
+  INLINE_QC_CHECKPOINTS = "INLINE_QC_CHECKPOINTS",
+  DPP_SUMMARY = "DPP_SUMMARY",
+}
+
+export enum ReportStatus {
+  PENDING = "PENDING",
+  READY = "READY",
+  FAILED = "FAILED",
+  GENERATING = "GENERATING",
+  COMPLETED = "COMPLETED",
+  EXPIRED = "EXPIRED",
+}
+
+export enum ReportLanguage {
+  PT = "PT",
+  EN = "EN",
+  ES = "ES",
+}
+
+export enum SupplyChainStageStatus {
+  NOT_STARTED = "NOT_STARTED",
+  IN_PROGRESS = "IN_PROGRESS",
+  COMPLETED = "COMPLETED",
+}
+
+export enum EventType {
+  DEFECT_DETECTED = "DEFECT_DETECTED",
+  LOT_AWAITING_APPROVAL = "LOT_AWAITING_APPROVAL",
+  LOT_DECIDED = "LOT_DECIDED",
 }
 
 export const LoginSchema = z.object({
@@ -74,184 +83,23 @@ export const RefreshTokenSchema = z.object({
 });
 
 export const ApprovalSchema = z.object({
-  comment: z.string().optional(),
+  note: z.string().optional(),
 });
 
 export const RejectSchema = z.object({
-  comment: z.string().min(1, 'Comment is required for rejection'),
-});
-
-export const AnalyticsQuerySchema = z.object({
-  groupBy: z.enum(['style', 'vendor']).optional(),
-  range: z.enum(['last_7d', 'last_30d']).default('last_7d'),
-});
-
-export const ThroughputQuerySchema = z.object({
-  bucket: z.enum(['day', 'week']).default('day'),
-  range: z.enum(['last_7d', 'last_30d']).default('last_7d'),
+  note: z.string().min(1, "Note is required when rejecting a lot"),
 });
 
 export const ExportQuerySchema = z.object({
-  batchId: z.string().uuid().optional(),
-  range: z.enum(['last_7d', 'last_30d']).optional(),
+  lotId: z.string().uuid().optional(),
+  range: z.enum(["last_7d", "last_30d"]).optional(),
 });
 
 export type LoginDto = z.infer<typeof LoginSchema>;
 export type RefreshTokenDto = z.infer<typeof RefreshTokenSchema>;
 export type ApprovalDto = z.infer<typeof ApprovalSchema>;
 export type RejectDto = z.infer<typeof RejectSchema>;
-export type AnalyticsQuery = z.infer<typeof AnalyticsQuerySchema>;
-export type ThroughputQuery = z.infer<typeof ThroughputQuerySchema>;
 export type ExportQuery = z.infer<typeof ExportQuerySchema>;
-
-export interface User {
-  id: string;
-  tenantId: string;
-  email: string;
-  role: UserRole;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Tenant {
-  id: string;
-  name: string;
-  slug: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Vendor {
-  id: string;
-  tenantId: string;
-  name: string;
-  code: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Style {
-  id: string;
-  tenantId: string;
-  styleCode: string;
-  description: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ProcessStationProgress {
-  station: ProcessStation;
-  startedAt?: string;
-  completedAt?: string;
-  assignedWorker?: string;
-  notes?: string;
-  qualityScore?: number;
-}
-
-export interface Batch {
-  id: string;
-  tenantId: string;
-  vendorId: string;
-  styleId: string;
-  poNumber: string;
-  quantity: number;
-  status: BatchStatus;
-  currentStation: ProcessStation;
-  processProgress: ProcessStationProgress[];
-  estimatedCompletionTime?: string;
-  priority: 'low' | 'normal' | 'high' | 'urgent';
-  createdAt: string;
-  updatedAt: string;
-  vendor?: Vendor;
-  style?: Style;
-  approvals?: Approval[];
-  _count?: {
-    garments: number;
-    inspections: number;
-    defects: number;
-    completedStations: number;
-  };
-}
-
-export interface Garment {
-  id: string;
-  tenantId: string;
-  batchId: string;
-  serial: string;
-  size: string;
-  color: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface PhotoAnnotation {
-  id: string;
-  x: number; // X coordinate as percentage
-  y: number; // Y coordinate as percentage
-  comment: string;
-  defectType?: DefectType;
-  severity?: DefectSeverity;
-  createdBy: string;
-  createdAt: string;
-}
-
-export interface InspectionPhoto {
-  id: string;
-  angle: PhotoAngle;
-  photoKey: string;
-  photoUrl?: string;
-  annotations: PhotoAnnotation[];
-  capturedAt: string;
-}
-
-export interface Inspection {
-  id: string;
-  tenantId: string;
-  garmentId: string;
-  hasDefect: boolean;
-  defectType?: DefectType;
-  defectSeverity?: DefectSeverity;
-  notes?: string;
-  photoKeyBefore?: string; // Deprecated - keeping for backward compatibility
-  photoKeyAfter?: string;  // Deprecated - keeping for backward compatibility
-  photos: InspectionPhoto[]; // New multi-angle photo system
-  processStation: ProcessStation;
-  assignedWorker?: string;
-  environmentalConditions?: {
-    temperature: number;
-    humidity: number;
-    lightingLevel: number;
-  };
-  qualityScore?: number; // 0-100 quality score
-  inspectedAt: string;
-  createdAt: string;
-  updatedAt: string;
-  garment?: Garment & { batch?: Batch & { vendor?: Vendor; style?: Style } };
-  photoUrlBefore?: string; // Deprecated - keeping for backward compatibility
-  photoUrlAfter?: string;  // Deprecated - keeping for backward compatibility
-}
-
-export interface Approval {
-  id: string;
-  tenantId: string;
-  batchId: string;
-  decidedBy: string;
-  decision: ApprovalDecision;
-  comment?: string;
-  decidedAt: string;
-  createdAt: string;
-  updatedAt: string;
-  user?: User;
-}
-
-export interface Event {
-  id: string;
-  tenantId: string;
-  type: EventType;
-  payload: any;
-  createdAt: string;
-}
 
 export interface AuthResponse {
   accessToken: string;
@@ -259,8 +107,149 @@ export interface AuthResponse {
   user: User;
 }
 
+export interface User {
+  id: string;
+  clientId?: string | null;
+  email: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  roles: UserRole[];
+}
+
+export interface Client {
+  id: string;
+  name: string;
+  logoUrl?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Factory {
+  id: string;
+  name: string;
+  city?: string | null;
+  country: string;
+  createdAt: string;
+  updatedAt: string;
+  clientId?: string;
+  capabilities?: FactoryCapability[];
+  certifications?: FactoryCertification[];
+}
+
+export interface FactoryCertification {
+  id: string;
+  factoryId: string;
+  certification: FactoryCertificationType | string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface LotSupplier {
+  id?: string;
+  factoryId: string;
+  sequence: number;
+  stage?: string | null;
+  isPrimary: boolean;
+  factory?: Factory;
+  roles?: LotSupplierRole[];
+}
+
+export interface SupplyChainRole {
+  id: string;
+  key: string;
+  name: string;
+  description?: string | null;
+  defaultSequence: number;
+  defaultCo2Kg: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface FactoryCapability {
+  id: string;
+  factoryId: string;
+  roleId: string;
+  co2OverrideKg?: number | null;
+  notes?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  role?: SupplyChainRole;
+}
+
+export interface LotSupplierRole {
+  id: string;
+  roleId: string;
+  sequence: number;
+  co2Kg?: number | null;
+  notes?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  role?: SupplyChainRole;
+  status?: SupplyChainStageStatus;
+  startedAt?: string | null;
+  completedAt?: string | null;
+}
+
+export interface Lot {
+  id: string;
+  clientId: string;
+  factoryId: string;
+  primaryFactoryId?: string;
+  styleRef: string;
+  quantityTotal: number;
+  status: LotStatus;
+  defectRate: number;
+  inspectedProgress: number;
+  createdAt: string;
+  updatedAt: string;
+  factory?: Factory;
+  client?: Client;
+  latestInspection?: Inspection;
+  approvals?: Approval[];
+  inspections?: Inspection[];
+  suppliers?: LotSupplier[];
+}
+
+export interface Inspection {
+  id: string;
+  lotId: string;
+  inspectorId?: string | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  defects?: Defect[];
+  lot?: Lot;
+}
+
+export interface Defect {
+  id: string;
+  inspectionId: string;
+  pieceCode?: string | null;
+  note?: string | null;
+  defectTypeId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  photos: Photo[];
+}
+
+export interface Photo {
+  id: string;
+  defectId: string;
+  url: string;
+  annotation?: PhotoAnnotation;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PhotoAnnotation {
+  comment?: string;
+  points?: Array<{ x: number; y: number; note?: string }>;
+}
+
 export interface DefectRateAnalytics {
-  groupBy?: 'style' | 'vendor';
+  groupBy?: "style" | "factory";
   data: Array<{
     name: string;
     defectRate: number;
@@ -278,7 +267,7 @@ export interface ThroughputAnalytics {
 
 export interface DefectTypeAnalytics {
   data: Array<{
-    type: DefectType;
+    type: string;
     count: number;
     percentage: number;
   }>;
@@ -288,4 +277,75 @@ export interface ApprovalTimeAnalytics {
   average: number;
   p50: number;
   p90: number;
+}
+
+export interface Approval {
+  id: string;
+  lotId: string;
+  approvedBy?: string | null;
+  decision: ApprovalDecision;
+  decidedAt: string;
+  note?: string | null;
+}
+
+export interface Report {
+  id: string;
+  type: ReportType;
+  clientId?: string | null;
+  lotId?: string | null;
+  month?: string | null;
+  url?: string | null;
+  status: ReportStatus;
+  createdAt: string;
+}
+
+export interface Activity {
+  id: string;
+  lotId: string;
+  ts: string;
+  kind: string;
+  payload: Record<string, unknown>;
+}
+
+export interface Event {
+  id: string;
+  type: EventType;
+  payload: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface AuditLogEntry {
+  id: number;
+  userId?: string | null;
+  entity: string;
+  entityId: string;
+  action: "CREATE" | "UPDATE" | "DELETE";
+  before?: Record<string, unknown> | null;
+  after?: Record<string, unknown> | null;
+  ts: string;
+}
+
+export interface SupplierScorecardRow {
+  factoryName: string;
+  totalLots: number;
+  approvedLots: number;
+  rejectedLots: number;
+  defectRateAverage: number;
+}
+
+export interface SupplierScorecardReport {
+  clientId: string;
+  month: string;
+  rows: SupplierScorecardRow[];
+  generatedAt: string;
+}
+
+export interface TrendPoint {
+  date: string;
+  value: number;
+}
+
+export interface DefectTrend {
+  defectType: string;
+  points: TrendPoint[];
 }

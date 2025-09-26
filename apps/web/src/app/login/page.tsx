@@ -22,19 +22,17 @@ export default function LoginPage() {
     try {
       const response = await apiClient.login({ email, password })
       
-      // Determine tenant slug based on email domain
-      const tenantSlug = email.includes('marly.example') ? 'heymarly' : 'samplebrand'
-      
+      const clientSlug = email.includes('marly.example') ? 'heymarly' : 'samplebrand'
+
       const userWithSlug = {
         ...response.user,
-        tenantSlug,
+        clientSlug,
       }
 
       storeUser(userWithSlug)
       setUser(userWithSlug)
-      
-      // Redirect to tenant dashboard
-      router.push(`/t/${tenantSlug}/feed`)
+
+      router.push(`/c/${clientSlug}/feed`)
     } catch (err: any) {
       setError(err.message || 'Login failed')
     } finally {
@@ -106,10 +104,10 @@ export default function LoginPage() {
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <h3 className="text-sm font-medium text-blue-800 mb-2">Demo Credentials</h3>
           <div className="text-xs text-blue-700 space-y-1">
-            <div><strong>Tenant A (heymarly):</strong></div>
+            <div><strong>Client A (Hey Marly):</strong></div>
             <div>• admin@marly.example / demo1234</div>
             <div>• viewer@marly.example / demo1234</div>
-            <div className="mt-2"><strong>Tenant B (samplebrand):</strong></div>
+            <div className="mt-2"><strong>Client B (Sample Brand):</strong></div>
             <div>• admin@brand.example / demo1234</div>
             <div>• viewer@brand.example / demo1234</div>
           </div>

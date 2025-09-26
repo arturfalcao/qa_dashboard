@@ -1,10 +1,8 @@
 'use client'
 
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts'
-import { DefectType } from '@qa-dashboard/shared'
-
 interface DefectTypeData {
-  type: DefectType
+  type: string
   count: number
   percentage: number
 }
@@ -14,7 +12,7 @@ interface DefectTypesChartProps {
   isLoading: boolean
 }
 
-const COLORS = {
+const COLORS: Record<string, string> = {
   stain: '#ef4444',
   stitching: '#f97316',
   misprint: '#8b5cf6',
@@ -60,7 +58,7 @@ export function DefectTypesChart({ data, isLoading }: DefectTypesChartProps) {
                 nameKey="type"
               >
                 {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[entry.type]} />
+                  <Cell key={`cell-${index}`} fill={COLORS[entry.type] || '#6b7280'} />
                 ))}
               </Pie>
               <Tooltip 

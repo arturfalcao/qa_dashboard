@@ -1,8 +1,8 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Event } from '../entities/event.entity';
-import { EventType } from '@qa-dashboard/shared';
+import { Injectable } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { Event } from "../entities/event.entity";
+import { EventType } from "@qa-dashboard/shared";
 
 @Injectable()
 export class EventService {
@@ -11,23 +11,33 @@ export class EventService {
     private eventRepository: Repository<Event>,
   ) {}
 
-  async getEvents(tenantId: string, since?: string, limit = 100): Promise<Event[]> {
+  async getEvents(
+    clientId: string,
+    since?: string,
+    limit = 100,
+  ): Promise<Event[]> {
     const query = this.eventRepository
-      .createQueryBuilder('event')
-      .where('event.tenantId = :tenantId', { tenantId })
-      .orderBy('event.createdAt', 'DESC')
+      .createQueryBuilder("event")
+      .where("event.clientId = :clientId", { clientId })
+      .orderBy("event.createdAt", "DESC")
       .limit(limit);
 
     if (since) {
-      query.andWhere('event.createdAt > :since', { since: new Date(since) });
+      query.andWhere("event.createdAt > :since", { since: new Date(since) });
     }
 
     return await query.getMany();
   }
 
-  async createEvent(tenantId: string, type: EventType, payload: any): Promise<Event> {
+  async createEvent(
+    clientId: string,
+    type: EventType,
+    payload: Record<string, unknown>,
+    lotId?: string,
+  ): Promise<Event> {
     const event = this.eventRepository.create({
-      tenantId,
+      clientId,
+      lotId,
       type,
       payload,
     });

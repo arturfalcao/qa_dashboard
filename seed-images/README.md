@@ -1,38 +1,34 @@
 # Seed Images
 
-This directory should contain sample garment images for the mock data generator:
+This directory contains the curated garment renders that power the demo seed data and the live mock generator.
 
-## Required Images:
+## Included Images
 
-### Normal Garment Images (8-10 images)
-- `garment-1.jpg` - Clean t-shirt
-- `garment-2.jpg` - Hoodie  
-- `garment-3.jpg` - Jeans
-- `garment-4.jpg` - Polo shirt
-- `garment-5.jpg` - Jacket
-- `garment-6.jpg` - Dress shirt
-- `garment-7.jpg` - Sweater
-- `garment-8.jpg` - Pants
+### Normal Garment Images
+- `garment-1.png` – Studio render of a pastel technical tee
+- `garment-2.png` – Heather grey performance hoodie
+- `garment-3.png` – Indigo denim trousers with contrast stitching
+- `garment-4.png` – Camel polo with placket detailing
+- `garment-5.png` – Midnight field jacket with metal trims
+- `garment-6.png` – Garnet ribbed knitwear
+- `garment-7.png` – Olive raglan crewneck
+- `garment-8.png` – Heritage trench silhouette
 
-### Defected Garment Images (4-6 images)
-- `defect-stain.jpg` - Garment with visible stain
-- `defect-stitching.jpg` - Poor stitching visible
-- `defect-misprint.jpg` - Logo/text misalignment
-- `defect-measurement.jpg` - Size/fit issues
-- `defect-other.jpg` - Other visible defects
+### Defect Reference Images
+- `defect-stain.png` – Visible stain across front torso
+- `defect-stitching.png` – Irregular seam tension and broken thread
+- `defect-misprint.png` – Offset screen print on chest graphic
+- `defect-measurement.png` – Measurement tape showing variance
+- `defect-other.png` – Fabric tear along seam intersection
 
-## Image Specifications:
-- Format: JPG/JPEG
-- Size: 400x400 to 800x800 pixels
-- Quality: Good enough to see details
-- Lighting: Well-lit, clear visibility
+All files are lossless PNG renders sized 512×512px so the detail cards can zoom without artifacts. They were generated locally with the helper script in `scripts/generate_seed_images.py`:
 
-## Mock Generator Behavior:
-The mock service will:
-1. Randomly select from normal images for non-defective inspections
-2. Randomly select from defect images for defective inspections  
-3. Generate simple placeholder images if no files are found
-4. Create presigned URLs for MinIO storage
+```bash
+pnpm ts-node --skip-project scripts/generate_seed_images.py  # or python scripts/generate_seed_images.py
+```
 
-## Note:
-For the demo, the mock service generates simple colored squares with red dots to indicate defects if no actual images are provided.
+## How the Mock Services Use These Assets
+
+1. The database seed populates MinIO with these renders and links them to inspection photos, annotations, and approvals.
+2. The live inspection generator reuses the same catalog so every randomly created inspection has a realistic visual.
+3. If the files are missing the services fall back to a simple placeholder buffer, but the real demo experience relies on the images above.

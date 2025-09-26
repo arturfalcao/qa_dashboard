@@ -4,16 +4,16 @@ import {
   AuthResponse,
   Inspection,
   Event,
-  Batch,
+  Lot,
+  Factory,
   DefectRateAnalytics,
   ThroughputAnalytics,
   DefectTypeAnalytics,
   ApprovalTimeAnalytics,
-  InspectionPhoto,
-  PhotoAnnotation,
-  PhotoAngle,
-  DefectType,
-  DefectSeverity
+  ExportQuery,
+  LotStatus,
+  SupplyChainRole,
+  LotSupplierRole,
 } from '@qa-dashboard/shared'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001'
@@ -21,12 +21,12 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3
 class ApiClient {
   private getAuthHeader(): Record<string, string> {
     const token = Cookies.get('accessToken')
+    console.log('🍪 API Client - Token from cookies:', token ? `${token.slice(0, 20)}...` : 'null')
     return token ? { Authorization: `Bearer ${token}` } : {}
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`
-    
     const response = await fetch(url, {
       ...options,
       headers: {
@@ -50,11 +50,10 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify(credentials),
     })
-    
-    // Store tokens in cookies
-    Cookies.set('accessToken', response.accessToken, { expires: 1/24 }) // 1 hour
-    Cookies.set('refreshToken', response.refreshToken, { expires: 7 }) // 7 days
-    
+
+    Cookies.set('accessToken', response.accessToken, { expires: 1 / 24 })
+    Cookies.set('refreshToken', response.refreshToken, { expires: 7 })
+
     return response
   }
 
@@ -78,7 +77,7 @@ class ApiClient {
       body: JSON.stringify({ refreshToken }),
     })
 
-    Cookies.set('accessToken', response.accessToken, { expires: 1/24 })
+    Cookies.set('accessToken', response.accessToken, { expires: 1 / 24 })
     return response
   }
 
@@ -87,7 +86,7 @@ class ApiClient {
     const params = new URLSearchParams()
     if (since) params.append('since', since)
     if (limit) params.append('limit', limit.toString())
-    
+
     return this.request<Inspection[]>(`/inspections?${params.toString()}`)
   }
 
@@ -96,175 +95,293 @@ class ApiClient {
     const params = new URLSearchParams()
     if (since) params.append('since', since)
     if (limit) params.append('limit', limit.toString())
-    
+
     return this.request<Event[]>(`/events?${params.toString()}`)
   }
 
-  // Batches
-  async getBatches(): Promise<Batch[]> {
-    return this.request<Batch[]>('/batches')
+  // Lots
+  async getLots(): Promise<Lot[]> {
+    return this.request<Lot[]>('/lots')
   }
 
-  async getBatch(id: string): Promise<Batch> {
-    return this.request<Batch>(`/batches/${id}`)
+  async getLot(id: string): Promise<Lot> {
+    return this.request<Lot>(`/lots/${id}`)
   }
 
-  async approveBatch(id: string, comment?: string): Promise<{ message: string }> {
-    return this.request<{ message: string }>(`/batches/${id}/approve`, {
+  async createLot(payload: {
+    suppliers: Array<{
+      factoryId: string
+      stage?: string | null
+      isPrimary?: boolean
+      roles?: Array<Pick<LotSupplierRole, 'roleId' | 'sequence' | 'co2Kg' | 'notes'>>
+    }>
+    styleRef: string
+    quantityTotal: number
+    status?: LotStatus
+    factoryId?: string
+  }): Promise<Lot> {
+    return this.request<Lot>('/lots', {
       method: 'POST',
-      body: JSON.stringify({ comment }),
+      body: JSON.stringify(payload),
     })
   }
 
-  async rejectBatch(id: string, comment: string): Promise<{ message: string }> {
-    return this.request<{ message: string }>(`/batches/${id}/reject`, {
-      method: 'POST',
-      body: JSON.stringify({ comment }),
+  async updateLot(
+    id: string,
+    payload: Partial<{
+      suppliers: Array<{
+        factoryId: string
+        stage?: string | null
+        isPrimary?: boolean
+        roles?: Array<Pick<LotSupplierRole, 'roleId' | 'sequence' | 'co2Kg' | 'notes'>>
+      }>
+      factoryId: string
+      styleRef: string
+      quantityTotal: number
+      status: LotStatus
+    }>,
+  ): Promise<Lot> {
+    return this.request<Lot>(`/lots/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
     })
+  }
+
+  async advanceLotSupplyChain(id: string): Promise<Lot> {
+    return this.request<Lot>(`/lots/${id}/supply-chain/advance`, {
+      method: 'POST',
+    })
+  }
+
+  async approveLot(id: string, note?: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/lots/${id}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ note }),
+    })
+  }
+
+  async rejectLot(id: string, note: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/lots/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ note }),
+    })
+  }
+
+  // Photos & annotations (best-effort placeholder implementations)
+  async getPhotosForInspection(inspectionId: string): Promise<Array<{ id: string; url: string; angle?: string }>> {
+    try {
+      return await this.request<Array<{ id: string; url: string; angle?: string }>>(
+        `/inspections/${inspectionId}/photos`,
+      )
+    } catch {
+      return []
+    }
+  }
+
+  async getAnnotationsForPhoto(photoId: string): Promise<Array<{ id: string; x: number; y: number; comment?: string; defectType?: string; severity?: string }>> {
+    try {
+      return await this.request<Array<{ id: string; x: number; y: number; comment?: string; defectType?: string; severity?: string }>>(
+        `/photos/${photoId}/annotations`,
+      )
+    } catch {
+      return []
+    }
+  }
+
+  async createAnnotation(
+    photoId: string,
+    x: number,
+    y: number,
+    comment: string,
+    defectType?: string,
+    severity?: string,
+  ): Promise<{ id: string; x: number; y: number; comment?: string; defectType?: string; severity?: string }> {
+    return this.request<{ id: string; x: number; y: number; comment?: string; defectType?: string; severity?: string }>(`/photos/${photoId}/annotations`, {
+      method: 'POST',
+      body: JSON.stringify({ x, y, comment, defectType, severity }),
+    })
+  }
+
+  async deleteAnnotation(annotationId: string): Promise<void> {
+    await this.request(`/annotations/${annotationId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  // Factories
+  async getFactories(): Promise<Factory[]> {
+    return this.request<Factory[]>('/factories')
+  }
+
+  async createFactory(payload: {
+    name: string
+    city?: string
+    country?: string
+    capabilities?: Array<{ roleId: string; co2OverrideKg?: number | null; notes?: string | null }>
+    certifications?: Array<{ certification: string }>
+  }): Promise<Factory> {
+    return this.request<Factory>('/factories', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  }
+
+  async updateFactory(
+    id: string,
+    payload: {
+      name?: string
+      city?: string
+      country?: string
+      capabilities?: Array<{ roleId: string; co2OverrideKg?: number | null; notes?: string | null }>
+      certifications?: Array<{ certification: string }>
+    },
+  ): Promise<Factory> {
+    return this.request<Factory>(`/factories/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    })
+  }
+
+  async getSupplyChainRoles(): Promise<SupplyChainRole[]> {
+    return this.request<SupplyChainRole[]>('/supply-chain/roles')
   }
 
   // Analytics
-  async getDefectRate(groupBy?: 'style' | 'vendor', range?: 'last_7d' | 'last_30d'): Promise<DefectRateAnalytics> {
+  async getDefectRate(
+    groupBy?: 'style' | 'factory',
+    range?: 'last_7d' | 'last_30d',
+  ): Promise<DefectRateAnalytics> {
     const params = new URLSearchParams()
     if (groupBy) params.append('groupBy', groupBy)
     if (range) params.append('range', range)
-    
+
     return this.request<DefectRateAnalytics>(`/analytics/defect-rate?${params.toString()}`)
   }
 
-  async getThroughput(bucket?: 'day' | 'week', range?: 'last_7d' | 'last_30d'): Promise<ThroughputAnalytics> {
+  async getThroughput(
+    bucket?: 'day' | 'week',
+    range?: 'last_7d' | 'last_30d',
+  ): Promise<ThroughputAnalytics> {
     const params = new URLSearchParams()
     if (bucket) params.append('bucket', bucket)
     if (range) params.append('range', range)
-    
+
     return this.request<ThroughputAnalytics>(`/analytics/throughput?${params.toString()}`)
   }
 
   async getDefectTypes(range?: 'last_7d' | 'last_30d'): Promise<DefectTypeAnalytics> {
     const params = new URLSearchParams()
     if (range) params.append('range', range)
-    
+
     return this.request<DefectTypeAnalytics>(`/analytics/defect-types?${params.toString()}`)
   }
 
   async getApprovalTime(range?: 'last_7d' | 'last_30d'): Promise<ApprovalTimeAnalytics> {
     const params = new URLSearchParams()
     if (range) params.append('range', range)
-    
+
     return this.request<ApprovalTimeAnalytics>(`/analytics/approval-time?${params.toString()}`)
   }
 
   // Exports
-  async generatePDF(batchId?: string, range?: 'last_7d' | 'last_30d'): Promise<{ downloadUrl: string }> {
+  async generatePDF(query: ExportQuery): Promise<{ downloadUrl: string }> {
     return this.request<{ downloadUrl: string }>('/exports/pdf', {
       method: 'POST',
-      body: JSON.stringify({ batchId, range }),
+      body: JSON.stringify(query),
     })
   }
 
-  async generateCSV(range?: 'last_7d' | 'last_30d'): Promise<{ downloadUrl: string }> {
+  async generateCSV(query: ExportQuery): Promise<{ downloadUrl: string }> {
     return this.request<{ downloadUrl: string }>('/exports/csv', {
       method: 'POST',
-      body: JSON.stringify({ range }),
+      body: JSON.stringify(query),
     })
   }
 
-  // Admin/Mock
-  async seedData(): Promise<any> {
-    return this.request('/admin/seed', { method: 'POST' })
+  // Reports
+  async getReports(type?: string): Promise<any[]> {
+    const params = new URLSearchParams()
+    if (type) params.append('type', type)
+    return this.request<any[]>(`/reports?${params.toString()}`)
   }
 
-  async startMockGenerator(): Promise<{ message: string }> {
-    return this.request('/mock/inspections/start', { method: 'POST' })
+  async getReport(id: string): Promise<any> {
+    return this.request<any>(`/reports/${id}`)
   }
 
-  async stopMockGenerator(): Promise<{ message: string }> {
-    return this.request('/mock/inspections/stop', { method: 'POST' })
-  }
-
-  // Enhanced Photo Management
-  async uploadInspectionPhoto(file: File, inspectionId: string, angle: PhotoAngle): Promise<InspectionPhoto> {
-    const formData = new FormData()
-    formData.append('photo', file)
-    formData.append('inspectionId', inspectionId)
-    formData.append('angle', angle)
-
-    const response = await fetch(`${API_BASE_URL}/inspection-photos/upload`, {
-      method: 'POST',
+  async downloadReport(id: string): Promise<Blob> {
+    const response = await fetch(`${API_BASE_URL}/reports/${id}/download`, {
       headers: {
         ...this.getAuthHeader(),
       },
-      body: formData,
     })
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Upload failed' }))
-      throw new Error(error.message || `HTTP ${response.status}`)
+      throw new Error(`Failed to download report: ${response.statusText}`)
     }
 
-    return response.json()
+    return response.blob()
   }
 
-  async getPhotosForInspection(inspectionId: string): Promise<InspectionPhoto[]> {
-    return this.request<InspectionPhoto[]>(`/inspection-photos/inspection/${inspectionId}`)
-  }
-
-  async getPhotosByAngle(inspectionId: string, angle: PhotoAngle): Promise<InspectionPhoto[]> {
-    return this.request<InspectionPhoto[]>(`/inspection-photos/inspection/${inspectionId}/angle?angle=${angle}`)
-  }
-
-  async getPhoto(photoId: string): Promise<InspectionPhoto> {
-    return this.request<InspectionPhoto>(`/inspection-photos/${photoId}`)
-  }
-
-  async deletePhoto(photoId: string): Promise<void> {
-    return this.request(`/inspection-photos/${photoId}`, { method: 'DELETE' })
-  }
-
-  // Photo Annotations
-  async createAnnotation(
-    photoId: string,
-    x: number,
-    y: number,
-    comment: string,
-    defectType?: DefectType,
-    severity?: DefectSeverity
-  ): Promise<PhotoAnnotation> {
-    return this.request<PhotoAnnotation>('/photo-annotations', {
+  async generateExecutiveSummary(params: any, language = 'EN'): Promise<any> {
+    return this.request<any>(`/reports/executive-summary?language=${language}`, {
       method: 'POST',
-      body: JSON.stringify({
-        photoId,
-        x,
-        y,
-        comment,
-        defectType,
-        severity,
-      }),
+      body: JSON.stringify(params),
     })
   }
 
-  async getAnnotationsForPhoto(photoId: string): Promise<PhotoAnnotation[]> {
-    return this.request<PhotoAnnotation[]>(`/photo-annotations/photo/${photoId}`)
-  }
-
-  async updateAnnotation(
-    annotationId: string,
-    updates: {
-      x?: number
-      y?: number
-      comment?: string
-      defectType?: DefectType
-      severity?: DefectSeverity
-    }
-  ): Promise<PhotoAnnotation> {
-    return this.request<PhotoAnnotation>(`/photo-annotations/${annotationId}`, {
-      method: 'PUT',
-      body: JSON.stringify(updates),
+  async generateLotInspectionReport(lotId: string, params: any = {}, language = 'EN'): Promise<any> {
+    return this.request<any>(`/reports/lot-inspection/${lotId}?language=${language}`, {
+      method: 'POST',
+      body: JSON.stringify(params),
     })
   }
 
-  async deleteAnnotation(annotationId: string): Promise<void> {
-    return this.request(`/photo-annotations/${annotationId}`, { method: 'DELETE' })
+  async generateMeasurementComplianceSheet(lotId: string, params: any = {}, language = 'EN'): Promise<any> {
+    return this.request<any>(`/reports/measurement-compliance/${lotId}?language=${language}`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    })
+  }
+
+  async generatePackagingReadinessReport(lotId: string, params: any = {}, language = 'EN'): Promise<any> {
+    return this.request<any>(`/reports/packaging-readiness/${lotId}?language=${language}`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    })
+  }
+
+  async generateSupplierPerformanceSnapshot(params: any, language = 'EN'): Promise<any> {
+    return this.request<any>(`/reports/supplier-performance?language=${language}`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    })
+  }
+
+  async generateInlineQcCheckpoints(lotId: string, params: any = {}, language = 'EN'): Promise<any> {
+    return this.request<any>(`/reports/inline-qc/${lotId}?language=${language}`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    })
+  }
+
+  async generateDppSummary(params: any, language = 'EN'): Promise<any> {
+    return this.request<any>(`/reports/dpp-summary?language=${language}`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    })
+  }
+
+  async generateGenericReport(request: any): Promise<any> {
+    return this.request<any>('/reports/generate', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    })
+  }
+
+  // Admin
+  async seedData(): Promise<any> {
+    return this.request('/admin/seed', { method: 'POST' })
   }
 }
 
