@@ -33,7 +33,8 @@ COPY packages/shared/package.json ./packages/shared/
 COPY apps/api/package.json ./apps/api/
 
 # Install dependencies (including dev deps for building)
-RUN pnpm install --frozen-lockfile
+COPY pnpm-lock.yaml ./
+RUN pnpm install
 
 # ===============================
 # Build stage
@@ -74,7 +75,8 @@ COPY packages/shared/package.json ./packages/shared/
 COPY apps/api/package.json ./apps/api/
 
 # Install only production dependencies
-RUN pnpm install --prod --frozen-lockfile && \
+COPY pnpm-lock.yaml ./
+RUN pnpm install --prod && \
     pnpm store prune
 
 # Copy built application

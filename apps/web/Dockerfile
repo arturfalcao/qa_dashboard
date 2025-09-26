@@ -1,9 +1,6 @@
 # Multi-stage build for Next.js production optimization
 FROM node:18-alpine AS base
 
-# Install system dependencies
-RUN apk add --no-cache libc6-compat
-
 # Install pnpm globally
 RUN npm install -g pnpm
 
@@ -13,13 +10,14 @@ RUN npm install -g pnpm
 FROM base AS deps
 WORKDIR /app
 
-# Copy workspace and package files
+# Copy workspace and package files from root
 COPY package.json pnpm-workspace.yaml ./
 COPY packages/shared/package.json ./packages/shared/
 COPY apps/web/package.json ./apps/web/
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile
+# Install dependencies (including dev deps for building)
+COPY pnpm-lock.yaml ./
+RUN pnpm install
 
 # ===============================
 # Build stage
@@ -40,13 +38,8 @@ COPY apps/web/ ./apps/web/
 WORKDIR /app/packages/shared
 RUN pnpm build
 
-# Build the Next.js application
+# Build the web application
 WORKDIR /app/apps/web
-
-# Set environment variables for build
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV NODE_ENV=production
-
 RUN pnpm build
 
 # ===============================
@@ -59,31 +52,37 @@ WORKDIR /app
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001
 
-# Set environment to production
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
+# Copy workspace and package files
+COPY package.json pnpm-workspace.yaml ./
+COPY packages/shared/package.json ./packages/shared/
+COPY apps/web/package.json ./apps/web/
 
-# Copy Next.js standalone build
-COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
+# Install only production dependencies
+COPY pnpm-lock.yaml ./
+RUN pnpm install --prod && \
+    pnpm store prune
+
+# Copy built application
+COPY --from=builder --chown=nextjs:nodejs /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next ./apps/web/.next
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
 
-# Set working directory
+# Copy package.json files for runtime
+COPY --chown=nextjs:nodejs packages/shared/package.json ./packages/shared/
+COPY --chown=nextjs:nodejs apps/web/package.json ./apps/web/
+
+# Set working directory to web
 WORKDIR /app/apps/web
 
 # Switch to non-root user
 USER nextjs
 
-# Expose the port that Next.js runs on
+# Expose the port that the app runs on
 EXPOSE 3000
 
-# Set port environment variable
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
-
 # Add health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })" || exit 1
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })" || exit 1
 
 # Start the application
-CMD ["node", "server.js"]
+CMD ["npm", "start"]
