@@ -14,13 +14,17 @@ interface EventBannerProps {
 export function EventBanner({ event }: EventBannerProps) {
   const [isVisible, setIsVisible] = useState(true)
   const params = useParams()
-  const tenantSlug = params.tenantSlug as string
+  const clientSlug = params.clientSlug as string
 
   if (!isVisible) return null
 
   const renderEventContent = () => {
     switch (event.type) {
-      case 'DEFECT_DETECTED':
+      case 'DEFECT_DETECTED': {
+        const defectPayload = event.payload || {}
+        const defectLotId = typeof defectPayload.lotId === 'string' ? defectPayload.lotId : undefined
+        const defectType = typeof defectPayload.defectType === 'string' ? defectPayload.defectType.toUpperCase() : 'Unknown'
+        const garmentSerial = typeof defectPayload.garmentSerial === 'string' ? defectPayload.garmentSerial : 'N/A'
         return (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <div className="flex items-start">
@@ -32,13 +36,13 @@ export function EventBanner({ event }: EventBannerProps) {
                       Defect Detected
                     </h4>
                     <p className="text-red-700 text-sm mt-1">
-                      {event.payload.defectType?.toUpperCase()} defect found in garment {event.payload.garmentSerial}
-                      {event.payload.batchId && (
+                      {defectType} defect found in garment {garmentSerial}
+                      {defectLotId && (
                         <Link 
-                          href={`/t/${tenantSlug}/batches/${event.payload.batchId}`}
+                          href={`/c/${clientSlug}/lots/${defectLotId}`}
                           className="ml-2 underline hover:no-underline"
                         >
-                          View batch
+                          View lot
                         </Link>
                       )}
                     </p>
@@ -57,8 +61,12 @@ export function EventBanner({ event }: EventBannerProps) {
             </div>
           </div>
         )
+      }
 
-      case 'BATCH_AWAITING_APPROVAL':
+      case 'LOT_AWAITING_APPROVAL': {
+        const approvalPayload = event.payload || {}
+        const approvalLotId = typeof approvalPayload.lotId === 'string' ? approvalPayload.lotId : undefined
+        const approvalStyleRef = typeof approvalPayload.styleRef === 'string' ? approvalPayload.styleRef : approvalLotId
         return (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <div className="flex items-start">
@@ -67,13 +75,13 @@ export function EventBanner({ event }: EventBannerProps) {
                 <div className="flex items-center justify-between">
                   <div>
                     <h4 className="text-yellow-800 font-medium">
-                      Batch Awaiting Approval
+                      Lot Awaiting Approval
                     </h4>
                     <p className="text-yellow-700 text-sm mt-1">
-                      Batch {event.payload.poNumber} is ready for review
-                      {event.payload.batchId && (
+                      Lot {approvalStyleRef || 'N/A'} is ready for review
+                      {approvalLotId && (
                         <Link 
-                          href={`/t/${tenantSlug}/batches/${event.payload.batchId}`}
+                          href={`/c/${clientSlug}/lots/${approvalLotId}`}
                           className="ml-2 underline hover:no-underline"
                         >
                           Review now
@@ -95,6 +103,7 @@ export function EventBanner({ event }: EventBannerProps) {
             </div>
           </div>
         )
+      }
 
       default:
         return null

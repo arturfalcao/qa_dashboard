@@ -10,10 +10,17 @@ interface InspectionCardProps {
 }
 
 export function InspectionCard({ inspection }: InspectionCardProps) {
-  const { garment, hasDefect, defectType, inspectedAt, photoUrlBefore, photoUrlAfter } = inspection
-  const batch = garment?.batch
-  const vendor = batch?.vendor
-  const style = batch?.style
+  const inspectionAny = inspection as Record<string, any>
+  const garment = inspectionAny.garment as Record<string, any> | undefined
+  const hasDefect = Boolean(inspectionAny.hasDefect)
+  const defectType = typeof inspectionAny.defectType === 'string' ? inspectionAny.defectType : undefined
+  const inspectedAt = inspectionAny.inspectedAt || inspection.createdAt
+  const photoUrlBefore = inspectionAny.photoUrlBefore as string | undefined
+  const photoUrlAfter = inspectionAny.photoUrlAfter as string | undefined
+  const notes = typeof inspectionAny.notes === 'string' ? inspectionAny.notes : undefined
+  const batch = garment?.batch as Record<string, any> | undefined
+  const vendor = batch?.vendor as Record<string, any> | undefined
+  const style = batch?.style as Record<string, any> | undefined
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -71,10 +78,10 @@ export function InspectionCard({ inspection }: InspectionCardProps) {
             </div>
           </div>
 
-          {inspection.notes && (
+          {notes && (
             <div className="mt-4">
               <div className="text-gray-500 text-sm mb-1">Notes</div>
-              <div className="text-gray-900">{inspection.notes}</div>
+              <div className="text-gray-900">{notes}</div>
             </div>
           )}
         </div>

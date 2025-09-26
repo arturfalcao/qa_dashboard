@@ -1,3 +1,4 @@
+import { LotStatus } from '@qa-dashboard/shared'
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 
@@ -53,13 +54,28 @@ export const getDefectColor = (defectType: string): string => {
   return colors[defectType] || colors.other
 }
 
-export const getBatchStatusColor = (status: string): string => {
+export const getLotStatusColor = (status: string): string => {
+  const normalized = status.toUpperCase()
   const colors: Record<string, string> = {
-    draft: 'bg-gray-100 text-gray-800',
-    in_progress: 'bg-blue-100 text-blue-800',
-    awaiting_approval: 'bg-yellow-100 text-yellow-800',
-    approved: 'bg-green-100 text-green-800',
-    rejected: 'bg-red-100 text-red-800',
+    INSPECTION: 'bg-blue-100 text-blue-800',
+    PENDING_APPROVAL: 'bg-yellow-100 text-yellow-800',
+    APPROVED: 'bg-green-100 text-green-800',
+    REJECTED: 'bg-red-100 text-red-800',
+    SHIPPED: 'bg-emerald-100 text-emerald-800',
   }
-  return colors[status] || colors.draft
+  return colors[normalized] || 'bg-gray-100 text-gray-800'
+}
+
+export const formatLotStatus = (status: LotStatus | string): string => {
+  const mapping: Record<string, string> = {
+    [LotStatus.PLANNED]: 'Planned',
+    [LotStatus.IN_PRODUCTION]: 'In production',
+    [LotStatus.INSPECTION]: 'In inspection',
+    [LotStatus.PENDING_APPROVAL]: 'Pending approval',
+    [LotStatus.APPROVED]: 'Approved',
+    [LotStatus.REJECTED]: 'Rejected',
+    [LotStatus.SHIPPED]: 'Shipped',
+  }
+  const key = typeof status === 'string' ? status.toUpperCase() : status
+  return mapping[key as LotStatus] || key.toString()
 }
