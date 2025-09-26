@@ -7,7 +7,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.enableCors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: process.env.FRONTEND_URL || ["http://localhost:3000", "http://localhost:3002"],
     credentials: true,
   });
 
@@ -35,9 +35,35 @@ async function bootstrap() {
     res.json(document);
   });
 
-  await app.listen(3001);
-  console.log("API Server running on http://localhost:3001");
-  console.log("API Docs available at http://localhost:3001/docs");
+  const port = process.env.PORT ? Number(process.env.PORT) : 3001;
+
+  const server = await app.listen(port);
+  console.log(`API Server running on http://localhost:${port}`);
+  console.log(`API Docs available at http://localhost:${port}/docs`);
+
+  const gracefulShutdown = async (signal: string) => {
+    console.log(`Received ${signal}, closing Nest application...`);
+    try {
+      await app.close();
+
+      if (typeof (server as any).closeAllConnections === "function") {
+        (server as any).closeAllConnections();
+      }
+
+      await new Promise<void>((resolve) => {
+        server.close(() => resolve());
+        setTimeout(() => resolve(), 2000);
+      });
+    } catch (error) {
+      console.error("Error during shutdown", error);
+    } finally {
+      process.exit(0);
+    }
+  };
+
+  ["SIGINT", "SIGTERM", "SIGQUIT"].forEach((signal) => {
+    process.on(signal as NodeJS.Signals, () => gracefulShutdown(signal));
+  });
 }
 
 bootstrap();

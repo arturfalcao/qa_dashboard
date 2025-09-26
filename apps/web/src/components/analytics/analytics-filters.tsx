@@ -3,8 +3,8 @@
 interface AnalyticsFiltersProps {
   range: 'last_7d' | 'last_30d'
   setRange: (range: 'last_7d' | 'last_30d') => void
-  groupBy: 'style' | 'vendor'
-  setGroupBy: (groupBy: 'style' | 'vendor') => void
+  groupBy: 'style' | 'factory'
+  setGroupBy: (groupBy: 'style' | 'factory') => void
 }
 
 export function AnalyticsFilters({ range, setRange, groupBy, setGroupBy }: AnalyticsFiltersProps) {
@@ -31,10 +31,10 @@ export function AnalyticsFilters({ range, setRange, groupBy, setGroupBy }: Analy
           </label>
           <select
             value={groupBy}
-            onChange={(e) => setGroupBy(e.target.value as 'style' | 'vendor')}
+            onChange={(e) => setGroupBy(e.target.value as 'style' | 'factory')}
             className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
           >
-            <option value="vendor">Vendor</option>
+            <option value="factory">Factory</option>
             <option value="style">Style</option>
           </select>
         </div>

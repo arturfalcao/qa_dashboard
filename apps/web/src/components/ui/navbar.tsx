@@ -10,7 +10,8 @@ export function Navbar() {
   const params = useParams()
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
 
-  const tenantName = params.tenantSlug === 'heymarly' ? 'Hey Marly' : 'Sample Brand'
+  const clientSlug = params.clientSlug as string
+  const clientName = clientSlug === 'heymarly' ? 'Hey Marly' : 'Sample Brand'
 
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200 fixed w-full z-40">
@@ -22,7 +23,7 @@ export function Navbar() {
                 QA Dashboard
               </h1>
               <span className="ml-3 px-2 py-1 text-xs font-medium bg-primary-100 text-primary-800 rounded">
-                {tenantName}
+                {clientName}
               </span>
             </div>
           </div>
@@ -45,9 +46,11 @@ export function Navbar() {
 
               {isDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
-                  <div className="px-4 py-2 text-sm text-gray-500 border-b">
-                    Role: {user?.role.replace('_', ' ')}
-                  </div>
+                  {user?.roles?.length && (
+                    <div className="px-4 py-2 text-sm text-gray-500 border-b">
+                      Roles: {user.roles.map((role) => role.replace('_', ' ')).join(', ')}
+                    </div>
+                  )}
                   <button
                     onClick={logout}
                     className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"

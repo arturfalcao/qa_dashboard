@@ -9,24 +9,20 @@ import {
   JoinColumn,
 } from "typeorm";
 import { ApprovalDecision } from "@qa-dashboard/shared";
-import { Tenant } from "./tenant.entity";
-import { Batch } from "./batch.entity";
+import { Lot } from "./lot.entity";
 import { User } from "./user.entity";
 
 @Entity("approvals")
-@Unique(["batchId"])
+@Unique(["lotId"])
 export class Approval {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ name: "tenant_id" })
-  tenantId: string;
+  @Column({ name: "lot_id" })
+  lotId: string;
 
-  @Column({ name: "batch_id" })
-  batchId: string;
-
-  @Column({ name: "decided_by" })
-  decidedBy: string;
+  @Column({ name: "approved_by", nullable: true })
+  approvedBy?: string;
 
   @Column({
     type: "enum",
@@ -35,7 +31,7 @@ export class Approval {
   decision: ApprovalDecision;
 
   @Column({ type: "text", nullable: true })
-  comment?: string;
+  note?: string;
 
   @Column({
     name: "decided_at",
@@ -50,17 +46,11 @@ export class Approval {
   @UpdateDateColumn({ name: "updated_at" })
   updatedAt: Date;
 
-  @ManyToOne(() => Tenant, (tenant) => tenant.approvals, {
-    onDelete: "CASCADE",
-  })
-  @JoinColumn({ name: "tenant_id" })
-  tenant: Tenant;
+  @ManyToOne(() => Lot, (lot) => lot.approvals, { onDelete: "CASCADE" })
+  @JoinColumn({ name: "lot_id" })
+  lot: Lot;
 
-  @ManyToOne(() => Batch, (batch) => batch.approvals, { onDelete: "CASCADE" })
-  @JoinColumn({ name: "batch_id" })
-  batch: Batch;
-
-  @ManyToOne(() => User, (user) => user.approvals, { onDelete: "CASCADE" })
-  @JoinColumn({ name: "decided_by" })
-  user: User;
+  @ManyToOne(() => User, (user) => user.approvals, { onDelete: "SET NULL" })
+  @JoinColumn({ name: "approved_by" })
+  user?: User | null;
 }

@@ -5,25 +5,46 @@ import * as path from "path";
 @Injectable()
 export class StorageService {
   private minioClient: Minio.Client;
-  private bucketName: string;
+  private photosBucket: string;
+  private reportsBucket: string;
 
   constructor() {
-    this.bucketName = process.env.MINIO_BUCKET || "qc-images";
+    this.photosBucket = process.env.MINIO_PHOTOS_BUCKET || "pp-photos";
+    this.reportsBucket = process.env.MINIO_REPORTS_BUCKET || "pp-reports";
     this.minioClient = new Minio.Client({
       endPoint: process.env.MINIO_ENDPOINT || "localhost",
-      port: parseInt(process.env.MINIO_PORT || "9000"),
+      port: 9002,
       useSSL: process.env.MINIO_USE_SSL === "true",
       accessKey: process.env.MINIO_ACCESS_KEY || "minioadmin",
       secretKey: process.env.MINIO_SECRET_KEY || "minioadmin123",
     });
+    void this.ensureBuckets();
+  }
+
+  private async ensureBuckets() {
+    for (const bucket of [this.photosBucket, this.reportsBucket]) {
+      try {
+        const exists = await this.minioClient.bucketExists(bucket);
+        if (!exists) {
+          await this.minioClient.makeBucket(bucket, "us-east-1");
+        }
+      } catch (error) {
+        console.error(
+          `[StorageService] Unable to ensure bucket ${bucket}`,
+          error,
+        );
+      }
+    }
   }
 
   async getPresignedUploadUrl(
-    tenantId: string,
+    clientId: string,
+    bucket: "photos" | "reports" = "photos",
   ): Promise<{ uploadUrl: string; key: string }> {
-    const key = `tenants/${tenantId}/images/${this.generateUUID()}.jpg`;
+    const targetBucket = this.getBucket(bucket);
+    const key = this.generateKey(clientId, undefined, bucket);
     const uploadUrl = await this.minioClient.presignedPutObject(
-      this.bucketName,
+      targetBucket,
       key,
       60 * 10,
     ); // 10 minutes
@@ -31,41 +52,31 @@ export class StorageService {
     return { uploadUrl, key };
   }
 
-  async getPresignedDownloadUrl(key: string): Promise<string> {
+  async getPresignedDownloadUrl(
+    key: string,
+    bucket: "photos" | "reports" = "photos",
+  ): Promise<string> {
+    const targetBucket = this.getBucket(bucket);
     return await this.minioClient.presignedGetObject(
-      this.bucketName,
+      targetBucket,
       key,
       60 * 10,
     ); // 10 minutes
-  }
-
-  async getPresignedUrl(key: string, expiry: number = 600): Promise<string> {
-    return await this.minioClient.presignedGetObject(
-      this.bucketName,
-      key,
-      expiry,
-    );
   }
 
   async uploadFile(
     buffer: Buffer,
     filename: string,
     contentType = "image/jpeg",
-    tenantId?: string,
+    clientId?: string,
+    bucket: "photos" | "reports" = "photos",
   ): Promise<string> {
-    const key = tenantId
-      ? `tenants/${tenantId}/images/${this.generateUUID()}-${filename}`
-      : `images/${this.generateUUID()}-${filename}`;
+    const key = this.generateKey(clientId || "public", filename, bucket);
+    const targetBucket = this.getBucket(bucket);
 
-    await this.minioClient.putObject(
-      this.bucketName,
-      key,
-      buffer,
-      buffer.length,
-      {
-        "Content-Type": contentType,
-      },
-    );
+    await this.minioClient.putObject(targetBucket, key, buffer, buffer.length, {
+      "Content-Type": contentType,
+    });
 
     return key;
   }
@@ -74,36 +85,46 @@ export class StorageService {
     key: string,
     buffer: Buffer,
     contentType = "image/jpeg",
+    bucket: "photos" | "reports" = "photos",
   ): Promise<void> {
-    await this.minioClient.putObject(
-      this.bucketName,
-      key,
-      buffer,
-      buffer.length,
-      {
-        "Content-Type": contentType,
-      },
-    );
+    const targetBucket = this.getBucket(bucket);
+    await this.minioClient.putObject(targetBucket, key, buffer, buffer.length, {
+      "Content-Type": contentType,
+    });
   }
 
-  async deleteFile(key: string): Promise<void> {
+  async deleteFile(
+    key: string,
+    bucket: "photos" | "reports" = "photos",
+  ): Promise<void> {
+    const targetBucket = this.getBucket(bucket);
     try {
-      await this.minioClient.removeObject(this.bucketName, key);
+      await this.minioClient.removeObject(targetBucket, key);
     } catch (error) {
       console.error("Error deleting file:", error);
     }
   }
 
-  generateKey(tenantId: string, filename?: string): string {
+  generateKey(
+    clientId: string,
+    filename?: string,
+    bucket: "photos" | "reports" = "photos",
+  ): string {
     if (filename) {
       const ext = path.extname(filename) || ".jpg";
       const baseName = path
         .basename(filename, ext)
         .replace(/[^a-zA-Z0-9-_]/g, "_");
-      return `tenants/${tenantId}/images/${this.generateUUID()}-${baseName}${ext}`;
+      const prefix = bucket === "reports" ? "reports" : "images";
+      return `clients/${clientId}/${prefix}/${this.generateUUID()}-${baseName}${ext}`;
     }
 
-    return `tenants/${tenantId}/images/${this.generateUUID()}.jpg`;
+    const prefix = bucket === "reports" ? "reports" : "images";
+    return `clients/${clientId}/${prefix}/${this.generateUUID()}.jpg`;
+  }
+
+  private getBucket(type: "photos" | "reports"): string {
+    return type === "reports" ? this.reportsBucket : this.photosBucket;
   }
 
   private generateUUID(): string {

@@ -1,68 +1,54 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
-import { JwtModule } from "@nestjs/jwt";
 import { PassportModule } from "@nestjs/passport";
-import { APP_GUARD } from "@nestjs/core";
+import { APP_INTERCEPTOR, APP_GUARD } from "@nestjs/core";
 
 import { AuthModule } from "./auth/auth.module";
+import { JwtAuthGuard } from "./auth/jwt-auth.guard";
 import { DatabaseModule } from "./database/database.module";
 import { StorageModule } from "./storage/storage.module";
-import { MockModule } from "./mock/mock.module";
 import { ExportsModule } from "./exports/exports.module";
-import { JwtAuthGuard } from "./auth/jwt-auth.guard";
+import { ObservabilityModule } from "./observability/observability.module";
+import { AuditInterceptor } from "./common/interceptors/audit.interceptor";
+import { TracingInterceptor } from "./observability/tracing.interceptor";
+import { MetricsInterceptor } from "./observability/metrics.interceptor";
+import { LoggerInterceptor } from "./observability/logger.interceptor";
 
-import { Tenant } from "./database/entities/tenant.entity";
-import { User } from "./database/entities/user.entity";
-import { Vendor } from "./database/entities/vendor.entity";
-import { Style } from "./database/entities/style.entity";
-import { Batch } from "./database/entities/batch.entity";
-import { Garment } from "./database/entities/garment.entity";
-import { Inspection } from "./database/entities/inspection.entity";
-import { Approval } from "./database/entities/approval.entity";
-import { Event } from "./database/entities/event.entity";
-import { InspectionPhoto } from "./database/entities/inspection-photo.entity";
-import { PhotoAnnotation } from "./database/entities/photo-annotation.entity";
+import dataSourceOptions from "./database/typeorm.config";
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    TypeOrmModule.forRoot({
-      type: "postgres",
-      url: process.env.DATABASE_URL,
-      entities: [
-        Tenant,
-        User,
-        Vendor,
-        Style,
-        Batch,
-        Garment,
-        Inspection,
-        Approval,
-        Event,
-        InspectionPhoto,
-        PhotoAnnotation,
-      ],
-      synchronize: false,
-      logging: process.env.NODE_ENV === "development",
-    }),
-    PassportModule,
-    JwtModule.register({
-      secret: process.env.JWT_SECRET || "your-jwt-secret",
-      signOptions: { expiresIn: "15m" },
-    }),
+    TypeOrmModule.forRoot(dataSourceOptions),
     AuthModule,
     DatabaseModule,
     StorageModule,
-    MockModule,
+    ObservabilityModule,
     ExportsModule,
   ],
   providers: [
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: TracingInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: MetricsInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: LoggerInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AuditInterceptor,
     },
   ],
 })

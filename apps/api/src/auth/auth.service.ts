@@ -5,16 +5,13 @@ import { Repository } from "typeorm";
 import * as bcrypt from "bcryptjs";
 
 import { User } from "../database/entities/user.entity";
-import { Tenant } from "../database/entities/tenant.entity";
-import { LoginDto, AuthResponse } from "@qa-dashboard/shared";
+import { LoginDto, AuthResponse, UserRole } from "@qa-dashboard/shared";
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
-    @InjectRepository(Tenant)
-    private tenantRepository: Repository<Tenant>,
     private jwtService: JwtService,
   ) {}
 
@@ -23,7 +20,7 @@ export class AuthService {
 
     const user = await this.userRepository.findOne({
       where: { email, isActive: true },
-      relations: ["tenant"],
+      relations: ["client", "userRoles", "userRoles.role"],
     });
 
     console.log(`User found:`, user ? `${user.email} (${user.id})` : "null");
@@ -43,12 +40,23 @@ export class AuthService {
       throw new UnauthorizedException("Invalid credentials");
     }
 
+    const assignedRoles =
+      user.userRoles
+        ?.map((userRole) => userRole.role?.name)
+        .filter((name): name is string => Boolean(name)) || [];
+
+    const roles = assignedRoles
+      .map((name) => name as UserRole)
+      .filter((name) => Object.values(UserRole).includes(name)) as UserRole[];
+    const effectiveRoles = roles.length ? roles : [UserRole.CLIENT_VIEWER];
     const payload = {
       sub: user.id,
       email: user.email,
-      tenantId: user.tenantId,
-      role: user.role,
+      clientId: user.clientId,
+      roles: effectiveRoles,
     };
+
+    console.log('🔐 Auth Service - Generating JWT with payload:', JSON.stringify(payload, null, 2));
 
     const accessToken = this.jwtService.sign(payload);
     const refreshToken = this.jwtService.sign(payload, {
@@ -56,14 +64,19 @@ export class AuthService {
       expiresIn: "7d",
     });
 
+    console.log('🔐 Auth Service - Generated tokens:', {
+      accessToken: accessToken.substring(0, 50) + '...',
+      refreshToken: refreshToken.substring(0, 50) + '...'
+    });
+
     return {
       accessToken,
       refreshToken,
       user: {
         id: user.id,
-        tenantId: user.tenantId,
+        clientId: user.clientId || null,
         email: user.email,
-        role: user.role,
+        roles: effectiveRoles,
         isActive: user.isActive,
         createdAt: user.createdAt.toISOString(),
         updatedAt: user.updatedAt.toISOString(),
@@ -79,17 +92,26 @@ export class AuthService {
 
       const user = await this.userRepository.findOne({
         where: { id: payload.sub, isActive: true },
+        relations: ["userRoles", "userRoles.role"],
       });
 
       if (!user) {
         throw new UnauthorizedException("User not found");
       }
 
+      const assignedRoles =
+        user.userRoles
+          ?.map((userRole) => userRole.role?.name)
+          .filter((name): name is string => Boolean(name)) || [];
+      const roles = assignedRoles
+        .map((name) => name as UserRole)
+        .filter((name) => Object.values(UserRole).includes(name)) as UserRole[];
+      const effectiveRoles = roles.length ? roles : [UserRole.CLIENT_VIEWER];
       const newPayload = {
         sub: user.id,
         email: user.email,
-        tenantId: user.tenantId,
-        role: user.role,
+        clientId: user.clientId,
+        roles: effectiveRoles,
       };
 
       return {

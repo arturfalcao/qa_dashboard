@@ -3,8 +3,8 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Inspection } from "../entities/inspection.entity";
 import { Approval } from "../entities/approval.entity";
+import { Defect } from "../entities/defect.entity";
 import {
-  DefectType,
   DefectRateAnalytics,
   ThroughputAnalytics,
   DefectTypeAnalytics,
@@ -18,54 +18,76 @@ export class AnalyticsService {
     private inspectionRepository: Repository<Inspection>,
     @InjectRepository(Approval)
     private approvalRepository: Repository<Approval>,
+    @InjectRepository(Defect)
+    private defectRepository: Repository<Defect>,
   ) {}
 
   async getDefectRate(
-    tenantId: string,
+    clientId: string,
     range: "last_7d" | "last_30d" = "last_7d",
-    groupBy?: "style" | "vendor",
+    groupBy?: "style" | "factory",
   ): Promise<DefectRateAnalytics> {
     const days = range === "last_7d" ? 7 : 30;
     const since = new Date();
     since.setDate(since.getDate() - days);
 
     let query = this.inspectionRepository
-      .createQueryBuilder("i")
-      .leftJoin("i.garment", "g")
-      .leftJoin("g.batch", "b")
-      .leftJoin("b.vendor", "v")
-      .leftJoin("b.style", "s")
-      .where("i.tenantId = :tenantId", { tenantId })
-      .andWhere("i.inspectedAt >= :since", { since });
+      .createQueryBuilder("ins")
+      .innerJoin("ins.lot", "lot")
+      .where("lot.clientId = :clientId", { clientId })
+      .andWhere("ins.createdAt >= :since", { since });
 
-    if (groupBy === "vendor") {
+    if (groupBy === "factory") {
       query = query
+        .leftJoin("lot.factory", "factory")
         .select([
-          "v.name as name",
+          "factory.name as name",
           "COUNT(*) as totalInspected",
-          "COUNT(CASE WHEN i.hasDefect = true THEN 1 END) as totalDefects",
+          "SUM(CASE WHEN defects.count > 0 THEN 1 ELSE 0 END) as totalDefects",
         ])
-        .groupBy("v.id, v.name");
+        .leftJoin(
+          (qb) =>
+            qb
+              .select("defect.inspection_id", "inspectionId")
+              .addSelect("COUNT(defect.id)", "count")
+              .from(Defect, "defect")
+              .groupBy("defect.inspection_id"),
+          "defects",
+          "defects.inspectionId = ins.id",
+        )
+        .groupBy("factory.id, factory.name");
     } else if (groupBy === "style") {
       query = query
         .select([
-          "s.styleCode as name",
+          "lot.styleRef as name",
           "COUNT(*) as totalInspected",
-          "COUNT(CASE WHEN i.hasDefect = true THEN 1 END) as totalDefects",
+          "SUM(CASE WHEN defects.count > 0 THEN 1 ELSE 0 END) as totalDefects",
         ])
-        .groupBy("s.id, s.styleCode");
+        .leftJoin(
+          (qb) =>
+            qb
+              .select("defect.inspection_id", "inspectionId")
+              .addSelect("COUNT(defect.id)", "count")
+              .from(Defect, "defect")
+              .groupBy("defect.inspection_id"),
+          "defects",
+          "defects.inspectionId = ins.id",
+        )
+        .groupBy("lot.styleRef");
     } else {
       const totalInspected = await this.inspectionRepository
-        .createQueryBuilder("i")
-        .where("i.tenantId = :tenantId", { tenantId })
-        .andWhere("i.inspectedAt >= :since", { since })
+        .createQueryBuilder("ins")
+        .innerJoin("ins.lot", "lot")
+        .where("lot.clientId = :clientId", { clientId })
+        .andWhere("ins.createdAt >= :since", { since })
         .getCount();
 
-      const totalDefects = await this.inspectionRepository
-        .createQueryBuilder("i")
-        .where("i.tenantId = :tenantId", { tenantId })
-        .andWhere("i.hasDefect = true")
-        .andWhere("i.inspectedAt >= :since", { since })
+      const totalDefects = await this.defectRepository
+        .createQueryBuilder("defect")
+        .innerJoin("defect.inspection", "inspection")
+        .innerJoin("inspection.lot", "lot")
+        .where("lot.clientId = :clientId", { clientId })
+        .andWhere("inspection.createdAt >= :since", { since })
         .getCount();
 
       return {
@@ -87,19 +109,19 @@ export class AnalyticsService {
     return {
       groupBy,
       data: results.map((row) => ({
-        name: row.name,
-        totalInspected: parseInt(row.totalinspected),
-        totalDefects: parseInt(row.totaldefects),
+        name: row.name || "Unknown",
+        totalInspected: Number(row.totalinspected) || 0,
+        totalDefects: Number(row.totaldefects) || 0,
         defectRate:
-          row.totalinspected > 0
-            ? (parseInt(row.totaldefects) / parseInt(row.totalinspected)) * 100
+          Number(row.totalinspected) > 0
+            ? (Number(row.totaldefects) / Number(row.totalinspected)) * 100
             : 0,
       })),
     };
   }
 
   async getThroughput(
-    tenantId: string,
+    clientId: string,
     bucket: "day" | "week" = "day",
     range: "last_7d" | "last_30d" = "last_7d",
   ): Promise<ThroughputAnalytics> {
@@ -107,17 +129,18 @@ export class AnalyticsService {
     const since = new Date();
     since.setDate(since.getDate() - days);
 
-    const dateFormat = bucket === "day" ? "YYYY-MM-DD" : 'YYYY-"W"WW';
+    const dateFormat = bucket === "day" ? "YYYY-MM-DD" : 'IYYY-"W"IW';
 
     const query = this.inspectionRepository
-      .createQueryBuilder("i")
+      .createQueryBuilder("ins")
       .select([
-        `TO_CHAR(i.inspectedAt, '${dateFormat}') as date`,
+        `TO_CHAR(ins.createdAt, '${dateFormat}') as date`,
         "COUNT(*) as inspections",
       ])
-      .where("i.tenantId = :tenantId", { tenantId })
-      .andWhere("i.inspectedAt >= :since", { since })
-      .groupBy(`TO_CHAR(i.inspectedAt, '${dateFormat}')`)
+      .innerJoin("ins.lot", "lot")
+      .where("lot.clientId = :clientId", { clientId })
+      .andWhere("ins.createdAt >= :since", { since })
+      .groupBy(`TO_CHAR(ins.createdAt, '${dateFormat}')`)
       .orderBy("date", "ASC");
 
     const results = await query.getRawMany();
@@ -125,76 +148,79 @@ export class AnalyticsService {
     return {
       data: results.map((row) => ({
         date: row.date,
-        inspections: parseInt(row.inspections),
+        inspections: Number(row.inspections) || 0,
       })),
     };
   }
 
   async getDefectTypes(
-    tenantId: string,
+    clientId: string,
     range: "last_7d" | "last_30d" = "last_7d",
   ): Promise<DefectTypeAnalytics> {
     const days = range === "last_7d" ? 7 : 30;
     const since = new Date();
     since.setDate(since.getDate() - days);
 
-    const results = await this.inspectionRepository
-      .createQueryBuilder("i")
-      .select(["i.defectType as type", "COUNT(*) as count"])
-      .where("i.tenantId = :tenantId", { tenantId })
-      .andWhere("i.hasDefect = true")
-      .andWhere("i.inspectedAt >= :since", { since })
-      .groupBy("i.defectType")
+    const results = await this.defectRepository
+      .createQueryBuilder("defect")
+      .leftJoin("defect.defectType", "type")
+      .innerJoin("defect.inspection", "inspection")
+      .innerJoin("inspection.lot", "lot")
+      .select([
+        "COALESCE(type.name, 'Unclassified') as type",
+        "COUNT(defect.id) as count",
+      ])
+      .where("lot.clientId = :clientId", { clientId })
+      .andWhere("defect.createdAt >= :since", { since })
+      .groupBy("type.name")
       .getRawMany();
 
     const totalDefects = results.reduce(
-      (sum, row) => sum + parseInt(row.count),
+      (sum, row) => sum + Number(row.count || 0),
       0,
     );
 
     return {
       data: results.map((row) => ({
-        type: row.type as DefectType,
-        count: parseInt(row.count),
+        type: row.type,
+        count: Number(row.count) || 0,
         percentage:
-          totalDefects > 0 ? (parseInt(row.count) / totalDefects) * 100 : 0,
+          totalDefects > 0 ? (Number(row.count || 0) / totalDefects) * 100 : 0,
       })),
     };
   }
 
   async getApprovalTime(
-    tenantId: string,
+    clientId: string,
     range: "last_7d" | "last_30d" = "last_7d",
   ): Promise<ApprovalTimeAnalytics> {
     const days = range === "last_7d" ? 7 : 30;
     const since = new Date();
     since.setDate(since.getDate() - days);
 
-    // Get approval times (in hours)
     const results = await this.approvalRepository
-      .createQueryBuilder("a")
-      .leftJoin("a.batch", "b")
+      .createQueryBuilder("approval")
+      .innerJoin("approval.lot", "lot")
       .select([
-        "EXTRACT(EPOCH FROM (a.decidedAt - b.updatedAt)) / 3600 as approvalTimeHours",
+        "EXTRACT(EPOCH FROM (approval.decidedAt - lot.createdAt)) / 3600 as approvalTimeHours",
       ])
-      .where("a.tenantId = :tenantId", { tenantId })
-      .andWhere("a.decidedAt >= :since", { since })
+      .where("lot.clientId = :clientId", { clientId })
+      .andWhere("approval.decidedAt >= :since", { since })
       .getRawMany();
 
     const approvalTimes = results
-      .map((r) => parseFloat(r.approvaltimehours))
-      .filter((t) => t > 0);
+      .map((r) => Number(r.approvaltimehours))
+      .filter((t) => Number.isFinite(t) && t >= 0)
+      .sort((a, b) => a - b);
 
     if (approvalTimes.length === 0) {
       return { average: 0, p50: 0, p90: 0 };
     }
 
-    approvalTimes.sort((a, b) => a - b);
-
     const average =
       approvalTimes.reduce((sum, time) => sum + time, 0) / approvalTimes.length;
-    const p50Index = Math.floor(approvalTimes.length * 0.5);
-    const p90Index = Math.floor(approvalTimes.length * 0.9);
+    const p50Index = Math.max(0, Math.floor(approvalTimes.length * 0.5) - 1);
+    const p90Index = Math.max(0, Math.floor(approvalTimes.length * 0.9) - 1);
 
     return {
       average: Math.round(average * 100) / 100,
