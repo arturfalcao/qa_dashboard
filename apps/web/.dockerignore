@@ -1,0 +1,64 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+.next
+out
+dist
+build
+
+# Development files
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# Environment files
+.env*.local
+.env.development
+.env.test
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Testing
+coverage
+.nyc_output
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+*.md
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Next.js
+.next/cache
+.vercel
+
+# Misc
+.prettierrc
+.eslintrc*
+tsconfig.tsbuildinfo
+next-env.d.ts

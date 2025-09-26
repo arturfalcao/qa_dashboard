@@ -1,0 +1,61 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+dist
+build
+coverage
+
+# Development files
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Testing
+coverage
+.nyc_output
+.jest
+
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+*.md
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Misc
+.prettierrc
+.eslintrc*
+jest.config.js
+tsconfig.json
