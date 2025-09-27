@@ -1,6 +1,6 @@
 'use client'
 
-import { Lot } from '@qa-dashboard/shared'
+import { Lot, LotStatus } from '@qa-dashboard/shared'
 import { formatDate, getLotStatusColor, cn, formatPercentage, formatNumber } from '@/lib/utils'
 import { CheckIcon, XIcon } from 'lucide-react'
 
@@ -16,6 +16,8 @@ interface LotHeaderProps {
 export function LotHeader({ lot, canApprove, onApprove, onReject, onEdit, canEdit }: LotHeaderProps) {
   const suppliers = lot.suppliers?.slice().sort((a, b) => a.sequence - b.sequence) ?? []
   const primarySupplier = suppliers.find((supplier) => supplier.isPrimary)?.factory ?? lot.factory
+  const dppUrl = lot.dppMetadata?.publicUrl
+  const isApproved = lot.status === LotStatus.APPROVED
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -26,6 +28,16 @@ export function LotHeader({ lot, canApprove, onApprove, onReject, onEdit, canEdi
             <span className={cn('px-3 py-1 text-sm font-medium rounded-full', getLotStatusColor(lot.status))}>
               {lot.status.replace('_', ' ')}
             </span>
+            {isApproved && dppUrl && (
+              <a
+                href={dppUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+              >
+                View DPP
+              </a>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

@@ -22,6 +22,9 @@ import { SupplyChainRole } from "./entities/supply-chain-role.entity";
 import { FactoryRole } from "./entities/factory-role.entity";
 import { LotFactoryRole } from "./entities/lot-factory-role.entity";
 import { FactoryCertification } from "./entities/factory-certification.entity";
+import { Dpp } from "./entities/dpp.entity";
+import { DppEvent } from "./entities/dpp-event.entity";
+import { DppAccessLog } from "./entities/dpp-access-log.entity";
 
 import { InspectionService } from "./services/inspection.service";
 import { LotService } from "./services/lot.service";
@@ -42,6 +45,8 @@ import { ClientController } from "./controllers/client.controller";
 import { FactoryController } from "./controllers/factory.controller";
 import { SupplyChainController } from "./controllers/supply-chain.controller";
 import { StorageModule } from "../storage/storage.module";
+import { DppModule } from "../dpp/dpp.module";
+import { DppService } from "../dpp/dpp.service";
 
 @Module({
   imports: [
@@ -67,8 +72,12 @@ import { StorageModule } from "../storage/storage.module";
       AuditLog,
       Event,
       Notification,
+      Dpp,
+      DppEvent,
+      DppAccessLog,
     ]),
     StorageModule,
+    DppModule,
   ],
   providers: [
     InspectionService,
@@ -80,6 +89,7 @@ import { StorageModule } from "../storage/storage.module";
     FactoryService,
     DefectService,
     SupplyChainService,
+    DppService,
   ],
   controllers: [
     InspectionController,
@@ -101,6 +111,7 @@ import { StorageModule } from "../storage/storage.module";
     FactoryService,
     DefectService,
     SupplyChainService,
+    DppModule,
     TypeOrmModule,
   ],
 })

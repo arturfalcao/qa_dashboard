@@ -90,6 +90,24 @@ class ApiClient {
     return this.request<Inspection[]>(`/inspections?${params.toString()}`)
   }
 
+  async addDefect(
+    inspectionId: string,
+    payload: {
+      pieceCode?: string
+      note?: string
+      defectTypeId?: string
+      photos?: Array<{
+        url: string
+        annotation?: Record<string, any>
+      }>
+    }
+  ): Promise<any> {
+    return this.request(`/inspections/${inspectionId}/defects`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  }
+
   // Events
   async getEvents(since?: string, limit?: number): Promise<Event[]> {
     const params = new URLSearchParams()
@@ -377,6 +395,15 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify(request),
     })
+  }
+
+  // DPP
+  async getPublicDpp(id: string): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/dpp/${id}.json`)
+    if (!response.ok) {
+      throw new Error(`DPP not found: ${response.status}`)
+    }
+    return response.json()
   }
 
   // Admin

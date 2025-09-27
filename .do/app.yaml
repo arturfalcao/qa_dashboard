@@ -1,0 +1,73 @@
+name: qa-dashboard
+region: nyc
+
+databases:
+  - name: qa-db
+    engine: PG
+    version: "15"
+    production: true
+
+services:
+  - name: api
+    github:
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: apps/api/Dockerfile
+    http_port: 3001
+    instance_count: 1
+    instance_size_slug: basic-xs
+    routes:
+      - path: /api
+    envs:
+      - key: DATABASE_URL
+        scope: RUN_AND_BUILD_TIME
+        value: ${qa-db.DATABASE_URL}
+      - key: JWT_SECRET
+        scope: RUN_TIME
+        type: SECRET
+        value: "change-this-jwt-secret-in-production"
+      - key: JWT_REFRESH_SECRET
+        scope: RUN_TIME
+        type: SECRET
+        value: "change-this-jwt-refresh-secret-in-production"
+      - key: MINIO_ENDPOINT
+        scope: RUN_TIME
+        value: "nyc3.digitaloceanspaces.com"
+      - key: MINIO_PORT
+        scope: RUN_TIME
+        value: "443"
+      - key: MINIO_ACCESS_KEY
+        scope: RUN_TIME
+        type: SECRET
+        value: "your-spaces-access-key"
+      - key: MINIO_SECRET_KEY
+        scope: RUN_TIME
+        type: SECRET
+        value: "your-spaces-secret-key"
+      - key: MINIO_PHOTOS_BUCKET
+        scope: RUN_TIME
+        value: "pp-photos"
+      - key: MINIO_REPORTS_BUCKET
+        scope: RUN_TIME
+        value: "pp-reports"
+      - key: NODE_ENV
+        scope: RUN_TIME
+        value: "production"
+
+  - name: web
+    github:
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: apps/web/Dockerfile
+    http_port: 3000
+    instance_count: 1
+    instance_size_slug: basic-xs
+    routes:
+      - path: /
+    envs:
+      - key: NEXT_PUBLIC_API_BASE_URL
+        scope: RUN_AND_BUILD_TIME
+        value: ${api.PUBLIC_URL}
+      - key: NODE_ENV
+        scope: RUN_AND_BUILD_TIME
+        value: "production"

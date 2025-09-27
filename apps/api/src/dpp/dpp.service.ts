@@ -92,9 +92,9 @@ export class DppService {
     return dpp;
   }
 
-  async getPublicDpp(id: string): Promise<{ dpp: Dpp; publicData: any } | null> {
+  async getPublicDpp(styleRef: string): Promise<{ dpp: Dpp; publicData: any } | null> {
     const dpp = await this.dppRepository.findOne({
-      where: { id, status: DppStatus.PUBLISHED },
+      where: { styleRef, status: DppStatus.PUBLISHED },
     });
 
     if (!dpp) {

@@ -8,7 +8,7 @@ import { useAuth } from '@/components/providers/auth-provider'
 import { LotHeader } from '@/components/lots/lot-header'
 import { LotApprovalModal } from '@/components/lots/lot-approval-modal'
 import { LotFormModal } from '@/components/lots/lot-form-modal'
-import { formatDate, formatPercentage } from '@/lib/utils'
+import { formatDate, formatPercentage, formatNumber } from '@/lib/utils'
 import { SupplyChainStageStatus, UserRole, ReportType } from '@qa-dashboard/shared'
 import { ReportGenerationModal } from '@/components/reports/report-generation-modal'
 import { FileTextIcon, PlusIcon, DownloadIcon } from 'lucide-react'
@@ -176,6 +176,10 @@ export default function LotDetailPage() {
   const supplierHelper = suppliers.length > 1
     ? `${suppliers.length} factories in chain`
     : [primarySupplier?.city, primarySupplier?.country].filter(Boolean).join(', ') || '—'
+  const materialComposition = lot.materialComposition || []
+  const certifications = lot.certifications || []
+  const dppMetadata = lot.dppMetadata
+  const sustainabilityHighlights = dppMetadata?.sustainabilityHighlights || []
 
   const handleApprove = (note: string) => approveMutation.mutate(note || undefined)
   const handleReject = (note: string) => rejectMutation.mutate(note)
@@ -445,25 +449,104 @@ export default function LotDetailPage() {
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <div>
             <h3 className="text-lg font-medium text-gray-900">DPP Hub</h3>
-            <p className="text-sm text-gray-500">Key data points prepared for the EU Digital Product Passport.</p>
+            <p className="text-sm text-gray-500">
+              Traceability, sustainability and compliance data prepared for the EU Digital Product Passport.
+            </p>
           </div>
         </div>
-        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div className="border border-gray-200 rounded-lg p-4">
-            <h4 className="font-semibold text-gray-900 mb-2">Material Composition</h4>
-            <ul className="space-y-1 text-gray-600">
-              <li>• Cotton 80%</li>
-              <li>• Elastane 20%</li>
-              <li>• Dye Lot: {lot.styleRef}-D1</li>
-            </ul>
+        <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div className="border border-gray-200 rounded-lg p-4 space-y-2">
+            <h4 className="font-semibold text-gray-900">Passport Overview</h4>
+            {dppMetadata ? (
+              <div className="space-y-2 text-gray-600">
+                <p><span className="font-medium text-gray-800">ID:</span> {dppMetadata.dppId || '—'}</p>
+                <p><span className="font-medium text-gray-800">Version:</span> {dppMetadata.version || '—'}</p>
+                {dppMetadata.status && (
+                  <p>
+                    <span className="font-medium text-gray-800">Status:</span> {dppMetadata.status}
+                  </p>
+                )}
+                {dppMetadata.lastAudit && (
+                  <p>
+                    <span className="font-medium text-gray-800">Last audit:</span> {formatDate(dppMetadata.lastAudit)}
+                  </p>
+                )}
+                {typeof dppMetadata.traceabilityScore === 'number' && (
+                  <p>
+                    <span className="font-medium text-gray-800">Traceability score:</span> {formatNumber(dppMetadata.traceabilityScore)}%
+                  </p>
+                )}
+                {typeof dppMetadata.co2FootprintKg === 'number' && (
+                  <p>
+                    <span className="font-medium text-gray-800">Total CO₂:</span> {dppMetadata.co2FootprintKg.toFixed(1)} kg
+                  </p>
+                )}
+                {dppMetadata.publicUrl && (
+                  <a
+                    href={dppMetadata.publicUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center rounded-md border border-primary-200 bg-primary-50 px-3 py-1 text-xs font-medium text-primary-700 hover:bg-primary-100"
+                  >
+                    Open passport
+                  </a>
+                )}
+                {sustainabilityHighlights.length > 0 && (
+                  <div className="pt-2 border-t border-gray-200">
+                    <p className="font-medium text-gray-800">Highlights</p>
+                    <ul className="mt-1 space-y-1 text-xs text-gray-600">
+                      {sustainabilityHighlights.map((item, index) => (
+                        <li key={`${item}-${index}`}>• {item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-gray-500">Passport data not captured yet.</p>
+            )}
           </div>
-          <div className="border border-gray-200 rounded-lg p-4">
-            <h4 className="font-semibold text-gray-900 mb-2">Certifications</h4>
-            <ul className="space-y-1 text-gray-600">
-              <li>• OEKO-TEX Standard 100</li>
-              <li>• GRS Certified Yarn</li>
-              <li>• Audit Link: #{approvals[0]?.id || 'pending'}</li>
-            </ul>
+          <div className="border border-gray-200 rounded-lg p-4 space-y-2">
+            <h4 className="font-semibold text-gray-900">Material Composition</h4>
+            {materialComposition.length > 0 ? (
+              <ul className="space-y-1 text-gray-600">
+                {materialComposition.map((component, index) => (
+                  <li key={`${component.fiber}-${index}`}>
+                    • {component.fiber} {component.percentage}%
+                    {component.properties?.region && ` · ${component.properties.region}`}
+                  </li>
+                ))}
+                {lot.dyeLot && <li>• Dye lot: {lot.dyeLot}</li>}
+              </ul>
+            ) : (
+              <p className="text-gray-500">Awaiting material breakdown from suppliers.</p>
+            )}
+          </div>
+          <div className="border border-gray-200 rounded-lg p-4 space-y-2">
+            <h4 className="font-semibold text-gray-900">Certifications</h4>
+            {certifications.length > 0 ? (
+              <ul className="space-y-1 text-gray-600">
+                {certifications.map((cert, index) => (
+                  <li key={`${cert.type}-${index}`}>
+                    • {cert.type.replace(/_/g, ' ')}
+                    {cert.number && ` · ${cert.number}`}
+                    {cert.validUntil && ` · valid until ${formatDate(cert.validUntil)}`}
+                    {cert.auditLink && (
+                      <a
+                        href={cert.auditLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-2 text-primary-600 hover:text-primary-700"
+                      >
+                        audit
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-gray-500">Add supplier certifications to unlock the DPP.</p>
+            )}
           </div>
         </div>
       </section>

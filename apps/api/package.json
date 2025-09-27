@@ -31,7 +31,7 @@
     "@nestjs/platform-express": "^10.0.0",
     "@nestjs/swagger": "^7.0.0",
     "@nestjs/typeorm": "^10.0.0",
-    "@qa-dashboard/shared": "*",
+    "@qa-dashboard/shared": "workspace:*",
     "@puppeteer/browsers": "^1.9.1",
     "@types/qrcode": "^1.5.5",
     "bcryptjs": "^2.4.3",

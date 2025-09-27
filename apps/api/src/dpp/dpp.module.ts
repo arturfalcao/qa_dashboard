@@ -13,6 +13,6 @@ import { Lot } from "../database/entities/lot.entity";
   ],
   controllers: [DppController],
   providers: [DppService],
-  exports: [DppService],
+  exports: [DppService, TypeOrmModule],
 })
 export class DppModule {}

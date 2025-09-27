@@ -16,13 +16,11 @@ export class AdminController {
     return {
       message: "Database seeded successfully",
       credentials: {
-        "Client A (Hey Marly)": {
-          admin: "admin@marly.example / demo1234",
-          viewer: "viewer@marly.example / demo1234",
-        },
-        "Client B (Sample Brand)": {
-          admin: "admin@brand.example / demo1234",
-          viewer: "viewer@brand.example / demo1234",
+        "PA&CO Luxury Manufacturing": {
+          admin: "carlos.martins@paco.example / demo1234",
+          operations: "joana.costa@paco.example / demo1234",
+          clevel: "ines.azevedo@paco.example / demo1234",
+          viewer: "miguel.lopes@paco.example / demo1234",
         },
       },
     };

@@ -128,7 +128,7 @@ export class DppController {
     }
 
     // Log public access
-    await this.dppService.logAccess(id, DppAccessView.PUBLIC, {
+    await this.dppService.logAccess(result.dpp.id, DppAccessView.PUBLIC, {
       ip,
       userAgent,
       endpoint: req.url,
@@ -158,7 +158,7 @@ export class DppController {
     }
 
     // Log public access
-    await this.dppService.logAccess(id, DppAccessView.PUBLIC, {
+    await this.dppService.logAccess(result.dpp.id, DppAccessView.PUBLIC, {
       ip,
       userAgent,
       endpoint: req.url,
@@ -215,7 +215,7 @@ export class DppController {
     }
 
     // Log public access
-    await this.dppService.logAccess(id, DppAccessView.PUBLIC, {
+    await this.dppService.logAccess(result.dpp.id, DppAccessView.PUBLIC, {
       ip,
       userAgent,
       endpoint: req.url,

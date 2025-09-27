@@ -7,6 +7,7 @@ import { Client } from "../entities/client.entity";
 import { User } from "../entities/user.entity";
 import { Factory } from "../entities/factory.entity";
 import { Lot } from "../entities/lot.entity";
+import { Event } from "../entities/event.entity";
 import { Inspection } from "../entities/inspection.entity";
 import { Defect } from "../entities/defect.entity";
 import { Photo } from "../entities/photo.entity";
@@ -18,11 +19,16 @@ import { LotFactory } from "../entities/lot-factory.entity";
 import { LotFactoryRole } from "../entities/lot-factory-role.entity";
 import { SupplyChainRole } from "../entities/supply-chain-role.entity";
 import { FactoryRole } from "../entities/factory-role.entity";
+import { FactoryCertification } from "../entities/factory-certification.entity";
+import { Dpp, DppStatus } from "../entities/dpp.entity";
+import { DppService } from "../../dpp/dpp.service";
+import { CreateDppDto } from "../../dpp/dpp-schemas";
 import {
   UserRole,
   LotStatus,
   ApprovalDecision,
   SupplyChainStageStatus,
+  EventType,
 } from "@qa-dashboard/shared";
 
 interface SeedUser {
@@ -36,6 +42,9 @@ interface SeedLotSupplierRole {
   co2Kg?: number;
   notes?: string;
   sequence?: number;
+  status?: SupplyChainStageStatus;
+  startedAt?: Date;
+  completedAt?: Date;
 }
 
 interface SeedLotSupplier {
@@ -54,6 +63,20 @@ interface SeedLot {
   status: LotStatus;
   defectRate: number;
   inspectedProgress: number;
+  materialComposition?: Array<{
+    fiber: string;
+    percentage: number;
+    properties?: Record<string, any>;
+  }>;
+  dyeLot?: string;
+  certifications?: Array<{
+    type: string;
+    number?: string;
+    auditLink?: string;
+    validUntil?: string;
+    issuer?: string;
+  }>;
+  dppMetadata?: Record<string, any>;
   approvals?: {
     approvedByEmail: string;
     decision: ApprovalDecision;
@@ -74,148 +97,290 @@ interface SeedLot {
 
 const CLIENTS = [
   {
-    id: "11111111-1111-1111-1111-111111111111",
-    name: "Hey Marly",
-    slug: "heymarly",
-    logoUrl: null,
-  },
-  {
-    id: "22222222-2222-2222-2222-222222222222",
-    name: "Sample Brand",
-    slug: "samplebrand",
-    logoUrl: null,
+    id: "6f16b1f3-6cd8-4b1b-a4f4-17c4a9d7c6c0",
+    name: "PA&CO Luxury Manufacturing",
+    slug: "paco",
+    logoUrl: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=320&h=320&fit=crop",
   },
 ];
 
-const FACTORIES = [
+const FACTORIES: Array<{
+  name: string;
+  city: string;
+  country: string;
+  clientSlug: string;
+  roles: string[];
+  certifications?: string[];
+}> = [
   {
-    name: "Florence Factory",
+    name: "Vale do Ave Fibre Hub",
     city: "Guimarães",
     country: "PT",
-    clientSlug: "heymarly",
+    clientSlug: "paco",
     roles: [
-      "fibre-prep",
-      "dyeing",
-      "cutting",
-      "sewing",
-      "quality",
-      "packaging",
+      "FIBER_PREP",
+      "FABRIC_DYE_FINISH",
+      "FABRIC_WASH_PREP",
+      "FABRIC_INSPECTION_RELAX",
+      "FABRIC_LAB_TEST",
     ],
+    certifications: ["GOTS", "ISO_14001"],
   },
   {
-    name: "Atlantic Apparel",
+    name: "Braga Cutting & Assembly",
     city: "Braga",
     country: "PT",
-    clientSlug: "heymarly",
+    clientSlug: "paco",
     roles: [
-      "sewing",
-      "quality",
-      "laundry",
-      "packaging",
-      "logistics",
+      "PATTERN_GRADING",
+      "MARKER_CUTTING",
+      "EMBROIDERY_APPLIQUE_LASER",
+      "BUNDLING_SEWING",
+      "INLINE_QC",
+      "TRIMS_EMBELLISH",
     ],
+    certifications: ["OEKO_TEX_STANDARD_100", "AMFORI_BSCI"],
   },
   {
-    name: "Lusitano Textiles",
+    name: "Vizela Laundry & Finishing",
+    city: "Vizela",
+    country: "PT",
+    clientSlug: "paco",
+    roles: [
+      "SCREEN_PRINTING",
+      "HEAT_TRANSFER",
+      "GARMENT_WASH_SOFTEN",
+      "IRON_PRESS_DETHREAD",
+      "NEEDLE_METAL_DETECT",
+    ],
+    certifications: ["GRS", "BLUESIGN"],
+  },
+  {
+    name: "Porto Atelier & QA Lab",
     city: "Porto",
     country: "PT",
-    clientSlug: "samplebrand",
+    clientSlug: "paco",
     roles: [
-      "fibre-prep",
-      "dyeing",
-      "cutting",
-      "sewing",
-      "quality",
-      "logistics",
+      "BUNDLING_SEWING",
+      "INLINE_QC",
+      "TRIMS_EMBELLISH",
+      "FINAL_QA",
+      "DOCUMENTATION_DPP",
     ],
+    certifications: ["GOTS", "OEKO_TEX_STANDARD_100"],
+  },
+  {
+    name: "Lisbon Logistics Center",
+    city: "Lisboa",
+    country: "PT",
+    clientSlug: "paco",
+    roles: [
+      "PACK_TAG_BAG",
+      "WAREHOUSE_LOGISTICS",
+      "SUSTAINABILITY_TRACK",
+      "DOCUMENTATION_DPP",
+    ],
+    certifications: ["RCS", "ISO_14001"],
   },
 ];
 
 const SUPPLY_CHAIN_ROLE_SEEDS = [
   {
-    key: "fibre-prep",
+    key: "FIBER_PREP",
     name: "Fiber Preparation",
-    description: "Raw material sourcing, spinning or knitting base fabrics",
-    defaultSequence: 0,
+    description: "Raw material preparation, spinning and greige knitting",
+    defaultSequence: 10,
     defaultCo2Kg: 12.5,
   },
   {
-    key: "dyeing",
-    name: "Dyeing & Finishing",
-    description: "Fabric dyeing, finishing and treatments",
-    defaultSequence: 1,
+    key: "FABRIC_DYE_FINISH",
+    name: "Fabric Dye & Finish",
+    description: "Piece dyeing, finishing and chemical treatments",
+    defaultSequence: 20,
     defaultCo2Kg: 7.1,
   },
   {
-    key: "cutting",
-    name: "Cutting",
-    description: "Cutting and marker optimization",
-    defaultSequence: 2,
-    defaultCo2Kg: 4.2,
+    key: "FABRIC_WASH_PREP",
+    name: "Fabric Wash & Prep",
+    description: "Pre-wash, softening and shrink control on fabric rolls",
+    defaultSequence: 30,
+    defaultCo2Kg: 4.3,
   },
   {
-    key: "sewing",
-    name: "Sewing",
-    description: "Assembly and stitching of the garment",
-    defaultSequence: 3,
-    defaultCo2Kg: 6.8,
+    key: "FABRIC_INSPECTION_RELAX",
+    name: "Fabric Inspection & Relax",
+    description: "Relaxation, defect scanning and shade control",
+    defaultSequence: 40,
+    defaultCo2Kg: 1.6,
   },
   {
-    key: "laundry",
-    name: "Laundry & Washing",
-    description: "Laundry, washing and pre-shrink steps",
-    defaultSequence: 4,
-    defaultCo2Kg: 3.4,
+    key: "PATTERN_GRADING",
+    name: "Pattern & Grading",
+    description: "Digital grading, marker making and fit validation",
+    defaultSequence: 50,
+    defaultCo2Kg: 0.9,
   },
   {
-    key: "quality",
-    name: "Quality Control",
-    description: "Final inspection and QA activities",
-    defaultSequence: 5,
-    defaultCo2Kg: 1.9,
+    key: "MARKER_CUTTING",
+    name: "Marker Cutting",
+    description: "Automated cutting, bundling and lay efficiency",
+    defaultSequence: 60,
+    defaultCo2Kg: 2.4,
   },
   {
-    key: "packaging",
-    name: "Packaging",
-    description: "Final folding, packing and boxing",
-    defaultSequence: 6,
+    key: "EMBROIDERY_APPLIQUE_LASER",
+    name: "Embroidery & Laser",
+    description: "Value-add surface treatments pre-assembly",
+    defaultSequence: 70,
+    defaultCo2Kg: 3.2,
+  },
+  {
+    key: "BUNDLING_SEWING",
+    name: "Bundling & Sewing",
+    description: "Assembly lines, hand stitching and QC gates",
+    defaultSequence: 80,
+    defaultCo2Kg: 6.5,
+  },
+  {
+    key: "INLINE_QC",
+    name: "Inline QC",
+    description: "Needle guards, inline checkpoints and torque tests",
+    defaultSequence: 90,
     defaultCo2Kg: 1.1,
   },
   {
-    key: "logistics",
-    name: "Inbound Logistics",
-    description: "Transport between factories and to the distribution hub",
-    defaultSequence: 7,
-    defaultCo2Kg: 8.6,
+    key: "SCREEN_PRINTING",
+    name: "Screen Printing",
+    description: "Silk-screen printing, colour matching and curing",
+    defaultSequence: 100,
+    defaultCo2Kg: 4.6,
+  },
+  {
+    key: "HEAT_TRANSFER",
+    name: "Heat Transfer",
+    description: "Labels, foils and heat-sealed trims",
+    defaultSequence: 110,
+    defaultCo2Kg: 2.1,
+  },
+  {
+    key: "SUBLIMATION",
+    name: "Sublimation",
+    description: "All-over sublimation printing for performance textiles",
+    defaultSequence: 120,
+    defaultCo2Kg: 4.1,
+  },
+  {
+    key: "DIGITAL_PRINTING",
+    name: "Digital Printing",
+    description: "Direct-to-garment or transfer printing",
+    defaultSequence: 130,
+    defaultCo2Kg: 3.3,
+  },
+  {
+    key: "TRIMS_EMBELLISH",
+    name: "Trims & Embellishment",
+    description: "Hand-applied trims, beadwork and finishes",
+    defaultSequence: 140,
+    defaultCo2Kg: 1.8,
+  },
+  {
+    key: "GARMENT_WASH_SOFTEN",
+    name: "Garment Wash & Soften",
+    description: "Enzyme wash, softening and post-sew finishing",
+    defaultSequence: 150,
+    defaultCo2Kg: 2.7,
+  },
+  {
+    key: "FINAL_QA",
+    name: "Final QA",
+    description: "Lot audit, measurement verification and AQL",
+    defaultSequence: 160,
+    defaultCo2Kg: 0.9,
+  },
+  {
+    key: "IRON_PRESS_DETHREAD",
+    name: "Iron, Press & Dethread",
+    description: "Pressing, steaming and final thread removal",
+    defaultSequence: 170,
+    defaultCo2Kg: 0.7,
+  },
+  {
+    key: "NEEDLE_METAL_DETECT",
+    name: "Needle & Metal Detection",
+    description: "Needle detection and safety scanning",
+    defaultSequence: 180,
+    defaultCo2Kg: 0.5,
+  },
+  {
+    key: "PACK_TAG_BAG",
+    name: "Pack, Tag & Bag",
+    description: "Folding, tagging, polybagging and kit completion",
+    defaultSequence: 190,
+    defaultCo2Kg: 0.8,
+  },
+  {
+    key: "WAREHOUSE_LOGISTICS",
+    name: "Warehouse & Logistics",
+    description: "Consolidation, palletising and outbound logistics",
+    defaultSequence: 200,
+    defaultCo2Kg: 5.6,
+  },
+  {
+    key: "FABRIC_LAB_TEST",
+    name: "Fabric Lab Testing",
+    description: "Physical and chemical lab testing for fabric",
+    defaultSequence: 905,
+    defaultCo2Kg: 0.4,
+  },
+  {
+    key: "FUNCTIONAL_COATING",
+    name: "Functional Coating",
+    description: "Waterproofing, anti-bacterial or performance coatings",
+    defaultSequence: 910,
+    defaultCo2Kg: 2.7,
+  },
+  {
+    key: "REGULATORY_CHECKS",
+    name: "Regulatory Checks",
+    description: "Product safety, restricted substances and compliance",
+    defaultSequence: 920,
+    defaultCo2Kg: 0.3,
+  },
+  {
+    key: "SUSTAINABILITY_TRACK",
+    name: "Sustainability Tracking",
+    description: "Carbon accounting and ESG evidence capture",
+    defaultSequence: 930,
+    defaultCo2Kg: 0.2,
+  },
+  {
+    key: "DOCUMENTATION_DPP",
+    name: "Documentation & DPP",
+    description: "Final passport data assembly and customer hand-off",
+    defaultSequence: 940,
+    defaultCo2Kg: 0.2,
   },
 ];
 
 const USERS: Record<string, SeedUser[]> = {
-  heymarly: [
+  paco: [
     {
-      email: "admin@marly.example",
+      email: "carlos.martins@paco.example",
       password: "demo1234",
       roles: [UserRole.ADMIN, UserRole.OPS_MANAGER],
     },
     {
-      email: "viewer@marly.example",
-      password: "demo1234",
-      roles: [UserRole.CLIENT_VIEWER],
-    },
-    {
-      email: "clevel@marly.example",
+      email: "ines.azevedo@paco.example",
       password: "demo1234",
       roles: [UserRole.CLEVEL],
     },
-  ],
-  samplebrand: [
     {
-      email: "admin@brand.example",
+      email: "joana.costa@paco.example",
       password: "demo1234",
-      roles: [UserRole.ADMIN, UserRole.OPS_MANAGER],
+      roles: [UserRole.OPS_MANAGER],
     },
     {
-      email: "viewer@brand.example",
+      email: "miguel.lopes@paco.example",
       password: "demo1234",
       roles: [UserRole.CLIENT_VIEWER],
     },
@@ -235,199 +400,767 @@ const DEFECT_TYPES = [
 ];
 
 const PHOTO_POOL = [
-  "https://images.unsplash.com/photo-1521579777140-6a5b6c1f1135?w=800&h=600&fit=crop", // Textile close-up
-  "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?w=800&h=600&fit=crop", // Clothing details
-  "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=800&h=600&fit=crop", // Fabric texture
-  "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=600&fit=crop", // Garment manufacturing
-  "https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=800&h=600&fit=crop", // Sewing details
-  "https://images.unsplash.com/photo-1544966503-7cc5ac882d5f?w=800&h=600&fit=crop", // Quality inspection
-  "https://images.unsplash.com/photo-1445205170230-053b83016050?w=800&h=600&fit=crop", // Factory worker
-  "https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=800&h=600&fit=crop", // Fabric rolls
-  "https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=800&h=600&fit=crop", // Textile machinery
-  "https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=800&h=600&fit=crop", // Clothing rack
-];
-
-const STYLE_PREFIXES = ["HM", "SB", "LX", "AT", "FL"];
-const SEASONS = ["SS", "AW", "FW"];
-const YEARS = ["24", "25"];
-const DEFECT_NOTES = [
-  "Minor stitch tension variance - within acceptable range",
-  "Small fabric inconsistency on back panel",
-  "Print alignment slightly off center",
-  "Buttonhole too tight for standard button",
-  "Seam puckering on shoulder",
-  "Color bleeding on wash test",
-  "Zipper malfunction - won't stay closed",
-  "Excessive loose threads",
-  "Minor measurement variance - within tolerance",
-  "Thread color mismatch",
-  "Fabric pilling detected",
-  "Loose button attachment",
-  "Uneven hem alignment",
-  "Small tear in fabric",
-  "Label placement incorrect"
+  "https://images.unsplash.com/photo-1596727147705-61a532a659bd?w=1200&h=900&fit=crop", // Indigo dye bath detail
+  "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=1200&h=900&fit=crop", // Luxury atelier finishing neckline
+  "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=1200&h=900&fit=crop", // Premium tailoring close-up
+  "https://images.unsplash.com/photo-1618337587011-3fb44e40f6f3?w=1200&h=900&fit=crop", // Needle detection control
+  "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=1200&h=900&fit=crop", // Measuring seam allowance
+  "https://images.unsplash.com/photo-1550831106-0994e11a06b7?w=1200&h=900&fit=crop", // Inline QC with clipboard
+  "https://images.unsplash.com/photo-1521572163474-a839d81e12c1?w=1200&h=900&fit=crop", // Hand-stitched embellishment
+  "https://images.unsplash.com/photo-1582719478250-bd35fa037f73?w=1200&h=900&fit=crop", // Pressing and finishing line
+  "https://images.unsplash.com/photo-1564489563601-9b5a0e671ce2?w=1200&h=900&fit=crop", // Sustainability analytics on tablet
+  "https://images.unsplash.com/photo-1578768079051-9b5c2ef5d44f?w=1200&h=900&fit=crop", // Fabric inventory wall
+  "https://images.unsplash.com/photo-1542293787938-4d2226c24d4c?w=1200&h=900&fit=crop", // Screen printing luxury motif
+  "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1200&h=900&fit=crop", // QA instrumentation desk
+  "https://images.unsplash.com/photo-1582719478489-99c8ed571edc?w=1200&h=900&fit=crop", // Lab testing swatches
+  "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=1200&h=900&fit=crop", // Luxury garment rack ready for shipment
+  "https://images.unsplash.com/photo-1618354691437-1d4481a0e327?w=1200&h=900&fit=crop", // Sustainability dashboard monitoring
 ];
 
 function getRandomPhotos(count: number = 1): string[] {
   const shuffled = [...PHOTO_POOL].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, Math.min(count, PHOTO_POOL.length));
 }
-
-function getRandomStyleRef(clientSlug: string): string {
-  const prefix = clientSlug === "heymarly" ? "HM" : "SB";
-  const season = SEASONS[Math.floor(Math.random() * SEASONS.length)];
-  const year = YEARS[Math.floor(Math.random() * YEARS.length)];
-  const num = String(Math.floor(Math.random() * 999) + 1).padStart(3, '0');
-  return `${prefix}-${season}${year}-${num}`;
-}
-
-function getRandomDefectNote(): string {
-  return DEFECT_NOTES[Math.floor(Math.random() * DEFECT_NOTES.length)];
-}
-
-function getRandomDate(daysAgo: number): Date {
-  const now = Date.now();
-  const randomOffset = Math.random() * daysAgo * 24 * 60 * 60 * 1000;
-  return new Date(now - randomOffset);
-}
-
-function generateRandomLots(): SeedLot[] {
-  const lotCount = Math.floor(Math.random() * 8) + 12; // 12-19 lots
-  const lots: SeedLot[] = [];
-  const usedStyleRefs = new Set<string>();
-
-  for (let i = 0; i < lotCount; i++) {
-    const clientSlug = Math.random() > 0.6 ? "heymarly" : "samplebrand";
-    const factoryName = clientSlug === "heymarly"
-      ? (Math.random() > 0.5 ? "Florence Factory" : "Atlantic Apparel")
-      : "Lusitano Textiles";
-
-    let styleRef: string;
-    do {
-      styleRef = getRandomStyleRef(clientSlug);
-    } while (usedStyleRefs.has(styleRef));
-    usedStyleRefs.add(styleRef);
-
-    const status = getRandomLotStatus();
-    const quantityTotal = Math.floor(Math.random() * 800) + 200; // 200-999
-    const defectRate = status === LotStatus.PLANNED ? 0 : Math.random() * 10;
-    const inspectedProgress = status === LotStatus.PLANNED ? 0 :
-      status === LotStatus.INSPECTION ? Math.floor(Math.random() * 80) + 20 : 100;
-
-    const lot: SeedLot = {
-      clientSlug,
-      factories: [{
-        name: factoryName,
+const CURATED_LOTS: SeedLot[] = [
+  {
+    clientSlug: "paco",
+    styleRef: "PA-SS25-CAPRI",
+    quantityTotal: 420,
+    status: LotStatus.IN_PRODUCTION,
+    defectRate: 1.8,
+    inspectedProgress: 62.5,
+    materialComposition: [
+      {
+        fiber: "Organic Cotton (GOTS)",
+        percentage: 92,
+        properties: { region: "Vale do Ave", certification: "GOTS" },
+      },
+      {
+        fiber: "Regenerated Elastane",
+        percentage: 8,
+        properties: { supplier: "Northern Portugal" },
+      },
+    ],
+    dyeLot: "INDIGO-CAPRI-07",
+    certifications: [
+      { type: "GOTS", number: "GOTS-PT-2219", issuer: "Control Union" },
+      { type: "OEKO_TEX_STANDARD_100", number: "2025OK8901", issuer: "OEKO-TEX" },
+    ],
+    dppMetadata: {
+      dppId: "DPP-PA-SS25-CAPRI",
+      version: "0.7-draft",
+      status: "material-stage",
+      publicUrl: "http://localhost:3000/dpp/PA-SS25-CAPRI",
+      lastAudit: "2025-07-10T14:30:00Z",
+      traceabilityScore: 88,
+      co2FootprintKg: 1860,
+      sustainabilityHighlights: [
+        "GOTS-certified cotton prepared with 40% water reuse",
+        "Real-time CO₂ capture feeding PA&CO ESG dashboard",
+      ],
+    },
+    factories: [
+      {
+        name: "Vale do Ave Fibre Hub",
+        stage: "Organic cotton prep & indigo approval",
+        roles: [
+          {
+            key: "FIBER_PREP",
+            co2Kg: 11.8,
+            notes: "Lot A45 humidity balanced and contamination screened",
+            status: SupplyChainStageStatus.COMPLETED,
+            startedAt: new Date("2025-07-01T08:15:00Z"),
+            completedAt: new Date("2025-07-06T18:30:00Z"),
+          },
+          {
+            key: "FABRIC_DYE_FINISH",
+            co2Kg: 6.9,
+            notes: "Low-liquor indigo bath – Capri blue shade",
+            status: SupplyChainStageStatus.COMPLETED,
+            startedAt: new Date("2025-07-07T07:40:00Z"),
+            completedAt: new Date("2025-07-09T19:10:00Z"),
+          },
+          {
+            key: "FABRIC_INSPECTION_RELAX",
+            co2Kg: 1.2,
+            notes: "Shade banding < DeltaE 0.8",
+            status: SupplyChainStageStatus.COMPLETED,
+            startedAt: new Date("2025-07-10T09:00:00Z"),
+            completedAt: new Date("2025-07-10T14:30:00Z"),
+          },
+        ],
+      },
+      {
+        name: "Braga Cutting & Assembly",
+        stage: "Marker optimisation & pilot assembly",
         isPrimary: true,
-        stage: getRandomStage(),
-        roles: getRandomFactoryRoles()
-      }],
-      styleRef,
-      quantityTotal,
-      status,
-      defectRate,
-      inspectedProgress,
-      inspections: status !== LotStatus.PLANNED ? generateRandomInspections(clientSlug, styleRef) : []
-    };
+        roles: [
+          {
+            key: "PATTERN_GRADING",
+            co2Kg: 0.8,
+            notes: "Digital fit aligned to Milan run-of-show size curve",
+            status: SupplyChainStageStatus.COMPLETED,
+            startedAt: new Date("2025-07-11T08:20:00Z"),
+            completedAt: new Date("2025-07-11T17:10:00Z"),
+          },
+          {
+            key: "MARKER_CUTTING",
+            co2Kg: 3.9,
+            notes: "Gerber efficiency 89%, waste tracked in PowerBI",
+            status: SupplyChainStageStatus.IN_PROGRESS,
+            startedAt: new Date("2025-07-12T08:20:00Z"),
+          },
+          {
+            key: "BUNDLING_SEWING",
+            co2Kg: 6.6,
+            notes: "Luxury piping attachment – 3 needle positions",
+            status: SupplyChainStageStatus.NOT_STARTED,
+          },
+          {
+            key: "INLINE_QC",
+            co2Kg: 1.1,
+            notes: "Inline QC gate every 25 units",
+            status: SupplyChainStageStatus.NOT_STARTED,
+          },
+        ],
+      },
+      {
+        name: "Vizela Laundry & Finishing",
+        stage: "Print lab prep & enzyme booking",
+        roles: [
+          {
+            key: "SCREEN_PRINTING",
+            co2Kg: 4.4,
+            notes: "Metallic crest screens ready, awaiting sew-off",
+            status: SupplyChainStageStatus.NOT_STARTED,
+          },
+          {
+            key: "GARMENT_WASH_SOFTEN",
+            co2Kg: 2.9,
+            notes: "Enzyme soft wash scheduled post sewing",
+            status: SupplyChainStageStatus.NOT_STARTED,
+          },
+          {
+            key: "IRON_PRESS_DETHREAD",
+            co2Kg: 0.6,
+            notes: "Steam tunnels reserved for 21 July",
+            status: SupplyChainStageStatus.NOT_STARTED,
+          },
+        ],
+      },
+      {
+        name: "Lisbon Logistics Center",
+        stage: "Export consolidation",
+        roles: [
+          {
+            key: "PACK_TAG_BAG",
+            co2Kg: 0.9,
+            notes: "White tissue + hanger kit reserved",
+            status: SupplyChainStageStatus.NOT_STARTED,
+          },
+          {
+            key: "WAREHOUSE_LOGISTICS",
+            co2Kg: 5.2,
+            notes: "Air consolidation to Milan Fashion Week",
+            status: SupplyChainStageStatus.NOT_STARTED,
+          },
+          {
+            key: "DOCUMENTATION_DPP",
+            co2Kg: 0.2,
+            notes: "Awaiting inline QC evidence",
+            status: SupplyChainStageStatus.NOT_STARTED,
+          },
+        ],
+      },
+    ],
+    inspections: [
+      {
+        inspectorEmail: "joana.costa@paco.example",
+        startedAt: new Date("2025-07-14T09:30:00Z"),
+        finishedAt: new Date("2025-07-14T12:00:00Z"),
+        defects: [
+          {
+            pieceCode: "CAPRI-047",
+            note: "Seam overlock tension tightened by 0.2Nm",
+            defectTypeName: "Stitching",
+            photos: getRandomPhotos(2),
+          },
+          {
+            pieceCode: "CAPRI-052",
+            note: "Replaced zipper puller with rhodium-plated batch",
+            defectTypeName: "Hardware Issue",
+            photos: getRandomPhotos(1),
+          },
+        ],
+      },
+    ],
+  },
+  {
+    clientSlug: "paco",
+    styleRef: "PA-SS25-PORTO-LINEN",
+    quantityTotal: 320,
+    status: LotStatus.PENDING_APPROVAL,
+    defectRate: 0.7,
+    inspectedProgress: 100,
+    materialComposition: [
+      {
+        fiber: "Belgian Linen",
+        percentage: 96,
+        properties: { region: "Flanders", process: "dew-retted" },
+      },
+      {
+        fiber: "Peace Silk Lining",
+        percentage: 4,
+        properties: { certification: "GRS" },
+      },
+    ],
+    dyeLot: "LINEN-IVORY-03",
+    certifications: [
+      {
+        type: "GRS",
+        number: "GRS-PT-1176",
+        issuer: "Textile Exchange",
+        validUntil: "2026-02-01T00:00:00Z",
+      },
+      {
+        type: "AMFORI_BSCI",
+        number: "BSCI-PT-7788",
+      },
+    ],
+    dppMetadata: {
+      dppId: "DPP-PA-SS25-PORTO-LINEN",
+      version: "1.0-rc",
+      status: "ready-for-signoff",
+      publicUrl: "http://localhost:3000/dpp/PA-SS25-PORTO-LINEN",
+      lastAudit: "2025-06-18T13:10:00Z",
+      traceabilityScore: 94,
+      co2FootprintKg: 1420,
+      sustainabilityHighlights: [
+        "Closed-loop water recycling on linen bleaching",
+        "Digital passport already pre-validated for Gruppo Florence",
+      ],
+    },
+    factories: [
+      {
+        name: "Vale do Ave Fibre Hub",
+        stage: "Linen yarn bleaching & lab approval",
+        roles: [
+          {
+            key: "FIBER_PREP",
+            co2Kg: 10.4,
+            notes: "Flax fibre combing + humidity conditioning",
+            status: SupplyChainStageStatus.COMPLETED,
+            startedAt: new Date("2025-05-28T07:45:00Z"),
+            completedAt: new Date("2025-06-04T17:20:00Z"),
+          },
+          {
+            key: "FABRIC_DYE_FINISH",
+            co2Kg: 5.6,
+            notes: "Plant-based ivory dye run with pH buffered",
+            status: SupplyChainStageStatus.COMPLETED,
+            startedAt: new Date("2025-06-05T08:10:00Z"),
+            completedAt: new Date("2025-06-06T19:00:00Z"),
+          },
+          {
+            key: "FABRIC_WASH_PREP",
+            co2Kg: 4.8,
+            notes: "Relaxation tunnel 48h",
+            status: SupplyChainStageStatus.COMPLETED,
+            startedAt: new Date("2025-06-07T06:20:00Z"),
+            completedAt: new Date("2025-06-08T18:00:00Z"),
+          },
+          {
+            key: "FABRIC_LAB_TEST",
+            co2Kg: 0.5,
+            notes: "Colour deltaE 0.7 vs golden sample",
+            status: SupplyChainStageStatus.COMPLETED,
+            startedAt: new Date("2025-06-09T09:00:00Z"),
+            completedAt: new Date("2025-06-09T12:45:00Z"),
+          },
+        ],
+      },
+      {
+        name: "Porto Atelier & QA Lab",
+        stage: "Hand-finishing & embellishment",
+        isPrimary: true,
+        roles: [
+          {
+            key: "BUNDLING_SEWING",
+            co2Kg: 6.2,
+            notes: "Hand-rolled lapel & AMF stitching",
+            status: SupplyChainStageStatus.COMPLETED,
+            startedAt: new Date("2025-06-10T08:00:00Z"),
+            completedAt: new Date("2025-06-15T18:10:00Z"),
+          },
+          {
+            key: "TRIMS_EMBELLISH",
+            co2Kg: 1.4,
+            notes: "Mother of pearl buttons with laser engraving",
+            status: SupplyChainStageStatus.COMPLETED,
+            startedAt: new Date("2025-06-16T08:30:00Z"),
+            completedAt: new Date("2025-06-17T15:00:00Z"),
+          },
+          {
+            key: "FINAL_QA",
+            co2Kg: 0.9,
+            notes: "100% inline QC — no critical defects",
+            status: SupplyChainStageStatus.COMPLETED,
+            startedAt: new Date("2025-06-18T09:15:00Z"),
+            completedAt: new Date("2025-06-18T14:20:00Z"),
+          },
+          {
+            key: "DOCUMENTATION_DPP",
+            co2Kg: 0.2,
+            notes: "Digital passport compiled for PA&CO board",
+            status: SupplyChainStageStatus.COMPLETED,
+            startedAt: new Date("2025-06-18T15:10:00Z"),
+            completedAt: new Date("2025-06-18T16:45:00Z"),
+          },
+        ],
+      },
+      {
+        name: "Lisbon Logistics Center",
+        stage: "Export staging",
+        roles: [
+          {
+            key: "PACK_TAG_BAG",
+            co2Kg: 0.8,
+            notes: "Sustainable hanger sets + recycled tissue",
+            status: SupplyChainStageStatus.COMPLETED,
+            startedAt: new Date("2025-06-19T08:30:00Z"),
+            completedAt: new Date("2025-06-19T12:45:00Z"),
+          },
+          {
+            key: "WAREHOUSE_LOGISTICS",
+            co2Kg: 4.8,
+            notes: "Temperature-controlled transport booked for Milan",
+            status: SupplyChainStageStatus.COMPLETED,
+            startedAt: new Date("2025-06-20T07:10:00Z"),
+            completedAt: new Date("2025-06-20T11:30:00Z"),
+          },
+        ],
+      },
+    ],
+    inspections: [
+      {
+        inspectorEmail: "joana.costa@paco.example",
+        startedAt: new Date("2025-06-18T08:00:00Z"),
+        finishedAt: new Date("2025-06-18T12:15:00Z"),
+        defects: [
+          {
+            pieceCode: "LINEN-112",
+            note: "Resewn armhole pick stitch for symmetry",
+            defectTypeName: "Stitching",
+            photos: getRandomPhotos(2),
+          },
+          {
+            pieceCode: "LINEN-145",
+            note: "Pressed out micro-crease on lapel facing",
+            defectTypeName: "Fabric Defect",
+            photos: getRandomPhotos(1),
+          },
+        ],
+      },
+    ],
+  },
+  {
+    clientSlug: "paco",
+    styleRef: "PA-FW24-BLACK-TUX",
+    quantityTotal: 180,
+    status: LotStatus.APPROVED,
+    defectRate: 0.4,
+    inspectedProgress: 100,
+    materialComposition: [
+      {
+        fiber: "Super 150s Merino Wool",
+        percentage: 88,
+        properties: { region: "Biella", micron: 17.5 },
+      },
+      {
+        fiber: "Mulberry Silk Lapel",
+        percentage: 12,
+        properties: { finish: "gloss", supplier: "Porto Atelier & QA Lab" },
+      },
+    ],
+    dyeLot: "NOIR-ATELIER-11",
+    certifications: [
+      { type: "ISO_14001", issuer: "DNV" },
+      { type: "AMFORI_BSCI", number: "BSCI-PT-5511" },
+    ],
+    dppMetadata: {
+      dppId: "DPP-PA-FW24-BLACK-TUX",
+      version: "1.0",
+      status: "published",
+      publicUrl: "http://localhost:3000/dpp/PA-FW24-BLACK-TUX",
+      lastAudit: "2025-05-21T09:00:00Z",
+      traceabilityScore: 96,
+      co2FootprintKg: 980,
+      sustainabilityHighlights: [
+        "Metallic trims tracked with RFID for circularity",
+        "CO₂ per unit reduced 12% vs FW23 tux capsule",
+      ],
+    },
+    factories: [
+      {
+        name: "Vale do Ave Fibre Hub",
+        stage: "Worsted prep & dye",
+        roles: [
+          {
+            key: "FIBER_PREP",
+            co2Kg: 9.8,
+            notes: "Worsted spinning with 100% renewable energy",
+            status: SupplyChainStageStatus.COMPLETED,
+            startedAt: new Date("2025-04-02T07:10:00Z"),
+            completedAt: new Date("2025-04-05T19:30:00Z"),
+          },
+          {
+            key: "FABRIC_DYE_FINISH",
+            co2Kg: 6.1,
+            notes: "Jet-black dye with cationic fixers",
+            status: SupplyChainStageStatus.COMPLETED,
+            startedAt: new Date("2025-04-06T06:40:00Z"),
+            completedAt: new Date("2025-04-07T18:45:00Z"),
+          },
+        ],
+      },
+      {
+        name: "Braga Cutting & Assembly",
+        stage: "Precision tailoring",
+        isPrimary: true,
+        roles: [
+          {
+            key: "PATTERN_GRADING",
+            co2Kg: 0.9,
+            notes: "Made-to-measure adjustments for VIP fittings",
+            status: SupplyChainStageStatus.COMPLETED,
+            startedAt: new Date("2025-04-08T08:10:00Z"),
+            completedAt: new Date("2025-04-08T18:30:00Z"),
+          },
+          {
+            key: "BUNDLING_SEWING",
+            co2Kg: 6.0,
+            notes: "Hand pad-stitched lapels, black silk facings",
+            status: SupplyChainStageStatus.COMPLETED,
+            startedAt: new Date("2025-04-09T07:50:00Z"),
+            completedAt: new Date("2025-04-12T20:15:00Z"),
+          },
+          {
+            key: "INLINE_QC",
+            co2Kg: 1.0,
+            notes: "Needle policy enforced, 0 broken needles",
+            status: SupplyChainStageStatus.COMPLETED,
+            startedAt: new Date("2025-04-10T09:30:00Z"),
+            completedAt: new Date("2025-04-12T20:15:00Z"),
+          },
+        ],
+      },
+      {
+        name: "Porto Atelier & QA Lab",
+        stage: "Detailing & QA",
+        roles: [
+          {
+            key: "TRIMS_EMBELLISH",
+            co2Kg: 1.2,
+            notes: "Rhodium-plated buttons installed on line 2",
+            status: SupplyChainStageStatus.COMPLETED,
+            startedAt: new Date("2025-04-13T08:40:00Z"),
+            completedAt: new Date("2025-04-14T12:00:00Z"),
+          },
+          {
+            key: "FINAL_QA",
+            co2Kg: 0.8,
+            notes: "AQL 1.0 passed, 0 critical defects",
+            status: SupplyChainStageStatus.COMPLETED,
+            startedAt: new Date("2025-04-15T07:30:00Z"),
+            completedAt: new Date("2025-04-15T13:45:00Z"),
+          },
+          {
+            key: "DOCUMENTATION_DPP",
+            co2Kg: 0.2,
+            notes: "DPP published with Milan-specific annex",
+            status: SupplyChainStageStatus.COMPLETED,
+            startedAt: new Date("2025-04-16T09:15:00Z"),
+            completedAt: new Date("2025-04-16T11:10:00Z"),
+          },
+        ],
+      },
+      {
+        name: "Lisbon Logistics Center",
+        stage: "Distribution",
+        roles: [
+          {
+            key: "PACK_TAG_BAG",
+            co2Kg: 0.7,
+            notes: "Monogram garment bags & RFID hang tags",
+            status: SupplyChainStageStatus.COMPLETED,
+            startedAt: new Date("2025-04-17T06:30:00Z"),
+            completedAt: new Date("2025-04-17T10:00:00Z"),
+          },
+          {
+            key: "WAREHOUSE_LOGISTICS",
+            co2Kg: 4.2,
+            notes: "Shipment to Milan boutique delivered",
+            status: SupplyChainStageStatus.COMPLETED,
+            startedAt: new Date("2025-04-17T12:00:00Z"),
+            completedAt: new Date("2025-04-18T08:30:00Z"),
+          },
+        ],
+      },
+    ],
+    approvals: {
+      approvedByEmail: "carlos.martins@paco.example",
+      decision: ApprovalDecision.APPROVE,
+      note: "Approved for Gruppo Florence VIP fittings",
+    },
+    inspections: [
+      {
+        inspectorEmail: "joana.costa@paco.example",
+        startedAt: new Date("2025-04-15T07:30:00Z"),
+        finishedAt: new Date("2025-04-15T13:00:00Z"),
+        defects: [
+          {
+            pieceCode: "TUX-076",
+            note: "Pressed lapel sheen variance resolved (steam 14s)",
+            defectTypeName: "Discoloration",
+            photos: getRandomPhotos(2),
+          },
+        ],
+      },
+    ],
+  },
+  {
+    clientSlug: "paco",
+    styleRef: "PA-FW24-GALA-DRESS",
+    quantityTotal: 150,
+    status: LotStatus.INSPECTION,
+    defectRate: 2.3,
+    inspectedProgress: 78.0,
+    materialComposition: [
+      { fiber: "Silk Satin", percentage: 85, properties: { origin: "Como" } },
+      { fiber: "Recycled Polyamide Mesh", percentage: 15, properties: { certification: "RCS" } },
+    ],
+    dyeLot: "SCARLET-GALA-05",
+    certifications: [
+      { type: "RCS", number: "RCS-IT-4401" },
+      { type: "BLUESIGN", number: "BLUESIGN-PT-330" },
+    ],
+    dppMetadata: {
+      dppId: "DPP-PA-FW24-GALA-DRESS",
+      version: "0.5",
+      status: "inspection",
+      publicUrl: "http://localhost:3000/dpp/PA-FW24-GALA-DRESS",
+      lastAudit: "2025-05-30T11:20:00Z",
+      traceabilityScore: 81,
+      co2FootprintKg: 1345,
+      sustainabilityHighlights: [
+        "Hand-beaded bodice tracked with artisan ledger",
+        "Paris couture customer can reference inline photos live",
+      ],
+    },
+    factories: [
+      {
+        name: "Vale do Ave Fibre Hub",
+        stage: "Silk prep",
+        roles: [
+          {
+            key: "FIBER_PREP",
+            co2Kg: 12.9,
+            notes: "Silk satin pre-shrunk and colour matched",
+            status: SupplyChainStageStatus.COMPLETED,
+            startedAt: new Date("2025-05-05T07:00:00Z"),
+            completedAt: new Date("2025-05-08T18:45:00Z"),
+          },
+        ],
+      },
+      {
+        name: "Braga Cutting & Assembly",
+        stage: "Corsetry assembly",
+        isPrimary: true,
+        roles: [
+          {
+            key: "PATTERN_GRADING",
+            co2Kg: 1.0,
+            notes: "Grade adjusted for couture fittings",
+            status: SupplyChainStageStatus.COMPLETED,
+            startedAt: new Date("2025-05-09T08:10:00Z"),
+            completedAt: new Date("2025-05-09T17:40:00Z"),
+          },
+          {
+            key: "EMBROIDERY_APPLIQUE_LASER",
+            co2Kg: 3.4,
+            notes: "Laser-cut mesh appliqués ready",
+            status: SupplyChainStageStatus.COMPLETED,
+            startedAt: new Date("2025-05-10T07:20:00Z"),
+            completedAt: new Date("2025-05-12T18:00:00Z"),
+          },
+          {
+            key: "BUNDLING_SEWING",
+            co2Kg: 6.8,
+            notes: "Corset assembly 78% complete",
+            status: SupplyChainStageStatus.IN_PROGRESS,
+            startedAt: new Date("2025-05-13T08:30:00Z"),
+          },
+          {
+            key: "INLINE_QC",
+            co2Kg: 1.3,
+            notes: "Interim inspection scheduled once corsetry signed off",
+            status: SupplyChainStageStatus.NOT_STARTED,
+          },
+        ],
+      },
+      {
+        name: "Porto Atelier & QA Lab",
+        stage: "Hand embellishment",
+        roles: [
+          {
+            key: "TRIMS_EMBELLISH",
+            co2Kg: 1.9,
+            notes: "Hand-beaded bodice line 2",
+            status: SupplyChainStageStatus.NOT_STARTED,
+          },
+          {
+            key: "FINAL_QA",
+            co2Kg: 0.9,
+            notes: "Final inspection booked for 28 May",
+            status: SupplyChainStageStatus.NOT_STARTED,
+          },
+        ],
+      },
+      {
+        name: "Vizela Laundry & Finishing",
+        stage: "Soft drape finishing",
+        roles: [
+          {
+            key: "GARMENT_WASH_SOFTEN",
+            co2Kg: 2.5,
+            notes: "Silk softening schedule reserved",
+            status: SupplyChainStageStatus.NOT_STARTED,
+          },
+          {
+            key: "NEEDLE_METAL_DETECT",
+            co2Kg: 0.5,
+            notes: "Post-embellishment scan required",
+            status: SupplyChainStageStatus.NOT_STARTED,
+          },
+        ],
+      },
+    ],
+    inspections: [
+      {
+        inspectorEmail: "joana.costa@paco.example",
+        startedAt: new Date("2025-05-20T10:00:00Z"),
+        finishedAt: new Date("2025-05-20T14:30:00Z"),
+        defects: [
+          {
+            pieceCode: "GALA-032",
+            note: "Corset bone adjusted 1.5mm for symmetry",
+            defectTypeName: "Measurement",
+            photos: getRandomPhotos(2),
+          },
+          {
+            pieceCode: "GALA-044",
+            note: "Mesh overlay re-aligned to avoid puckering",
+            defectTypeName: "Fabric Defect",
+            photos: getRandomPhotos(1),
+          },
+        ],
+      },
+    ],
+  },
+];
 
-    if (status === LotStatus.APPROVED) {
-      const adminEmail = clientSlug === "heymarly" ? "admin@marly.example" : "admin@brand.example";
-      lot.approvals = {
-        approvedByEmail: adminEmail,
-        decision: ApprovalDecision.APPROVE,
-        note: getRandomApprovalNote()
-      };
-    }
-
-    lots.push(lot);
-  }
-
-  return lots;
-}
-
-function getRandomLotStatus(): LotStatus {
-  const statuses = [LotStatus.PLANNED, LotStatus.INSPECTION, LotStatus.PENDING_APPROVAL, LotStatus.APPROVED];
-  const weights = [0.2, 0.3, 0.25, 0.25]; // 20% planned, 30% inspection, 25% pending, 25% approved
-
-  const random = Math.random();
-  let sum = 0;
-  for (let i = 0; i < weights.length; i++) {
-    sum += weights[i];
-    if (random <= sum) {
-      return statuses[i];
-    }
-  }
-  return statuses[0];
-}
-
-function getRandomStage(): string {
-  const stages = [
-    "Fabric prep & cutting", "Assembly & finishing", "Final assembly",
-    "Cut & sew", "Full service", "Quality control", "Production", "Pre-production"
-  ];
-  return stages[Math.floor(Math.random() * stages.length)];
-}
-
-function getRandomFactoryRoles(): SeedLotSupplierRole[] {
-  const roles = ["fibre-prep", "dyeing", "cutting", "sewing", "quality", "laundry", "packaging", "logistics"];
-  const numRoles = Math.floor(Math.random() * 4) + 2; // 2-5 roles
-  const selectedRoles = roles.sort(() => Math.random() - 0.5).slice(0, numRoles);
-
-  return selectedRoles.map((key, index) => ({
-    key,
-    sequence: index
+function cloneSeedLots(lots: SeedLot[]): SeedLot[] {
+  return lots.map((lot) => ({
+    ...lot,
+    factories: lot.factories?.map((factory) => ({
+      ...factory,
+      roles: factory.roles?.map((role) => ({
+        ...role,
+        startedAt: role.startedAt ? new Date(role.startedAt) : undefined,
+        completedAt: role.completedAt ? new Date(role.completedAt) : undefined,
+      })),
+    })),
+    approvals: lot.approvals ? { ...lot.approvals } : undefined,
+    inspections: lot.inspections.map((inspection) => ({
+      ...inspection,
+      startedAt: inspection.startedAt ? new Date(inspection.startedAt) : undefined,
+      finishedAt: inspection.finishedAt ? new Date(inspection.finishedAt) : undefined,
+      defects: inspection.defects.map((defect) => ({
+        ...defect,
+        photos: [...defect.photos],
+      })),
+    })),
   }));
 }
 
-function generateRandomInspections(clientSlug: string, styleRef: string): SeedLot['inspections'] {
-  const numInspections = Math.floor(Math.random() * 2) + 1; // 1-2 inspections
-  const inspectorEmail = clientSlug === "heymarly" ? "viewer@marly.example" : "viewer@brand.example";
-
-  return Array.from({length: numInspections}, (_, i) => {
-    const startedAt = getRandomDate(7); // Within last 7 days
-    const finishedAt = Math.random() > 0.3 ? new Date(startedAt.getTime() + Math.random() * 6 * 60 * 60 * 1000) : undefined;
-
-    return {
-      inspectorEmail,
-      startedAt,
-      finishedAt,
-      defects: generateRandomDefects(styleRef)
-    };
-  });
+function generateRandomLots(): SeedLot[] {
+  return cloneSeedLots(CURATED_LOTS);
 }
 
-function generateRandomDefects(styleRef: string): Array<{
-  pieceCode?: string;
-  note?: string;
-  defectTypeName?: string;
-  photos: string[];
-}> {
-  const numDefects = Math.floor(Math.random() * 4) + 1; // 1-4 defects
-  const prefix = styleRef.split('-')[0];
-
-  return Array.from({length: numDefects}, () => {
-    const pieceNum = String(Math.floor(Math.random() * 999) + 1).padStart(3, '0');
-    const numPhotos = Math.floor(Math.random() * 3) + 1; // 1-3 photos
-
-    return {
-      pieceCode: `${prefix}-${pieceNum}`,
-      note: getRandomDefectNote(),
-      defectTypeName: DEFECT_TYPES[Math.floor(Math.random() * DEFECT_TYPES.length)],
-      photos: getRandomPhotos(numPhotos)
-    };
-  });
-}
-
-function getRandomApprovalNote(): string {
-  const notes = [
-    "Meets golden sample tolerance levels. Quality standards exceeded.",
-    "Excellent quality. Ready for shipment.",
-    "Quality approved with minor observations noted.",
-    "Meets all specifications. Approved for production.",
-    "Good quality control. Within acceptable parameters."
-  ];
-  return notes[Math.floor(Math.random() * notes.length)];
-}
+const FEED_EVENTS: Array<{
+  clientSlug: string;
+  styleRef?: string;
+  type: EventType;
+  timestamp: string;
+  payload: Record<string, any>;
+}> = [
+  {
+    clientSlug: "paco",
+    styleRef: "PA-SS25-CAPRI",
+    type: EventType.DEFECT_DETECTED,
+    timestamp: "2025-07-14T12:05:00Z",
+    payload: {
+      garmentSerial: "CAPRI-052",
+      defectType: "Hardware Issue",
+      supplier: "Braga Cutting & Assembly",
+      summary: "Rhodium zipper pull swapped after inline QC alert.",
+    },
+  },
+  {
+    clientSlug: "paco",
+    styleRef: "PA-SS25-CAPRI",
+    type: EventType.LOT_AWAITING_APPROVAL,
+    timestamp: "2025-07-18T09:40:00Z",
+    payload: {
+      factory: "Lisbon Logistics Center",
+      quantityReady: 420,
+      comment: "Capri capsule at 62% production – awaiting inline approval to publish DPP.",
+    },
+  },
+  {
+    clientSlug: "paco",
+    styleRef: "PA-SS25-PORTO-LINEN",
+    type: EventType.LOT_AWAITING_APPROVAL,
+    timestamp: "2025-06-20T07:30:00Z",
+    payload: {
+      factory: "Porto Atelier & QA Lab",
+      quantityReady: 320,
+      comment: "Passport compiled, ready for PA&CO sign-off.",
+    },
+  },
+  {
+    clientSlug: "paco",
+    styleRef: "PA-FW24-BLACK-TUX",
+    type: EventType.LOT_DECIDED,
+    timestamp: "2025-04-18T09:05:00Z",
+    payload: {
+      decision: ApprovalDecision.APPROVE,
+      reason: "Approved for Gruppo Florence VIP fittings.",
+    },
+  },
+  {
+    clientSlug: "paco",
+    styleRef: "PA-FW24-GALA-DRESS",
+    type: EventType.DEFECT_DETECTED,
+    timestamp: "2025-05-20T14:40:00Z",
+    payload: {
+      garmentSerial: "GALA-032",
+      defectType: "Measurement",
+      supplier: "Braga Cutting & Assembly",
+      summary: "Corset bone adjusted 1.5mm for couture fit.",
+    },
+  },
+];
 
 @Injectable()
 export class SeedService {
@@ -464,6 +1197,11 @@ export class SeedService {
     private readonly supplyChainRoleRepository: Repository<SupplyChainRole>,
     @InjectRepository(FactoryRole)
     private readonly factoryRoleRepository: Repository<FactoryRole>,
+    @InjectRepository(FactoryCertification)
+    private readonly factoryCertificationRepository: Repository<FactoryCertification>,
+    @InjectRepository(Event)
+    private readonly eventRepository: Repository<Event>,
+    private readonly dppService: DppService,
   ) {}
 
   async seedData(): Promise<void> {
@@ -474,18 +1212,22 @@ export class SeedService {
     const defectTypes = await this.seedDefectTypes();
     const users = await this.seedUsers(clients);
     await this.clearExistingData();
-    await this.seedLots(clients, defectTypes, users, supplyChainRoles);
+    const seededLots = await this.seedLots(clients, defectTypes, users, supplyChainRoles);
+    await this.seedDpps(clients, users, seededLots);
+    await this.seedEvents(clients, seededLots);
   }
 
   private async clearExistingData(): Promise<void> {
-    this.logger.log('Clearing existing lot data...');
+    this.logger.log('Clearing existing lot and DPP data...');
 
+    await this.eventRepository.query('DELETE FROM events');
     await this.photoRepository.query('DELETE FROM photos');
     await this.defectRepository.query('DELETE FROM defects');
     await this.inspectionRepository.query('DELETE FROM inspections');
     await this.approvalRepository.query('DELETE FROM approvals');
     await this.lotFactoryRoleRepository.query('DELETE FROM lot_factory_roles');
     await this.lotFactoryRepository.query('DELETE FROM lot_factories');
+    // DPPs will be handled by the DppService
     await this.lotRepository.query('DELETE FROM lots');
 
     this.logger.log('Existing data cleared');
@@ -572,6 +1314,7 @@ export class SeedService {
       }
 
       await this.syncFactoryCapabilities(factory.id, factorySeed.roles ?? [], supplyChainRoles);
+      await this.syncFactoryCertifications(factory.id, factorySeed.certifications ?? []);
     }
   }
 
@@ -620,6 +1363,31 @@ export class SeedService {
     }
   }
 
+  private async syncFactoryCertifications(
+    factoryId: string,
+    certifications: string[] = [],
+  ): Promise<void> {
+    await this.factoryCertificationRepository.delete({ factoryId });
+
+    if (!certifications.length) {
+      return;
+    }
+
+    const entries = certifications
+      .map((certification) => certification?.trim())
+      .filter((value): value is string => Boolean(value))
+      .map((value) =>
+        this.factoryCertificationRepository.create({
+          factoryId,
+          certification: value,
+        }),
+      );
+
+    if (entries.length) {
+      await this.factoryCertificationRepository.save(entries);
+    }
+  }
+
   private async syncLotFactoryRoles(
     lotFactoryId: string,
     roles: SeedLotSupplierRole[] = [],
@@ -641,6 +1409,7 @@ export class SeedService {
 
         const sequence = roleSeed.sequence ?? role.defaultSequence ?? index;
         const co2 = roleSeed.co2Kg ?? role.defaultCo2Kg ?? null;
+        const status = roleSeed.status ?? SupplyChainStageStatus.NOT_STARTED;
 
         return this.lotFactoryRoleRepository.create({
           lotFactoryId,
@@ -648,7 +1417,9 @@ export class SeedService {
           sequence,
           co2Kg: co2,
           notes: roleSeed.notes ?? null,
-          status: SupplyChainStageStatus.NOT_STARTED,
+          status,
+          startedAt: roleSeed.startedAt ?? null,
+          completedAt: roleSeed.completedAt ?? null,
         });
       })
       .filter((value): value is LotFactoryRole => Boolean(value));
@@ -723,8 +1494,9 @@ export class SeedService {
     defectTypes: Map<string, DefectType>,
     users: Map<string, User>,
     supplyChainRoles: Map<string, SupplyChainRole>,
-  ): Promise<void> {
+  ): Promise<Map<string, Lot>> {
     const lots = generateRandomLots();
+    const seededLots = new Map<string, Lot>();
     for (const lotSeed of lots) {
       const client = clients.get(lotSeed.clientSlug);
       if (!client) {
@@ -804,6 +1576,10 @@ export class SeedService {
           status: lotSeed.status,
           defectRate: lotSeed.defectRate,
           inspectedProgress: lotSeed.inspectedProgress,
+          materialComposition: lotSeed.materialComposition ?? null,
+          dyeLot: lotSeed.dyeLot ?? null,
+          certifications: lotSeed.certifications ?? null,
+          dppMetadata: lotSeed.dppMetadata ?? null,
         });
         lot = await this.lotRepository.save(lot);
       } else {
@@ -811,6 +1587,10 @@ export class SeedService {
         lot.defectRate = lotSeed.defectRate;
         lot.inspectedProgress = lotSeed.inspectedProgress;
         lot.factoryId = primaryFactoryId;
+        lot.materialComposition = lotSeed.materialComposition ?? null;
+        lot.dyeLot = lotSeed.dyeLot ?? null;
+        lot.certifications = lotSeed.certifications ?? null;
+        lot.dppMetadata = lotSeed.dppMetadata ?? null;
         lot = await this.lotRepository.save(lot);
       }
 
@@ -851,6 +1631,127 @@ export class SeedService {
       }
 
       await this.seedInspections(lot, lotSeed, users, defectTypes);
+      seededLots.set(lotSeed.styleRef, lot);
+    }
+    return seededLots;
+  }
+
+  private async seedDpps(
+    clients: Map<string, Client>,
+    users: Map<string, User>,
+    seededLots: Map<string, Lot>,
+  ): Promise<void> {
+    this.logger.log('Seeding DPPs...');
+
+    for (const [styleRef, lot] of seededLots) {
+      if (lot.dppMetadata?.dppId) {
+        const client = Array.from(clients.values()).find(c => c.id === lot.clientId);
+        const adminUser = Array.from(users.values()).find(u =>
+          u.clientId === lot.clientId && u.userRoles?.some(ur => ur.role?.name === UserRole.ADMIN)
+        );
+
+        if (!client || !adminUser) continue;
+
+        // Check if DPP already exists by styleRef
+        const existing = await this.dppService.getPublicDpp(styleRef);
+
+        if (!existing) {
+          // Create materials from lot composition
+          const materials = lot.materialComposition?.map(material => ({
+            fiber: material.fiber,
+            percent: material.percentage,
+            certs: material.properties?.certifications || []
+          })) || [];
+
+          // Create sustainability highlights
+          const sustainabilityHighlights = lot.dppMetadata?.sustainabilityHighlights || [
+            "Sustainable cotton sourcing",
+            "Low water impact dyeing"
+          ];
+
+          // Create certifications
+          const certifications = lot.certifications?.map(cert => cert.type) || [];
+
+          // Create the public payload following the schema
+          const publicPayload = {
+            product: {
+              brand: 'PA&CO',
+              styleRef: lot.styleRef,
+              sku: lot.styleRef,
+              gtin: null,
+              images: []
+            },
+            materials,
+            care: {},
+            sustainability: {
+              highlights: sustainabilityHighlights,
+              certifications
+            },
+            end_of_life: {}
+          };
+
+          // Create the DTO
+          const createDppDto: CreateDppDto = {
+            productSku: lot.styleRef,
+            gtin: null,
+            brand: 'PA&CO',
+            styleRef: lot.styleRef,
+            publicPayload,
+            restrictedPayload: {}
+          };
+
+          try {
+            const dpp = await this.dppService.createDpp(lot.clientId, adminUser.id, createDppDto);
+
+            // Publish if lot is approved
+            if (lot.status === LotStatus.APPROVED) {
+              await this.dppService.publishDpp(dpp.id, lot.clientId, adminUser.id);
+            }
+
+            this.logger.log(`Created DPP for: ${styleRef}`);
+          } catch (error) {
+            this.logger.error(`Failed to create DPP for ${styleRef}:`, error);
+          }
+        }
+      }
+    }
+  }
+
+  private async seedEvents(
+    clients: Map<string, Client>,
+    seededLots: Map<string, Lot>,
+  ): Promise<void> {
+    if (!FEED_EVENTS.length) {
+      return;
+    }
+
+    const entries = FEED_EVENTS
+      .map((feedEvent) => {
+        const client = clients.get(feedEvent.clientSlug);
+        if (!client) {
+          return null;
+        }
+
+        const lot = feedEvent.styleRef ? seededLots.get(feedEvent.styleRef) : undefined;
+        const timestamp = new Date(feedEvent.timestamp);
+
+        return this.eventRepository.create({
+          clientId: client.id,
+          lotId: lot?.id ?? null,
+          type: feedEvent.type,
+          payload: {
+            ...feedEvent.payload,
+            lotId: lot?.id ?? feedEvent.payload?.lotId ?? null,
+            styleRef: feedEvent.styleRef ?? lot?.styleRef ?? null,
+          },
+          createdAt: timestamp,
+        });
+      })
+      .filter((value): value is Event => Boolean(value));
+
+    if (entries.length) {
+      entries.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+      await this.eventRepository.save(entries);
     }
   }
 
@@ -867,13 +1768,19 @@ export class SeedService {
       return;
     }
 
-    const first = roles[0];
-    if (first.status !== SupplyChainStageStatus.IN_PROGRESS) {
-      first.status = SupplyChainStageStatus.IN_PROGRESS;
-      first.startedAt = new Date();
-      first.completedAt = null;
-      await this.lotFactoryRoleRepository.save(first);
+    const existingProgress = roles.some(
+      (role) => role.status !== SupplyChainStageStatus.NOT_STARTED,
+    );
+
+    if (existingProgress) {
+      return;
     }
+
+    const first = roles[0];
+    first.status = SupplyChainStageStatus.IN_PROGRESS;
+    first.startedAt = new Date();
+    first.completedAt = null;
+    await this.lotFactoryRoleRepository.save(first);
   }
 
   private async seedInspections(

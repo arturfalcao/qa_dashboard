@@ -131,7 +131,6 @@ export class LotService {
       dppMetadata?: Record<string, any>;
     },
   ): Promise<any> {
-    console.log('CreateLot payload.dppMetadata:', payload.dppMetadata);
     const { suppliers, primaryFactoryId } = await this.normalizeSuppliers(clientId, payload);
 
     const lot = this.lotRepository.create({
@@ -241,10 +240,7 @@ export class LotService {
     }
 
     if (payload.dppMetadata !== undefined) {
-      console.log('Setting dppMetadata:', payload.dppMetadata);
       lot.dppMetadata = payload.dppMetadata || null;
-    } else {
-      console.log('dppMetadata is undefined in payload');
     }
 
     await this.lotRepository.save(lot);

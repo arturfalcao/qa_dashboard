@@ -145,6 +145,38 @@ export interface FactoryCertification {
   updatedAt?: string;
 }
 
+export interface MaterialComponent {
+  fiber: string;
+  percentage: number;
+  properties?: Record<string, any>;
+}
+
+export interface LotCertificationRecord {
+  type: string;
+  number?: string;
+  auditLink?: string;
+  validUntil?: string;
+  issuer?: string;
+}
+
+export interface DppMetadata {
+  dppId?: string;
+  version?: string;
+  status?: string;
+  publicUrl?: string;
+  traceabilityScore?: number;
+  lastAudit?: string;
+  sustainabilityHighlights?: string[];
+  co2PerUnitKg?: number;
+  co2FootprintKg?: number;
+  attachments?: Array<{
+    label: string;
+    url: string;
+  }>;
+  notes?: string;
+  [key: string]: any;
+}
+
 export interface LotSupplier {
   id?: string;
   factoryId: string;
@@ -201,6 +233,10 @@ export interface Lot {
   status: LotStatus;
   defectRate: number;
   inspectedProgress: number;
+  materialComposition?: MaterialComponent[] | null;
+  dyeLot?: string | null;
+  certifications?: LotCertificationRecord[] | null;
+  dppMetadata?: DppMetadata | null;
   createdAt: string;
   updatedAt: string;
   factory?: Factory;
