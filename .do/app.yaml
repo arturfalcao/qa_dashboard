@@ -15,7 +15,7 @@ services:
     source_dir: .
     http_port: 3001
     build_command: npm run build:api
-    run_command: cd apps/api && npm start
+    run_command: cd apps/api && npm run start:prod
     instance_count: 1
     instance_size_slug: basic-xs
     routes:
