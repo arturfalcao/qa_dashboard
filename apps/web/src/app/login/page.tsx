@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/components/providers/auth-provider'
 import { apiClient } from '@/lib/api'
 import { storeUser } from '@/lib/auth'
+import { UserRole } from '@qa-dashboard/shared'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -23,7 +24,6 @@ export default function LoginPage() {
       const response = await apiClient.login({ email, password })
       
       const clientSlug = email.includes('marly.example') ? 'heymarly' : 'samplebrand'
-
       const userWithSlug = {
         ...response.user,
         clientSlug,
@@ -32,7 +32,15 @@ export default function LoginPage() {
       storeUser(userWithSlug)
       setUser(userWithSlug)
 
-      router.push(`/c/${clientSlug}/feed`)
+      const isOperator = response.user.roles.some((role) =>
+        [UserRole.OPERATOR, UserRole.SUPERVISOR].includes(role),
+      )
+
+      if (isOperator) {
+        router.push('/operator')
+      } else {
+        router.push(`/c/${clientSlug}/feed`)
+      }
     } catch (err: any) {
       setError(err.message || 'Login failed')
     } finally {

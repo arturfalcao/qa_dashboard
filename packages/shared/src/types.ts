@@ -6,6 +6,8 @@ export enum UserRole {
   INSPECTOR = "INSPECTOR",
   CLIENT_VIEWER = "CLIENT_VIEWER",
   CLEVEL = "CLEVEL",
+  SUPERVISOR = "SUPERVISOR",
+  OPERATOR = "OPERATOR",
 }
 
 export enum FactoryCertificationType {
@@ -196,6 +198,128 @@ export interface SupplyChainRole {
   defaultCo2Kg: number;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export enum DeviceStatus {
+  ONLINE = "ONLINE",
+  OFFLINE = "OFFLINE",
+  DEGRADED = "DEGRADED",
+}
+
+export enum EdgeEventType {
+  DEFECT = "DEFECT",
+  PHOTO = "PHOTO",
+  PIECE_END = "PIECE_END",
+  PRINT_LABEL = "PRINT_LABEL",
+  HEARTBEAT = "HEARTBEAT",
+  FLAG = "FLAG",
+}
+
+export enum DeviceCommandType {
+  REPRINT_LABEL = "REPRINT_LABEL",
+  SWITCH_LOT = "SWITCH_LOT",
+}
+
+export interface OperatorAssignment {
+  lotId: string;
+  styleRef: string;
+  customer: string;
+  assignedAt: string;
+  assignedBy?: string;
+}
+
+export interface QueueDepthSample {
+  timestamp: string;
+  depth: number;
+}
+
+export interface OperatorDevice {
+  id: string;
+  name: string;
+  site: string;
+  status: DeviceStatus;
+  lastSeenAt: string | null;
+  queueDepth: number;
+  firmwareVersion?: string | null;
+  ipAddress?: string | null;
+  currentAssignment?: OperatorAssignment | null;
+}
+
+export interface OperatorDeviceDetail extends OperatorDevice {
+  metrics: {
+    pieceSequence: number;
+    qaIndicators: {
+      pixelsPerMillimeter?: number;
+      sharpnessScore?: number;
+      brightnessScore?: number;
+      status: "ok" | "warning" | "critical";
+    };
+    lastTranscript?: string | null;
+  };
+  recentEvents: OperatorLotFeedItem[];
+  queueDepthHistory: QueueDepthSample[];
+}
+
+export interface OperatorLotSummary {
+  lotId: string;
+  lotCode: string;
+  customer: string;
+  styleRef: string;
+  activeDeviceIds: string[];
+  piecesInspected: number;
+  defectsFound: number;
+  defectRate: number;
+  lastEventAt: string | null;
+}
+
+export interface OperatorLotFeedItem {
+  id: string;
+  lotId: string;
+  deviceId: string;
+  type: EdgeEventType;
+  timestamp: string;
+  pieceSequence?: number;
+  thumbnailUrl?: string;
+  transcript?: string;
+  defectText?: string;
+  qaMetrics?: {
+    pixelsPerMillimeter?: number;
+    sharpnessScore?: number;
+    brightnessScore?: number;
+    status: "ok" | "warning" | "critical";
+  };
+  flag?: {
+    note: string;
+    createdBy: string;
+    createdAt: string;
+    severity?: "info" | "warning" | "critical";
+  };
+}
+
+export interface OperatorCommandResult {
+  commandId: string;
+  deviceId: string;
+  type: DeviceCommandType;
+  status: "QUEUED" | "SENT" | "ACKED";
+  createdAt: string;
+}
+
+export interface OperatorAssignLotPayload {
+  lotId: string;
+  styleRef: string;
+  customer: string;
+}
+
+export interface OperatorReprintPayload {
+  lotId: string;
+  pieceSeq: number;
+  reason?: string;
+}
+
+export interface OperatorFlagPayload {
+  eventId: string;
+  note: string;
+  severity?: "info" | "warning" | "critical";
 }
 
 export interface FactoryCapability {
