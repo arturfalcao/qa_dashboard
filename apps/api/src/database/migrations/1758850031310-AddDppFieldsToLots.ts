@@ -113,6 +113,7 @@ export class AddDppFieldsToLots1758850031310 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "inspections" DROP COLUMN "updated_at"`);
         await queryRunner.query(`ALTER TABLE "inspections" ADD "updated_at" TIMESTAMP NOT NULL DEFAULT now()`);
         await queryRunner.query(`ALTER TABLE "approvals" DROP COLUMN "decision"`);
+        await queryRunner.query(`DROP TYPE IF EXISTS "public"."approvals_decision_enum"`);
         await queryRunner.query(`CREATE TYPE "public"."approvals_decision_enum" AS ENUM('APPROVE', 'REJECT')`);
         await queryRunner.query(`ALTER TABLE "approvals" ADD "decision" "public"."approvals_decision_enum" NOT NULL`);
         await queryRunner.query(`ALTER TABLE "approvals" ALTER COLUMN "decided_at" SET NOT NULL`);
@@ -123,9 +124,11 @@ export class AddDppFieldsToLots1758850031310 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "activities" DROP COLUMN "ts"`);
         await queryRunner.query(`ALTER TABLE "activities" ADD "ts" TIMESTAMP NOT NULL DEFAULT now()`);
         await queryRunner.query(`ALTER TABLE "reports" DROP COLUMN "type"`);
+        await queryRunner.query(`DROP TYPE IF EXISTS "public"."reports_type_enum"`);
         await queryRunner.query(`CREATE TYPE "public"."reports_type_enum" AS ENUM('MONTHLY_SCORECARD', 'LOT')`);
         await queryRunner.query(`ALTER TABLE "reports" ADD "type" "public"."reports_type_enum" NOT NULL`);
         await queryRunner.query(`ALTER TABLE "reports" DROP COLUMN "status"`);
+        await queryRunner.query(`DROP TYPE IF EXISTS "public"."reports_status_enum"`);
         await queryRunner.query(`CREATE TYPE "public"."reports_status_enum" AS ENUM('PENDING', 'READY', 'FAILED')`);
         await queryRunner.query(`ALTER TABLE "reports" ADD "status" "public"."reports_status_enum" NOT NULL DEFAULT 'PENDING'`);
         await queryRunner.query(`ALTER TABLE "reports" DROP COLUMN "created_at"`);
@@ -135,6 +138,7 @@ export class AddDppFieldsToLots1758850031310 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "lots" DROP COLUMN "style_ref"`);
         await queryRunner.query(`ALTER TABLE "lots" ADD "style_ref" character varying(120) NOT NULL`);
         await queryRunner.query(`ALTER TABLE "lots" DROP COLUMN "status"`);
+        await queryRunner.query(`DROP TYPE IF EXISTS "public"."lots_status_enum"`);
         await queryRunner.query(`CREATE TYPE "public"."lots_status_enum" AS ENUM('PLANNED', 'IN_PRODUCTION', 'INSPECTION', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'SHIPPED')`);
         await queryRunner.query(`ALTER TABLE "lots" ADD "status" "public"."lots_status_enum" NOT NULL DEFAULT 'PLANNED'`);
         await queryRunner.query(`ALTER TABLE "lots" ALTER COLUMN "defect_rate" SET NOT NULL`);
@@ -144,6 +148,7 @@ export class AddDppFieldsToLots1758850031310 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "lots" DROP COLUMN "updated_at"`);
         await queryRunner.query(`ALTER TABLE "lots" ADD "updated_at" TIMESTAMP NOT NULL DEFAULT now()`);
         await queryRunner.query(`ALTER TABLE "events" DROP COLUMN "type"`);
+        await queryRunner.query(`DROP TYPE IF EXISTS "public"."events_type_enum"`);
         await queryRunner.query(`CREATE TYPE "public"."events_type_enum" AS ENUM('DEFECT_DETECTED', 'LOT_AWAITING_APPROVAL', 'LOT_DECIDED')`);
         await queryRunner.query(`ALTER TABLE "events" ADD "type" "public"."events_type_enum" NOT NULL`);
         await queryRunner.query(`ALTER TABLE "events" ALTER COLUMN "payload" SET NOT NULL`);
