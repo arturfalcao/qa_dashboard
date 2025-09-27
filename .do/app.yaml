@@ -19,7 +19,10 @@ services:
     instance_count: 1
     instance_size_slug: basic-xs
     routes:
-      - path: /api
+      - path: /
+    domains:
+      - domain: api.packpolish.com
+        type: PRIMARY
     envs:
       - key: DATABASE_URL
         scope: RUN_AND_BUILD_TIME
@@ -68,10 +71,13 @@ services:
     instance_size_slug: basic-xs
     routes:
       - path: /
+    domains:
+      - domain: app.packpolish.com
+        type: PRIMARY
     envs:
       - key: NEXT_PUBLIC_API_BASE_URL
         scope: RUN_AND_BUILD_TIME
-        value: ${api.PUBLIC_URL}
+        value: https://api.packpolish.com
       - key: NODE_ENV
         scope: RUN_AND_BUILD_TIME
         value: "production"
