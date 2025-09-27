@@ -67,10 +67,8 @@ export class AddDppFieldsToLots1758850031310 implements MigrationInterface {
         await queryRunner.query(`UPDATE "supply_chain_roles" SET "key" = LOWER(REPLACE(name, ' ', '_')) WHERE "key" IS NULL`);
         await queryRunner.query(`ALTER TABLE "supply_chain_roles" ALTER COLUMN "key" SET NOT NULL`);
         await queryRunner.query(`ALTER TABLE "supply_chain_roles" ADD CONSTRAINT "UQ_2f2cc765582446a9fab4ac22e05" UNIQUE ("key")`);
-        await queryRunner.query(`ALTER TABLE "supply_chain_roles" DROP COLUMN "name"`);
-        await queryRunner.query(`ALTER TABLE "supply_chain_roles" ADD "name" character varying NOT NULL`);
-        await queryRunner.query(`ALTER TABLE "supply_chain_roles" DROP COLUMN "description"`);
-        await queryRunner.query(`ALTER TABLE "supply_chain_roles" ADD "description" character varying`);
+        await queryRunner.query(`ALTER TABLE "supply_chain_roles" ALTER COLUMN "name" TYPE character varying`);
+        await queryRunner.query(`ALTER TABLE "supply_chain_roles" ALTER COLUMN "description" TYPE character varying`);
         await queryRunner.query(`ALTER TABLE "supply_chain_roles" DROP COLUMN "created_at"`);
         await queryRunner.query(`ALTER TABLE "supply_chain_roles" ADD "created_at" TIMESTAMP NOT NULL DEFAULT now()`);
         await queryRunner.query(`ALTER TABLE "supply_chain_roles" DROP COLUMN "updated_at"`);
