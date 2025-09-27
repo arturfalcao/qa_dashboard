@@ -61,9 +61,9 @@ export class AddDppFieldsToLots1758850031310 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "lot_factory_roles" ADD "created_at" TIMESTAMP NOT NULL DEFAULT now()`);
         await queryRunner.query(`ALTER TABLE "lot_factory_roles" DROP COLUMN "updated_at"`);
         await queryRunner.query(`ALTER TABLE "lot_factory_roles" ADD "updated_at" TIMESTAMP NOT NULL DEFAULT now()`);
-        await queryRunner.query(`ALTER TABLE "supply_chain_roles" DROP CONSTRAINT "UQ_2f2cc765582446a9fab4ac22e05"`);
-        await queryRunner.query(`ALTER TABLE "supply_chain_roles" DROP COLUMN "key"`);
-        await queryRunner.query(`ALTER TABLE "supply_chain_roles" ADD "key" character varying`);
+        await queryRunner.query(`ALTER TABLE "supply_chain_roles" DROP CONSTRAINT IF EXISTS "UQ_2f2cc765582446a9fab4ac22e05"`);
+        await queryRunner.query(`ALTER TABLE "supply_chain_roles" DROP COLUMN IF EXISTS "key"`);
+        await queryRunner.query(`ALTER TABLE "supply_chain_roles" ADD COLUMN IF NOT EXISTS "key" character varying`);
         await queryRunner.query(`UPDATE "supply_chain_roles" SET "key" = LOWER(REPLACE(name, ' ', '_')) WHERE "key" IS NULL`);
         await queryRunner.query(`ALTER TABLE "supply_chain_roles" ALTER COLUMN "key" SET NOT NULL`);
         await queryRunner.query(`ALTER TABLE "supply_chain_roles" ADD CONSTRAINT "UQ_2f2cc765582446a9fab4ac22e05" UNIQUE ("key")`);
@@ -90,6 +90,7 @@ export class AddDppFieldsToLots1758850031310 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "factories" DROP COLUMN "updated_at"`);
         await queryRunner.query(`ALTER TABLE "factories" ADD "updated_at" TIMESTAMP NOT NULL DEFAULT now()`);
         await queryRunner.query(`ALTER TABLE "defect_types" DROP CONSTRAINT IF EXISTS "defect_types_name_key"`);
+        await queryRunner.query(`ALTER TABLE "defect_types" DROP CONSTRAINT IF EXISTS "UQ_e7312ad90c98550ad6614f9e8da"`);
         await queryRunner.query(`ALTER TABLE "defect_types" ALTER COLUMN "name" TYPE character varying`);
         await queryRunner.query(`ALTER TABLE "defect_types" ADD CONSTRAINT "UQ_e7312ad90c98550ad6614f9e8da" UNIQUE ("name")`);
         await queryRunner.query(`ALTER TABLE "defect_types" ALTER COLUMN "category" TYPE character varying`);
@@ -151,6 +152,7 @@ export class AddDppFieldsToLots1758850031310 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "events" ADD "created_at" TIMESTAMP NOT NULL DEFAULT now()`);
         await queryRunner.query(`ALTER TABLE "clients" ALTER COLUMN "name" TYPE character varying(255)`);
         await queryRunner.query(`ALTER TABLE "clients" DROP CONSTRAINT IF EXISTS "clients_slug_key"`);
+        await queryRunner.query(`ALTER TABLE "clients" DROP CONSTRAINT IF EXISTS "UQ_2a850b0972b11500683fe49b3c4"`);
         await queryRunner.query(`ALTER TABLE "clients" ALTER COLUMN "slug" TYPE character varying(120)`);
         await queryRunner.query(`ALTER TABLE "clients" ADD CONSTRAINT "UQ_2a850b0972b11500683fe49b3c4" UNIQUE ("slug")`);
         await queryRunner.query(`ALTER TABLE "clients" ALTER COLUMN "logo_url" TYPE character varying`);
@@ -159,6 +161,7 @@ export class AddDppFieldsToLots1758850031310 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "clients" DROP COLUMN "updated_at"`);
         await queryRunner.query(`ALTER TABLE "clients" ADD "updated_at" TIMESTAMP NOT NULL DEFAULT now()`);
         await queryRunner.query(`ALTER TABLE "roles" DROP CONSTRAINT IF EXISTS "roles_name_key"`);
+        await queryRunner.query(`ALTER TABLE "roles" DROP CONSTRAINT IF EXISTS "UQ_648e3f5447f725579d7d4ffdfb7"`);
         await queryRunner.query(`ALTER TABLE "roles" ALTER COLUMN "name" TYPE character varying`);
         await queryRunner.query(`ALTER TABLE "roles" ADD CONSTRAINT "UQ_648e3f5447f725579d7d4ffdfb7" UNIQUE ("name")`);
         await queryRunner.query(`ALTER TABLE "roles" DROP COLUMN "created_at"`);
@@ -196,10 +199,15 @@ export class AddDppFieldsToLots1758850031310 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "audit_log" ADD "action" character varying NOT NULL`);
         await queryRunner.query(`ALTER TABLE "audit_log" DROP COLUMN "ts"`);
         await queryRunner.query(`ALTER TABLE "audit_log" ADD "ts" TIMESTAMP NOT NULL DEFAULT now()`);
+        await queryRunner.query(`ALTER TABLE "lot_factories" DROP CONSTRAINT IF EXISTS "UQ_4b42cf590074197a1b727acd0a3"`);
         await queryRunner.query(`ALTER TABLE "lot_factories" ADD CONSTRAINT "UQ_4b42cf590074197a1b727acd0a3" UNIQUE ("lot_id", "factory_id")`);
+        await queryRunner.query(`ALTER TABLE "lot_factory_roles" DROP CONSTRAINT IF EXISTS "UQ_978d451ccde771ce889a944832a"`);
         await queryRunner.query(`ALTER TABLE "lot_factory_roles" ADD CONSTRAINT "UQ_978d451ccde771ce889a944832a" UNIQUE ("lot_factory_id", "role_id")`);
+        await queryRunner.query(`ALTER TABLE "factory_roles" DROP CONSTRAINT IF EXISTS "UQ_5f509b21da69e3a377ceb6e3dca"`);
         await queryRunner.query(`ALTER TABLE "factory_roles" ADD CONSTRAINT "UQ_5f509b21da69e3a377ceb6e3dca" UNIQUE ("factory_id", "role_id")`);
+        await queryRunner.query(`ALTER TABLE "user_roles" DROP CONSTRAINT IF EXISTS "UQ_23ed6f04fe43066df08379fd034"`);
         await queryRunner.query(`ALTER TABLE "user_roles" ADD CONSTRAINT "UQ_23ed6f04fe43066df08379fd034" UNIQUE ("user_id", "role_id")`);
+        await queryRunner.query(`ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "UQ_c939118cb5d8f30edc66a626a7b"`);
         await queryRunner.query(`ALTER TABLE "users" ADD CONSTRAINT "UQ_c939118cb5d8f30edc66a626a7b" UNIQUE ("client_id", "email")`);
         await queryRunner.query(`ALTER TABLE "factory_certifications" ADD CONSTRAINT "FK_9731938c748101e7f4d4b1a118a" FOREIGN KEY ("factory_id") REFERENCES "factories"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE "factories" ADD CONSTRAINT "FK_39fa445253769a08081a8b9485c" FOREIGN KEY ("client_id") REFERENCES "clients"("id") ON DELETE SET NULL ON UPDATE NO ACTION`);
