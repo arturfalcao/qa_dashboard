@@ -23,6 +23,7 @@ export const dataSourceOptions: DataSourceOptions = {
   logging: process.env.NODE_ENV === "development",
   entities,
   migrations,
+  ssl: process.env.DB_SSLMODE === "require" ? { rejectUnauthorized: false } : false,
 };
 
 export default dataSourceOptions;
