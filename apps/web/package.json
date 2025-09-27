@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@qa-dashboard/shared": "file:../../packages/shared",
+    "@qa-dashboard/shared": "1.0.0",
     "@tanstack/react-query": "^5.0.0",
     "@headlessui/react": "^1.7.0",
     "next": "14.0.0",
