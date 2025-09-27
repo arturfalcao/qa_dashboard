@@ -57,4 +57,4 @@ seed-images/*.png
 
 # Database data
 postgres_data/
-minio_data/
+minio_data/appspec.yaml
