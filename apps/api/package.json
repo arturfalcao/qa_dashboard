@@ -10,6 +10,8 @@
     "migration:run": "typeorm migration:run -d ./dist/typeorm.datasource.js",
     "migration:revert": "typeorm migration:revert -d ./typeorm.datasource.ts",
     "migration:generate": "typeorm migration:generate -d ./typeorm.datasource.ts",
+    "seed": "ts-node src/database/seed.ts",
+    "seed:prod": "node dist/src/database/seed.js",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
