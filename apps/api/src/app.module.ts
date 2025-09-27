@@ -16,6 +16,7 @@ import { AuditInterceptor } from "./common/interceptors/audit.interceptor";
 import { TracingInterceptor } from "./observability/tracing.interceptor";
 import { MetricsInterceptor } from "./observability/metrics.interceptor";
 import { LoggerInterceptor } from "./observability/logger.interceptor";
+import { OperatorModule } from "./operator/operator.module";
 
 import dataSourceOptions from "./database/typeorm.config";
 
@@ -32,6 +33,7 @@ import dataSourceOptions from "./database/typeorm.config";
     ExportsModule,
     DppModule,
     ReportsModule,
+    OperatorModule,
   ],
   providers: [
     {

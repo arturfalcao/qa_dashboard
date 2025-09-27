@@ -14,6 +14,14 @@ import {
   LotStatus,
   SupplyChainRole,
   LotSupplierRole,
+  OperatorDevice,
+  OperatorDeviceDetail,
+  OperatorLotSummary,
+  OperatorLotFeedItem,
+  OperatorCommandResult,
+  OperatorAssignLotPayload,
+  OperatorReprintPayload,
+  OperatorFlagPayload,
 } from '@qa-dashboard/shared'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001'
@@ -79,6 +87,56 @@ class ApiClient {
 
     Cookies.set('accessToken', response.accessToken, { expires: 1 / 24 })
     return response
+  }
+
+  // Operator endpoints
+  async getOperatorDevices(site?: string): Promise<OperatorDevice[]> {
+    const query = site ? `?site=${encodeURIComponent(site)}` : ''
+    return this.request<OperatorDevice[]>(`/operator/devices${query}`)
+  }
+
+  async getOperatorDevice(deviceId: string): Promise<OperatorDeviceDetail> {
+    return this.request<OperatorDeviceDetail>(`/operator/devices/${deviceId}`)
+  }
+
+  async assignOperatorDevice(
+    deviceId: string,
+    payload: OperatorAssignLotPayload,
+  ): Promise<OperatorDeviceDetail> {
+    return this.request<OperatorDeviceDetail>(`/operator/devices/${deviceId}/assign`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  }
+
+  async issueReprintCommand(
+    deviceId: string,
+    payload: OperatorReprintPayload,
+  ): Promise<OperatorCommandResult> {
+    return this.request<OperatorCommandResult>(`/operator/devices/${deviceId}/commands/reprint`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  }
+
+  async getOperatorActiveLots(site?: string): Promise<OperatorLotSummary[]> {
+    const query = site ? `?site=${encodeURIComponent(site)}` : ''
+    return this.request<OperatorLotSummary[]>(`/operator/lots/active${query}`)
+  }
+
+  async getOperatorLotFeed(lotId: string, site?: string): Promise<OperatorLotFeedItem[]> {
+    const query = site ? `?site=${encodeURIComponent(site)}` : ''
+    return this.request<OperatorLotFeedItem[]>(`/operator/lots/${lotId}/feed${query}`)
+  }
+
+  async createOperatorFlag(
+    lotId: string,
+    payload: OperatorFlagPayload,
+  ): Promise<OperatorLotFeedItem> {
+    return this.request<OperatorLotFeedItem>(`/operator/lots/${lotId}/flags`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
   }
 
   // Inspections
