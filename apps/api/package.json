@@ -7,7 +7,7 @@
   "license": "MIT",
   "scripts": {
     "build": "nest build",
-    "migration:run": "typeorm migration:run -d ./typeorm.datasource.ts",
+    "migration:run": "typeorm migration:run -d ./dist/typeorm.datasource.js",
     "migration:revert": "typeorm migration:revert -d ./typeorm.datasource.ts",
     "migration:generate": "typeorm migration:generate -d ./typeorm.datasource.ts",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
