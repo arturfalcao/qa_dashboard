@@ -115,6 +115,7 @@ import { DppService } from "../dpp/dpp.service";
     FactoryService,
     DefectService,
     SupplyChainService,
+    UserService,
     DppModule,
     TypeOrmModule,
   ],

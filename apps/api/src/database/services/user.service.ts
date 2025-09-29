@@ -18,7 +18,8 @@ import { ClientService } from "./client.service";
 
 interface CreateClientUserInput {
   email: string;
-  clientSlug: string;
+  clientSlug?: string;
+  clientId?: string;
   roles?: UserRole[];
   temporaryPassword?: string;
 }
@@ -38,12 +39,28 @@ export class UserService {
   async createClientUser({
     email,
     clientSlug,
+    clientId,
     roles = [UserRole.CLIENT_VIEWER],
     temporaryPassword,
   }: CreateClientUserInput) {
-    const client = await this.clientService.findBySlug(clientSlug);
+    let client = null;
+
+    if (clientId) {
+      client = await this.clientService.findById(clientId);
+      if (clientSlug && client.slug !== clientSlug) {
+        throw new BadRequestException(
+          "Provided clientSlug does not match the resolved client",
+        );
+      }
+    } else if (clientSlug) {
+      client = await this.clientService.findBySlug(clientSlug);
+    }
+
     if (!client) {
-      throw new NotFoundException(`Client with slug ${clientSlug} not found`);
+      const identifier = clientId ?? clientSlug;
+      throw new NotFoundException(
+        `Client ${identifier ? `(${identifier}) ` : ""}not found`,
+      );
     }
 
     const existing = await this.userRepository.findOne({
