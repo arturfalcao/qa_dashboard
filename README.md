@@ -113,6 +113,10 @@ That's it! After all services start:
    - Export CSV data
    - Download files via presigned URLs
 
+## 🤝 Paco Interoperability Briefing
+
+Preparing for a partner session with Paco? Review the dedicated [Paco Interoperability Playbook](docs/paco_interoperability.md) for a narrative walkthrough, demo script, and configuration checklist that prove how Paco can onboard their own brand clients and share live QA evidence with end customers.
+
 ## 🔧 Technical Details
 
 ### Database Schema
