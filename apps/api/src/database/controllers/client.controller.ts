@@ -1,10 +1,23 @@
-import { Body, Controller, Get, Param, Patch, Post, ForbiddenException } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  ForbiddenException,
+} from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { ZodValidationPipe } from "../../common/zod-validation.pipe";
 import { ClientService } from "../services/client.service";
+import { UserService } from "../services/user.service";
 import { CurrentUser } from "../../common/decorators";
 import { z } from "zod";
-import { UserRole } from "@qa-dashboard/shared";
+import {
+  UserRole,
+  CreateClientUserDto,
+  CreateClientUserSchema,
+} from "@qa-dashboard/shared";
 
 const createClientSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -20,13 +33,27 @@ const updateClientSchema = createClientSchema.partial();
 @ApiTags("clients")
 @Controller("clients")
 export class ClientController {
-  constructor(private readonly clientService: ClientService) {}
+  constructor(
+    private readonly clientService: ClientService,
+    private readonly userService: UserService,
+  ) {}
 
   private assertAdmin(user?: { roles?: UserRole[] }) {
     const roles = user?.roles || [];
     if (roles.length > 0 && !roles.includes(UserRole.ADMIN)) {
       throw new ForbiddenException("Admin role required");
     }
+  }
+
+  private assertClientAccess(
+    clientId: string,
+    user?: { roles?: UserRole[]; clientId?: string | null },
+  ) {
+    if (user?.clientId && user.clientId === clientId) {
+      return;
+    }
+
+    this.assertAdmin(user);
   }
 
   @Get("me")
@@ -63,6 +90,27 @@ export class ClientController {
 
     this.assertAdmin(user);
     return this.clientService.findById(id);
+  }
+
+  @Get(":id/users")
+  @ApiOperation({ summary: "List client users" })
+  async listClientUsers(
+    @Param("id") id: string,
+    @CurrentUser() user?: { roles?: UserRole[]; clientId?: string | null },
+  ) {
+    this.assertClientAccess(id, user);
+    return this.userService.listForClient(id);
+  }
+
+  @Post(":id/users")
+  @ApiOperation({ summary: "Create a new client user" })
+  async createClientUser(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(CreateClientUserSchema)) body: CreateClientUserDto,
+    @CurrentUser() user?: { roles?: UserRole[]; clientId?: string | null },
+  ) {
+    this.assertClientAccess(id, user);
+    return this.userService.createForClient(id, body);
   }
 
   @Post()

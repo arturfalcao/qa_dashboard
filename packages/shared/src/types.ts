@@ -84,6 +84,26 @@ export const RefreshTokenSchema = z.object({
   refreshToken: z.string().min(1),
 });
 
+export const CreateClientUserSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8, "Password must be at least 8 characters long"),
+  roles: z
+    .array(z.nativeEnum(UserRole))
+    .min(1, "At least one role must be selected")
+    .optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const ClientUserSchema = z.object({
+  id: z.string().uuid(),
+  clientId: z.string().uuid().nullable(),
+  email: z.string().email(),
+  isActive: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  roles: z.array(z.nativeEnum(UserRole)),
+});
+
 export const ApprovalSchema = z.object({
   note: z.string().optional(),
 });
@@ -99,6 +119,8 @@ export const ExportQuerySchema = z.object({
 
 export type LoginDto = z.infer<typeof LoginSchema>;
 export type RefreshTokenDto = z.infer<typeof RefreshTokenSchema>;
+export type CreateClientUserDto = z.infer<typeof CreateClientUserSchema>;
+export type ClientUser = z.infer<typeof ClientUserSchema>;
 export type ApprovalDto = z.infer<typeof ApprovalSchema>;
 export type RejectDto = z.infer<typeof RejectSchema>;
 export type ExportQuery = z.infer<typeof ExportQuerySchema>;
@@ -122,6 +144,7 @@ export interface User {
 export interface Client {
   id: string;
   name: string;
+  slug: string;
   logoUrl?: string | null;
   createdAt: string;
   updatedAt: string;

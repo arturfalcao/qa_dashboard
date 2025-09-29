@@ -3,7 +3,14 @@
 import Link from 'next/link'
 import { useMemo } from 'react'
 import { useParams, usePathname } from 'next/navigation'
-import { ActivityIcon, PackageIcon, BarChart3Icon, DownloadIcon, Factory as FactoryIcon } from 'lucide-react'
+import {
+  ActivityIcon,
+  PackageIcon,
+  BarChart3Icon,
+  DownloadIcon,
+  Factory as FactoryIcon,
+  Users as UsersIcon,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/components/providers/auth-provider'
 import { UserRole } from '@qa-dashboard/shared'
@@ -13,28 +20,32 @@ export function Sidebar() {
   const pathname = usePathname()
   const { user } = useAuth()
   const clientSlug = params.clientSlug as string
-  const basePath = `/c/${clientSlug}`
+  const resolvedSlug = user?.clientSlug || clientSlug
+  const basePath = `/c/${resolvedSlug}`
 
   const navigation = useMemo(() => {
-    const base = [
+    const roles = user?.roles || []
+    const canManageFactories = roles.some((role) =>
+      [UserRole.ADMIN, UserRole.OPS_MANAGER].includes(role),
+    )
+    const canManageUsers = canManageFactories
+
+    const items = [
       { name: 'Live Feed', href: '/feed', icon: ActivityIcon },
       { name: 'Lots', href: '/lots', icon: PackageIcon },
       { name: 'Analytics', href: '/analytics', icon: BarChart3Icon },
       { name: 'Exports', href: '/exports', icon: DownloadIcon },
     ]
 
-    const canManageFactories = user?.roles?.some((role) => [UserRole.ADMIN, UserRole.OPS_MANAGER].includes(role))
     if (canManageFactories) {
-      return [
-        base[0],
-        base[1],
-        { name: 'Factories', href: '/factories', icon: FactoryIcon },
-        base[2],
-        base[3],
-      ]
+      items.splice(2, 0, { name: 'Factories', href: '/factories', icon: FactoryIcon })
     }
 
-    return base
+    if (canManageUsers) {
+      items.push({ name: 'User Access', href: '/users', icon: UsersIcon })
+    }
+
+    return items
   }, [user?.roles])
 
   return (

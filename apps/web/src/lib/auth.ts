@@ -2,7 +2,8 @@ import Cookies from 'js-cookie'
 import { User } from '@qa-dashboard/shared'
 
 export interface AuthUser extends User {
-  clientSlug?: string
+  clientSlug?: string | null
+  clientName?: string | null
 }
 
 export const getStoredUser = (): AuthUser | null => {

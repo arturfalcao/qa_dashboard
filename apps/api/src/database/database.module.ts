@@ -35,6 +35,7 @@ import { ClientService } from "./services/client.service";
 import { FactoryService } from "./services/factory.service";
 import { DefectService } from "./services/defect.service";
 import { SupplyChainService } from "./services/supply-chain.service";
+import { UserService } from "./services/user.service";
 
 import { InspectionController } from "./controllers/inspection.controller";
 import { LotController } from "./controllers/lot.controller";
@@ -86,6 +87,7 @@ import { DppService } from "../dpp/dpp.service";
     EventService,
     SeedService,
     ClientService,
+    UserService,
     FactoryService,
     DefectService,
     SupplyChainService,

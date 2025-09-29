@@ -22,15 +22,28 @@ export default function LoginPage() {
 
     try {
       const response = await apiClient.login({ email, password })
-      
-      const clientSlug = email.includes('marly.example') ? 'heymarly' : 'samplebrand'
-      const userWithSlug = {
-        ...response.user,
-        clientSlug,
+
+      let clientSlug: string | null = null
+      let clientName: string | null = null
+
+      if (response.user.clientId) {
+        try {
+          const client = await apiClient.getClientById(response.user.clientId)
+          clientSlug = client.slug
+          clientName = client.name
+        } catch (clientError) {
+          console.error('Failed to load client information', clientError)
+        }
       }
 
-      storeUser(userWithSlug)
-      setUser(userWithSlug)
+      const userWithClient = {
+        ...response.user,
+        clientSlug,
+        clientName,
+      }
+
+      storeUser(userWithClient)
+      setUser(userWithClient)
 
       const isOperator = response.user.roles.some((role) =>
         [UserRole.OPERATOR, UserRole.SUPERVISOR].includes(role),
@@ -39,7 +52,11 @@ export default function LoginPage() {
       if (isOperator) {
         router.push('/operator')
       } else {
-        router.push(`/c/${clientSlug}/feed`)
+        if (clientSlug) {
+          router.push(`/c/${clientSlug}/feed`)
+        } else {
+          router.push('/')
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Login failed')
@@ -112,12 +129,11 @@ export default function LoginPage() {
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <h3 className="text-sm font-medium text-blue-800 mb-2">Demo Credentials</h3>
           <div className="text-xs text-blue-700 space-y-1">
-            <div><strong>Client A (Hey Marly):</strong></div>
-            <div>• admin@marly.example / demo1234</div>
-            <div>• viewer@marly.example / demo1234</div>
-            <div className="mt-2"><strong>Client B (Sample Brand):</strong></div>
-            <div>• admin@brand.example / demo1234</div>
-            <div>• viewer@brand.example / demo1234</div>
+            <div><strong>PA&amp;CO Luxury Manufacturing:</strong></div>
+            <div>• carlos.martins@paco.example / demo1234</div>
+            <div>• ines.azevedo@paco.example / demo1234</div>
+            <div>• joana.costa@paco.example / demo1234</div>
+            <div>• miguel.lopes@paco.example / demo1234</div>
           </div>
         </div>
       </div>
