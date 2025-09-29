@@ -164,10 +164,10 @@ export default function OperatorDeviceDetailPage() {
                     <div className="md:col-span-3">
                       <button
                         type="submit"
-                        disabled={assignMutation.isLoading}
+                        disabled={assignMutation.isPending}
                         className="mt-2 inline-flex w-full items-center justify-center rounded-full bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-primary-700 disabled:opacity-60"
                       >
-                        {assignMutation.isLoading ? 'Updating…' : 'Assign lot'}
+                        {assignMutation.isPending ? 'Updating…' : 'Assign lot'}
                       </button>
                     </div>
                   </form>
@@ -207,10 +207,10 @@ export default function OperatorDeviceDetailPage() {
                     <div className="md:col-span-3">
                       <button
                         type="submit"
-                        disabled={reprintMutation.isLoading}
+                        disabled={reprintMutation.isPending}
                         className="mt-2 inline-flex w-full items-center justify-center rounded-full border border-primary-200 bg-white px-4 py-2 text-sm font-medium text-primary-700 shadow-sm transition hover:border-primary-300 hover:text-primary-900 disabled:opacity-60"
                       >
-                        {reprintMutation.isLoading ? 'Sending…' : 'Queue reprint command'}
+                        {reprintMutation.isPending ? 'Sending…' : 'Queue reprint command'}
                       </button>
                     </div>
                   </form>

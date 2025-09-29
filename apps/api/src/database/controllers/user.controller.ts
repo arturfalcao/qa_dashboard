@@ -59,6 +59,12 @@ export class UserController {
   ) {
     this.assertAdmin(user);
 
-    return this.userService.createClientUser(body);
+    return this.userService.createClientUser({
+      email: body.email,
+      clientSlug: body.clientSlug,
+      clientId: body.clientId,
+      roles: body.roles,
+      temporaryPassword: body.temporaryPassword,
+    });
   }
 }
