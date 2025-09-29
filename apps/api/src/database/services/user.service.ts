@@ -24,7 +24,8 @@ import {
 
 interface CreateClientUserInput {
   email: string;
-  clientSlug: string;
+  clientSlug?: string;
+  clientId?: string;
   roles?: UserRole[];
   temporaryPassword?: string;
 }
@@ -151,12 +152,21 @@ export class UserService {
   async createClientUser({
     email,
     clientSlug,
+    clientId,
     roles = [UserRole.CLIENT_VIEWER],
     temporaryPassword,
   }: CreateClientUserInput) {
-    const client = await this.clientRepository.findOne({ where: { slug: clientSlug } });
+    if (!clientSlug && !clientId) {
+      throw new BadRequestException("Either clientSlug or clientId must be provided");
+    }
+
+    const client = await this.clientRepository.findOne({
+      where: clientId ? { id: clientId } : { slug: clientSlug },
+    });
     if (!client) {
-      throw new NotFoundException(`Client with slug ${clientSlug} not found`);
+      throw new NotFoundException(
+        `Client with ${clientId ? `id ${clientId}` : `slug ${clientSlug}`} not found`,
+      );
     }
 
     const normalizedEmail = email.toLowerCase();
@@ -171,7 +181,7 @@ export class UserService {
       );
     }
 
-    const password = temporaryPassword ?? this.generateTemporaryPassword();
+    const password = temporaryPassword ?? randomBytes(16).toString("hex");
     const passwordHash = await bcrypt.hash(password, 10);
 
     const user = this.userRepository.create({
@@ -263,3 +273,4 @@ export class UserService {
 
     return this.mapToClientUser(refreshedUser);
   }
+}
