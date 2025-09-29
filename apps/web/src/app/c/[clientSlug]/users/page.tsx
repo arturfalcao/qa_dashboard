@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { UserRole, type ClientUser } from '@qa-dashboard/shared'
+import { Fragment, useEffect, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { UserRole, type ClientUser, type Lot } from '@qa-dashboard/shared'
 import { useAuth } from '@/components/providers/auth-provider'
 import { apiClient } from '@/lib/api'
 
@@ -14,11 +15,24 @@ export default function ClientUsersPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null)
+  const [selectedLotIds, setSelectedLotIds] = useState<string[]>([])
+  const [assignmentError, setAssignmentError] = useState<string | null>(null)
+  const [assignmentSuccess, setAssignmentSuccess] = useState<string | null>(null)
+  const [isSavingAssignments, setIsSavingAssignments] = useState(false)
 
   const availableRoles = useMemo(
     () => [UserRole.CLIENT_VIEWER, UserRole.OPS_MANAGER, UserRole.ADMIN],
     [],
   )
+
+  const { data: lots = [], isLoading: lotsLoading } = useQuery<Lot[]>({
+    queryKey: ['client-lots'],
+    queryFn: () => apiClient.getLots(),
+    enabled: Boolean(user?.clientId),
+  })
+
+  const lotNameMap = useMemo(() => new Map(lots.map((lot) => [lot.id, lot.styleRef])), [lots])
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -67,6 +81,60 @@ export default function ClientUsersPage() {
       setError(submitError?.message || 'Unable to create login')
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const openAssignmentPanel = (clientUser: ClientUser) => {
+    if (expandedUserId === clientUser.id) {
+      setExpandedUserId(null)
+      setSelectedLotIds(clientUser.assignedLotIds)
+      setAssignmentError(null)
+      setAssignmentSuccess(null)
+      return
+    }
+
+    setExpandedUserId(clientUser.id)
+    setSelectedLotIds(clientUser.assignedLotIds)
+    setAssignmentError(null)
+    setAssignmentSuccess(null)
+  }
+
+  const toggleLotSelection = (lotId: string) => {
+    setSelectedLotIds((current) =>
+      current.includes(lotId)
+        ? current.filter((id) => id !== lotId)
+        : [...current, lotId],
+    )
+  }
+
+  const handleAssignmentSubmit = async (
+    event: React.FormEvent<HTMLFormElement>,
+    clientUser: ClientUser,
+  ) => {
+    event.preventDefault()
+
+    if (!user?.clientId) {
+      setAssignmentError('You must be associated with a client to update access')
+      return
+    }
+
+    setAssignmentError(null)
+    setAssignmentSuccess(null)
+    setIsSavingAssignments(true)
+
+    try {
+      const updated = await apiClient.updateClientUserLots(user.clientId, clientUser.id, {
+        lotIds: selectedLotIds,
+      })
+
+      setUsers((prev) => prev.map((entry) => (entry.id === updated.id ? updated : entry)))
+      setSelectedLotIds(updated.assignedLotIds)
+      setAssignmentSuccess('Lot visibility updated')
+    } catch (assignmentErr: any) {
+      console.error('Failed to update lot access', assignmentErr)
+      setAssignmentError(assignmentErr?.message || 'Unable to update lot access')
+    } finally {
+      setIsSavingAssignments(false)
     }
   }
 
@@ -183,34 +251,141 @@ export default function ClientUsersPage() {
                   Roles
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Assigned lots
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {users.map((clientUser) => (
-                <tr key={clientUser.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{clientUser.email}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatRoles(clientUser.roles)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium ${
-                        clientUser.isActive
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-600'
-                      }`}
-                    >
-                      {clientUser.isActive ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {users.map((clientUser) => {
+                const assignedNames = clientUser.assignedLotIds
+                  .map((lotId) => lotNameMap.get(lotId))
+                  .filter(Boolean) as string[]
+                const isExpanded = expandedUserId === clientUser.id
+
+                return (
+                  <Fragment key={clientUser.id}>
+                    <tr>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{clientUser.email}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatRoles(clientUser.roles)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {lotsLoading
+                          ? 'Loading lots...'
+                          : assignedNames.length > 0
+                          ? assignedNames.join(', ')
+                          : 'No lots assigned'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium ${
+                            clientUser.isActive
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-gray-100 text-gray-600'
+                          }`}
+                        >
+                          {clientUser.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <button
+                          type="button"
+                          onClick={() => openAssignmentPanel(clientUser)}
+                          className="text-primary-600 hover:text-primary-800"
+                        >
+                          {expandedUserId === clientUser.id ? 'Close' : 'Manage access'}
+                        </button>
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-4 bg-gray-50">
+                          <form className="space-y-4" onSubmit={(event) => handleAssignmentSubmit(event, clientUser)}>
+                            {assignmentError && (
+                              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded">
+                                {assignmentError}
+                              </div>
+                            )}
+
+                            {assignmentSuccess && (
+                              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-2 rounded">
+                                {assignmentSuccess}
+                              </div>
+                            )}
+
+                            <p className="text-sm text-gray-600">
+                              Select which lots this user can see when they sign in.
+                            </p>
+
+                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                              {lotsLoading ? (
+                                <div className="sm:col-span-2 lg:col-span-3 text-sm text-gray-500">
+                                  Loading lots...
+                                </div>
+                              ) : lots.length === 0 ? (
+                                <div className="sm:col-span-2 lg:col-span-3 text-sm text-gray-500">
+                                  No lots available yet.
+                                </div>
+                              ) : (
+                                lots
+                                  .slice()
+                                  .sort((a, b) => a.styleRef.localeCompare(b.styleRef))
+                                  .map((lot) => (
+                                    <label key={lot.id} className="flex items-start space-x-2 text-sm text-gray-700">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedLotIds.includes(lot.id)}
+                                        onChange={() => toggleLotSelection(lot.id)}
+                                        className="mt-1 h-4 w-4 text-primary-600 border-gray-300 rounded"
+                                      />
+                                      <span>
+                                        <span className="font-medium text-gray-900">{lot.styleRef}</span>
+                                        {lot.factory?.name && (
+                                          <span className="block text-xs text-gray-500">
+                                            {lot.factory.name}
+                                          </span>
+                                        )}
+                                      </span>
+                                    </label>
+                                  ))
+                              )}
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                              <button
+                                type="button"
+                                className="text-sm text-gray-500 hover:text-gray-700"
+                                onClick={() => setSelectedLotIds([])}
+                                disabled={isSavingAssignments}
+                              >
+                                Clear selection
+                              </button>
+
+                              <button
+                                type="submit"
+                                disabled={isSavingAssignments}
+                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                              >
+                                {isSavingAssignments ? 'Saving...' : 'Save access'}
+                              </button>
+                            </div>
+                          </form>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                )
+              })}
 
               {users.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="px-6 py-6 text-center text-sm text-gray-500">
+                  <td colSpan={5} className="px-6 py-6 text-center text-sm text-gray-500">
                     No users yet. Invite your first client contact above.
                   </td>
                 </tr>

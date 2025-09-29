@@ -1,20 +1,24 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Repository, In } from "typeorm";
 import * as bcrypt from "bcryptjs";
 
 import { User } from "../entities/user.entity";
 import { Role } from "../entities/role.entity";
 import { UserRole as UserRoleEntity } from "../entities/user-role.entity";
 import { Client } from "../entities/client.entity";
+import { Lot } from "../entities/lot.entity";
+import { LotUserAssignment } from "../entities/lot-user-assignment.entity";
 import {
   CreateClientUserDto,
   ClientUser,
   UserRole,
+  UpdateClientUserLotsDto,
 } from "@qa-dashboard/shared";
 
 @Injectable()
@@ -28,9 +32,26 @@ export class UserService {
     private readonly userRoleRepository: Repository<UserRoleEntity>,
     @InjectRepository(Client)
     private readonly clientRepository: Repository<Client>,
+    @InjectRepository(Lot)
+    private readonly lotRepository: Repository<Lot>,
+    @InjectRepository(LotUserAssignment)
+    private readonly lotUserAssignmentRepository: Repository<LotUserAssignment>,
   ) {}
 
-  private mapToClientUser(user: User, roles: UserRole[]): ClientUser {
+  private resolveRoles(user: User): UserRole[] {
+    const assignedRoles =
+      user.userRoles
+        ?.map((userRole) => userRole.role?.name)
+        .filter((name): name is UserRole =>
+          name ? (Object.values(UserRole) as string[]).includes(name) : false,
+        ) || [];
+
+    return assignedRoles.length ? assignedRoles : [UserRole.CLIENT_VIEWER];
+  }
+
+  private mapToClientUser(user: User): ClientUser {
+    const roles = this.resolveRoles(user);
+
     return {
       id: user.id,
       clientId: user.clientId ?? null,
@@ -39,26 +60,19 @@ export class UserService {
       createdAt: user.createdAt.toISOString(),
       updatedAt: user.updatedAt.toISOString(),
       roles,
+      assignedLotIds:
+        user.assignments?.map((assignment) => assignment.lotId) ?? [],
     };
   }
 
   async listForClient(clientId: string): Promise<ClientUser[]> {
     const users = await this.userRepository.find({
       where: { clientId },
-      relations: ["userRoles", "userRoles.role"],
+      relations: ["userRoles", "userRoles.role", "assignments"],
       order: { createdAt: "DESC" },
     });
 
-    return users.map((user) => {
-      const roles =
-        user.userRoles
-          ?.map((userRole) => userRole.role?.name)
-          .filter((name): name is UserRole =>
-            name ? (Object.values(UserRole) as string[]).includes(name) : false,
-          ) || [];
-
-      return this.mapToClientUser(user, roles.length ? roles : [UserRole.CLIENT_VIEWER]);
-    });
+    return users.map((user) => this.mapToClientUser(user));
   }
 
   async createForClient(
@@ -112,24 +126,61 @@ export class UserService {
 
     const createdUser = await this.userRepository.findOne({
       where: { id: savedUser.id },
-      relations: ["userRoles", "userRoles.role"],
+      relations: ["userRoles", "userRoles.role", "assignments"],
     });
 
     if (!createdUser) {
       throw new NotFoundException("Created user not found");
     }
 
-    const assignedRoles =
-      createdUser.userRoles
-        ?.map((userRole) => userRole.role?.name)
-        .filter((name): name is UserRole =>
-          name ? (Object.values(UserRole) as string[]).includes(name) : false,
-        ) || [];
+    return this.mapToClientUser(createdUser);
+  }
 
-    const effectiveRoles = assignedRoles.length
-      ? assignedRoles
-      : [UserRole.CLIENT_VIEWER];
+  async updateAssignedLots(
+    clientId: string,
+    userId: string,
+    payload: UpdateClientUserLotsDto,
+  ): Promise<ClientUser> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId, clientId },
+    });
 
-    return this.mapToClientUser(createdUser, effectiveRoles);
+    if (!user) {
+      throw new NotFoundException("User not found");
+    }
+
+    const lotIds = payload.lotIds ?? [];
+    const uniqueLotIds = Array.from(new Set(lotIds));
+
+    if (uniqueLotIds.length) {
+      const lots = await this.lotRepository.find({
+        where: { clientId, id: In(uniqueLotIds) },
+        select: ["id"],
+      });
+
+      if (lots.length !== uniqueLotIds.length) {
+        throw new BadRequestException("One or more lots do not belong to this client");
+      }
+    }
+
+    await this.lotUserAssignmentRepository.delete({ userId });
+
+    if (uniqueLotIds.length) {
+      const assignments = uniqueLotIds.map((lotId) =>
+        this.lotUserAssignmentRepository.create({ lotId, userId }),
+      );
+      await this.lotUserAssignmentRepository.save(assignments);
+    }
+
+    const refreshedUser = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ["userRoles", "userRoles.role", "assignments"],
+    });
+
+    if (!refreshedUser) {
+      throw new NotFoundException("User not found after updating assignments");
+    }
+
+    return this.mapToClientUser(refreshedUser);
   }
 }

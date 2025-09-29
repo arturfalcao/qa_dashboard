@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   ForbiddenException,
 } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
@@ -17,6 +18,8 @@ import {
   UserRole,
   CreateClientUserDto,
   CreateClientUserSchema,
+  UpdateClientUserLotsDto,
+  UpdateClientUserLotsSchema,
 } from "@qa-dashboard/shared";
 
 const createClientSchema = z.object({
@@ -111,6 +114,18 @@ export class ClientController {
   ) {
     this.assertClientAccess(id, user);
     return this.userService.createForClient(id, body);
+  }
+
+  @Put(":id/users/:userId/lots")
+  @ApiOperation({ summary: "Update which lots a client user can access" })
+  async updateClientUserLots(
+    @Param("id") id: string,
+    @Param("userId") userId: string,
+    @Body(new ZodValidationPipe(UpdateClientUserLotsSchema)) body: UpdateClientUserLotsDto,
+    @CurrentUser() user?: { roles?: UserRole[]; clientId?: string | null },
+  ) {
+    this.assertClientAccess(id, user);
+    return this.userService.updateAssignedLots(id, userId, body);
   }
 
   @Post()

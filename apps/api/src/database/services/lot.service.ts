@@ -10,6 +10,7 @@ import {
   ApprovalDecision,
   EventType,
   SupplyChainStageStatus,
+  UserRole,
 } from "@qa-dashboard/shared";
 import { EventService } from "./event.service";
 import { Factory } from "../entities/factory.entity";
@@ -17,6 +18,7 @@ import { LotFactory } from "../entities/lot-factory.entity";
 import { SupplyChainRole } from "../entities/supply-chain-role.entity";
 import { LotFactoryRole } from "../entities/lot-factory-role.entity";
 import { FactoryRole } from "../entities/factory-role.entity";
+import { LotUserAssignment } from "../entities/lot-user-assignment.entity";
 
 interface LotSupplierRoleInput {
   roleId: string;
@@ -57,21 +59,66 @@ export class LotService {
     private readonly supplyChainRoleRepository: Repository<SupplyChainRole>,
     @InjectRepository(FactoryRole)
     private readonly factoryRoleRepository: Repository<FactoryRole>,
+    @InjectRepository(LotUserAssignment)
+    private readonly lotUserAssignmentRepository: Repository<LotUserAssignment>,
     private readonly eventService: EventService,
   ) {}
 
-  async listLots(clientId: string): Promise<any[]> {
-    // First get lots with basic relations
-    const lots = await this.lotRepository.find({
-      where: { clientId },
-      relations: [
-        "factory",
-        "suppliers",
-        "suppliers.factory",
-        "approvals",
-      ],
-      order: { createdAt: "DESC" },
-    });
+  private isViewerRestricted(
+    user: { id?: string; roles?: UserRole[]; clientId?: string | null } | undefined,
+    clientId: string,
+  ): user is { id: string; roles?: UserRole[]; clientId?: string | null } {
+    if (!user?.id) {
+      return false;
+    }
+
+    if (user.clientId !== clientId) {
+      return false;
+    }
+
+    const roles = user.roles ?? [];
+    return roles.length === 0 || roles.every((role) => role === UserRole.CLIENT_VIEWER);
+  }
+
+  async listLots(
+    clientId: string,
+    user?: { id?: string; roles?: UserRole[]; clientId?: string | null },
+  ): Promise<any[]> {
+    let lots: Lot[] = [];
+
+    if (this.isViewerRestricted(user, clientId)) {
+      const assignments = await this.lotUserAssignmentRepository.find({
+        where: { userId: user.id },
+        select: ["lotId"],
+      });
+
+      if (!assignments.length) {
+        return [];
+      }
+
+      const lotIds = Array.from(new Set(assignments.map((assignment) => assignment.lotId)));
+      lots = await this.lotRepository.find({
+        where: { clientId, id: In(lotIds) },
+        relations: [
+          "factory",
+          "suppliers",
+          "suppliers.factory",
+          "approvals",
+        ],
+        order: { createdAt: "DESC" },
+      });
+    } else {
+      lots = await this.lotRepository.find({
+        where: { clientId },
+        relations: [
+          "factory",
+          "suppliers",
+          "suppliers.factory",
+          "approvals",
+        ],
+        order: { createdAt: "DESC" },
+      });
+    }
 
     if (lots.length === 0) {
       return [];
@@ -253,7 +300,21 @@ export class LotService {
     return this.getLot(clientId, lotId);
   }
 
-  async getLot(clientId: string, lotId: string): Promise<any> {
+  async getLot(
+    clientId: string,
+    lotId: string,
+    user?: { id?: string; roles?: UserRole[]; clientId?: string | null },
+  ): Promise<any> {
+    if (this.isViewerRestricted(user, clientId)) {
+      const assignmentCount = await this.lotUserAssignmentRepository.count({
+        where: { userId: user.id, lotId },
+      });
+
+      if (!assignmentCount) {
+        throw new ForbiddenException("Lot not assigned to the current user");
+      }
+    }
+
     const lot = await this.lotRepository.findOne({
       where: { id: lotId, clientId },
       relations: [

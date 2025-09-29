@@ -102,6 +102,11 @@ export const ClientUserSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
   roles: z.array(z.nativeEnum(UserRole)),
+  assignedLotIds: z.array(z.string().uuid()),
+});
+
+export const UpdateClientUserLotsSchema = z.object({
+  lotIds: z.array(z.string().uuid()).default([]),
 });
 
 export const ApprovalSchema = z.object({
@@ -121,6 +126,7 @@ export type LoginDto = z.infer<typeof LoginSchema>;
 export type RefreshTokenDto = z.infer<typeof RefreshTokenSchema>;
 export type CreateClientUserDto = z.infer<typeof CreateClientUserSchema>;
 export type ClientUser = z.infer<typeof ClientUserSchema>;
+export type UpdateClientUserLotsDto = z.infer<typeof UpdateClientUserLotsSchema>;
 export type ApprovalDto = z.infer<typeof ApprovalSchema>;
 export type RejectDto = z.infer<typeof RejectSchema>;
 export type ExportQuery = z.infer<typeof ExportQuerySchema>;

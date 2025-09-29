@@ -12,6 +12,7 @@ import {
 import { Client } from "./client.entity";
 import { Approval } from "./approval.entity";
 import { UserRole as UserRoleEntity } from "./user-role.entity";
+import { LotUserAssignment } from "./lot-user-assignment.entity";
 
 @Entity("users")
 @Unique(["clientId", "email"])
@@ -48,4 +49,7 @@ export class User {
 
   @OneToMany(() => UserRoleEntity, (userRole) => userRole.user)
   userRoles: UserRoleEntity[];
+
+  @OneToMany(() => LotUserAssignment, (assignment) => assignment.user)
+  assignments: LotUserAssignment[];
 }
