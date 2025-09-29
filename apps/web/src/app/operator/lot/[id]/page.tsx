@@ -119,11 +119,11 @@ export default function OperatorLotDetailPage() {
 
           <button
             type="submit"
-            disabled={mutation.isLoading}
+            disabled={mutation.isPending}
             className="md:col-span-1 mt-6 inline-flex h-10 items-center justify-center gap-2 rounded-full bg-primary-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-primary-700 disabled:opacity-60"
           >
             <FlagIcon className="h-4 w-4" aria-hidden />
-            {mutation.isLoading ? 'Saving…' : 'Flag event'}
+            {mutation.isPending ? 'Saving…' : 'Flag event'}
           </button>
         </form>
       </section>
