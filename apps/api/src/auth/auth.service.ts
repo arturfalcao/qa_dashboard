@@ -16,10 +16,11 @@ export class AuthService {
   ) {}
 
   async validateUser(email: string, password: string): Promise<User | null> {
-    console.log(`Attempting to validate user: ${email}`);
+    const normalizedEmail = email.toLowerCase();
+    console.log(`Attempting to validate user: ${normalizedEmail}`);
 
     const user = await this.userRepository.findOne({
-      where: { email, isActive: true },
+      where: { email: normalizedEmail, isActive: true },
       relations: ["client", "userRoles", "userRoles.role"],
     });
 

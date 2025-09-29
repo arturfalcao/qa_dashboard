@@ -22,6 +22,10 @@ import {
   OperatorAssignLotPayload,
   OperatorReprintPayload,
   OperatorFlagPayload,
+  Client,
+  ClientUser,
+  CreateClientUserDto,
+  UpdateClientUserLotsDto,
 } from '@qa-dashboard/shared'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001'
@@ -87,6 +91,36 @@ class ApiClient {
 
     Cookies.set('accessToken', response.accessToken, { expires: 1 / 24 })
     return response
+  }
+
+  // Clients
+  async getClientById(clientId: string): Promise<Client> {
+    return this.request<Client>(`/clients/${clientId}`)
+  }
+
+  async listClientUsers(clientId: string): Promise<ClientUser[]> {
+    return this.request<ClientUser[]>(`/clients/${clientId}/users`)
+  }
+
+  async createClientUser(
+    clientId: string,
+    payload: CreateClientUserDto,
+  ): Promise<ClientUser> {
+    return this.request<ClientUser>(`/clients/${clientId}/users`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  }
+
+  async updateClientUserLots(
+    clientId: string,
+    userId: string,
+    payload: UpdateClientUserLotsDto,
+  ): Promise<ClientUser> {
+    return this.request<ClientUser>(`/clients/${clientId}/users/${userId}/lots`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    })
   }
 
   // Operator endpoints

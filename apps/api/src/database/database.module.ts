@@ -25,6 +25,7 @@ import { FactoryCertification } from "./entities/factory-certification.entity";
 import { Dpp } from "./entities/dpp.entity";
 import { DppEvent } from "./entities/dpp-event.entity";
 import { DppAccessLog } from "./entities/dpp-access-log.entity";
+import { LotUserAssignment } from "./entities/lot-user-assignment.entity";
 
 import { InspectionService } from "./services/inspection.service";
 import { LotService } from "./services/lot.service";
@@ -65,6 +66,7 @@ import { DppService } from "../dpp/dpp.service";
       FactoryRole,
       FactoryCertification,
       LotFactoryRole,
+      LotUserAssignment,
       Inspection,
       Defect,
       Photo,
@@ -88,6 +90,7 @@ import { DppService } from "../dpp/dpp.service";
     EventService,
     SeedService,
     ClientService,
+    UserService,
     FactoryService,
     DefectService,
     SupplyChainService,

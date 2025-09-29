@@ -146,17 +146,21 @@ export class LotController {
       throw new ForbiddenException("Missing client context");
     }
 
-    return this.lotService.listLots(clientId);
+    return this.lotService.listLots(clientId, user);
   }
 
   @Get(":id")
   @ApiOperation({ summary: "Get lot by ID" })
-  async getLot(@ClientId() clientId: string, @Param("id") id: string) {
+  async getLot(
+    @ClientId() clientId: string,
+    @Param("id") id: string,
+    @CurrentUser() user?: { id?: string; roles?: UserRole[]; clientId?: string | null },
+  ) {
     if (!clientId) {
       throw new ForbiddenException("Missing client context");
     }
 
-    return this.lotService.getLot(clientId, id);
+    return this.lotService.getLot(clientId, id, user);
   }
 
   @Patch(":id")

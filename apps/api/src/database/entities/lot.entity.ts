@@ -16,6 +16,7 @@ import { Approval } from "./approval.entity";
 import { Activity } from "./activity.entity";
 import { Report } from "./report.entity";
 import { LotFactory } from "./lot-factory.entity";
+import { LotUserAssignment } from "./lot-user-assignment.entity";
 
 const numericTransformer = {
   to: (value?: number | null) => value ?? 0,
@@ -140,4 +141,7 @@ export class Lot {
 
   @OneToMany(() => Report, (report) => report.lot)
   reports: Report[];
+
+  @OneToMany(() => LotUserAssignment, (assignment) => assignment.lot)
+  assignments: LotUserAssignment[];
 }

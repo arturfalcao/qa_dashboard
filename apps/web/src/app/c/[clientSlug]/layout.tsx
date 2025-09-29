@@ -1,9 +1,12 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useAuth } from '@/components/providers/auth-provider'
 import { usePathname } from 'next/navigation'
 import { Navbar } from '@/components/ui/navbar'
 import { Sidebar } from '@/components/ui/sidebar'
+import { apiClient } from '@/lib/api'
+import { storeUser } from '@/lib/auth'
 
 export default function ClientLayout({
   children,
@@ -12,8 +15,25 @@ export default function ClientLayout({
   children: React.ReactNode
   params: { clientSlug: string }
 }) {
-  const { user, isLoading } = useAuth()
+  const { user, setUser, isLoading } = useAuth()
   const pathname = usePathname()
+
+  useEffect(() => {
+    const hydrateClient = async () => {
+      if (user && user.clientId && !user.clientSlug) {
+        try {
+          const client = await apiClient.getClientById(user.clientId)
+          const nextUser = { ...user, clientSlug: client.slug, clientName: client.name }
+          setUser(nextUser)
+          storeUser(nextUser)
+        } catch (error) {
+          console.error('Unable to hydrate client information', error)
+        }
+      }
+    }
+
+    hydrateClient()
+  }, [user, setUser])
 
   if (isLoading) {
     return (

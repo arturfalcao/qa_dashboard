@@ -11,7 +11,7 @@ export function Navbar() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
 
   const clientSlug = params.clientSlug as string
-  const clientName = clientSlug === 'heymarly' ? 'Hey Marly' : 'Sample Brand'
+  const clientName = user?.clientName || clientSlug
 
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200 fixed w-full z-40">
@@ -22,9 +22,11 @@ export function Navbar() {
               <h1 className="text-xl font-bold text-gray-900">
                 QA Dashboard
               </h1>
-              <span className="ml-3 px-2 py-1 text-xs font-medium bg-primary-100 text-primary-800 rounded">
-                {clientName}
-              </span>
+              {clientName && (
+                <span className="ml-3 px-2 py-1 text-xs font-medium bg-primary-100 text-primary-800 rounded">
+                  {clientName}
+                </span>
+              )}
             </div>
           </div>
 

@@ -20,6 +20,7 @@ import { LotFactoryRole } from "../entities/lot-factory-role.entity";
 import { SupplyChainRole } from "../entities/supply-chain-role.entity";
 import { FactoryRole } from "../entities/factory-role.entity";
 import { FactoryCertification } from "../entities/factory-certification.entity";
+import { LotUserAssignment } from "../entities/lot-user-assignment.entity";
 import { Dpp, DppStatus } from "../entities/dpp.entity";
 import { DppService } from "../../dpp/dpp.service";
 import { CreateDppDto } from "../../dpp/dpp-schemas";
@@ -1201,6 +1202,8 @@ export class SeedService {
     private readonly factoryCertificationRepository: Repository<FactoryCertification>,
     @InjectRepository(Event)
     private readonly eventRepository: Repository<Event>,
+    @InjectRepository(LotUserAssignment)
+    private readonly lotUserAssignmentRepository: Repository<LotUserAssignment>,
     private readonly dppService: DppService,
   ) {}
 
@@ -1213,6 +1216,7 @@ export class SeedService {
     const users = await this.seedUsers(clients);
     await this.clearExistingData();
     const seededLots = await this.seedLots(clients, defectTypes, users, supplyChainRoles);
+    await this.assignLotsToClientViewers(users, seededLots);
     await this.seedDpps(clients, users, seededLots);
     await this.seedEvents(clients, seededLots);
   }
@@ -1225,6 +1229,7 @@ export class SeedService {
     await this.defectRepository.query('DELETE FROM defects');
     await this.inspectionRepository.query('DELETE FROM inspections');
     await this.approvalRepository.query('DELETE FROM approvals');
+    await this.lotUserAssignmentRepository.query('DELETE FROM lot_user_assignments');
     await this.lotFactoryRoleRepository.query('DELETE FROM lot_factory_roles');
     await this.lotFactoryRepository.query('DELETE FROM lot_factories');
     // DPPs will be handled by the DppService
@@ -1634,6 +1639,44 @@ export class SeedService {
       seededLots.set(lotSeed.styleRef, lot);
     }
     return seededLots;
+  }
+
+  private async assignLotsToClientViewers(
+    users: Map<string, User>,
+    lots: Map<string, Lot>,
+  ): Promise<void> {
+    const viewerEmails = Object.values(USERS)
+      .flat()
+      .filter((seedUser) => seedUser.roles.includes(UserRole.CLIENT_VIEWER))
+      .map((seedUser) => seedUser.email);
+
+    if (!viewerEmails.length) {
+      return;
+    }
+
+    const seededLotIds = Array.from(lots.values())
+      .sort((a, b) => a.styleRef.localeCompare(b.styleRef))
+      .slice(0, 5)
+      .map((lot) => lot.id);
+
+    for (const email of viewerEmails) {
+      const viewer = users.get(email);
+      if (!viewer) {
+        continue;
+      }
+
+      await this.lotUserAssignmentRepository.delete({ userId: viewer.id });
+
+      if (!seededLotIds.length) {
+        continue;
+      }
+
+      await this.lotUserAssignmentRepository.save(
+        seededLotIds.map((lotId) =>
+          this.lotUserAssignmentRepository.create({ lotId, userId: viewer.id }),
+        ),
+      );
+    }
   }
 
   private async seedDpps(
