@@ -17,9 +17,34 @@ This guide summarizes how to demonstrate and deliver full interoperability betwe
 ## Empowering Paco to onboard their own customers
 
 1. **Create a new downstream brand:** From an admin session, call `POST /clients` with the brand name, slug, and optional logo. This provisions the tenant shell and ties future lots, inspections, and reports to that brand.【F:apps/api/src/database/controllers/client.controller.ts†L10-L64】
-2. **Add brand users with the correct role:** Users with `CLIENT_VIEWER` receive read-only access. The seed data already illustrates the pattern (`miguel.lopes@paco.example`) and roles are enforced during login so viewers cannot escalate privileges.【F:apps/api/src/auth/auth.service.ts†L35-L60】【F:apps/api/src/database/services/seed.service.ts†L360-L382】
+   ```http
+   POST /clients
+   {
+     "name": "Luxury Brand X",
+     "slug": "lux-brand-x",
+     "logoUrl": "https://cdn.paco.example/lux-brand-x.png"
+   }
+   ```
+2. **Add brand users with the correct role:** Use the dedicated provisioning endpoint to mint credentials and enforce the viewer role for downstream customers.【F:apps/api/src/database/controllers/user.controller.ts†L1-L38】【F:apps/api/src/database/services/user.service.ts†L10-L107】
+   ```http
+   POST /client-users
+   {
+     "email": "qa.lead@lux-brand-x.com",
+     "clientSlug": "lux-brand-x",
+     "roles": ["CLIENT_VIEWER"]
+   }
+   ```
+   The response returns the temporary password that Paco can forward securely to the customer contact.
 3. **Share scoped dashboards:** When a viewer logs in, the dashboard automatically routes them into the `/c/[clientSlug]` workspace that filters all queries by their tenant, ensuring they only see their own orders, inspections, and reports.【F:apps/web/src/app/c/[clientSlug]/layout.tsx†L1-L83】
 4. **Delegate lifecycle operations where safe:** Paco admins retain elevated roles (ADMIN, OPS_MANAGER) so they can approve batches, generate reports, and manage factory assignments for each brand they operate.【F:apps/api/src/database/services/seed.service.ts†L360-L375】【F:apps/web/src/app/c/[clientSlug]/lots/page.tsx†L1-L66】
+
+### Access guarantees for Paco's clients
+
+- **Tenant isolation is automatic.** Every API request includes `clientId` metadata, and the client guard filters queries so a Paco brand can never see another brand's data—even when Paco HQ staff work inside the same session.【F:apps/api/src/auth/client.guard.ts†L1-L19】
+- **Role-based UI shielding.** The App Router layout reads the role from the session and hides actions (approvals, editing suppliers, etc.) when the user is a `CLIENT_VIEWER`, ensuring the end customer can only observe, not mutate, production data.【F:apps/web/src/app/c/[clientSlug]/layout.tsx†L1-L83】
+- **Credential hand-off is secure.** Temporary passwords are hashed before storage and never logged, but the plaintext is returned once so Paco can share it via their chosen secure channel.【F:apps/api/src/database/services/user.service.ts†L44-L107】
+- **Per-tenant uniqueness.** The database enforces a unique constraint on `(clientId, email)`, guaranteeing that customer logins cannot bleed into another brand tenant.【F:apps/api/src/database/entities/user.entity.ts†L15-L38】
+- **Operational traceability.** The event service captures production hand-offs, and the same infrastructure can be extended to fire access-grant events once Paco standardises their downstream workflows.【F:apps/api/src/database/services/event.service.ts†L1-L37】
 
 ## What the end customer experiences
 

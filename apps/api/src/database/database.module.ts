@@ -35,6 +35,7 @@ import { ClientService } from "./services/client.service";
 import { FactoryService } from "./services/factory.service";
 import { DefectService } from "./services/defect.service";
 import { SupplyChainService } from "./services/supply-chain.service";
+import { UserService } from "./services/user.service";
 
 import { InspectionController } from "./controllers/inspection.controller";
 import { LotController } from "./controllers/lot.controller";
@@ -44,6 +45,7 @@ import { AdminController } from "./controllers/admin.controller";
 import { ClientController } from "./controllers/client.controller";
 import { FactoryController } from "./controllers/factory.controller";
 import { SupplyChainController } from "./controllers/supply-chain.controller";
+import { UserController } from "./controllers/user.controller";
 import { StorageModule } from "../storage/storage.module";
 import { DppModule } from "../dpp/dpp.module";
 import { DppService } from "../dpp/dpp.service";
@@ -89,6 +91,7 @@ import { DppService } from "../dpp/dpp.service";
     FactoryService,
     DefectService,
     SupplyChainService,
+    UserService,
     DppService,
   ],
   controllers: [
@@ -100,6 +103,7 @@ import { DppService } from "../dpp/dpp.service";
     ClientController,
     FactoryController,
     SupplyChainController,
+    UserController,
   ],
   exports: [
     InspectionService,
