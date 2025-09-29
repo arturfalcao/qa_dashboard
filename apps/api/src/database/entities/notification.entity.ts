@@ -11,8 +11,8 @@ export class Notification {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ name: "client_id", nullable: true })
-  clientId?: string | null;
+  @Column({ name: "tenant_id", nullable: true })
+  tenantId?: string | null;
 
   @Column({ name: "user_id", nullable: true })
   userId?: string | null;

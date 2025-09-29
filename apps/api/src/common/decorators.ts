@@ -10,42 +10,45 @@ export const CurrentUser = createParamDecorator(
   },
 );
 
-export const ClientId = createParamDecorator(
+export const TenantId = createParamDecorator(
   (data: unknown, ctx: ExecutionContext) => {
     const request = ctx.switchToHttp().getRequest();
-    const headerClientId = request.headers?.["x-client-id"] ?? request.headers?.["x-client"];
-    const queryClientId = request.query?.clientId ?? request.query?.client_id;
+    const headerTenantId = request.headers?.["x-tenant-id"] ?? request.headers?.["x-tenant"];
+    const queryTenantId = request.query?.tenantId ?? request.query?.tenant_id;
 
-    const resolvedClientId =
-      request.clientId ||
-      request.user?.clientId ||
-      (Array.isArray(headerClientId) ? headerClientId[0] : headerClientId) ||
-      (Array.isArray(queryClientId) ? queryClientId[0] : queryClientId) ||
+    const resolvedTenantId =
+      request.tenantId ||
+      request.user?.tenantId ||
+      (Array.isArray(headerTenantId) ? headerTenantId[0] : headerTenantId) ||
+      (Array.isArray(queryTenantId) ? queryTenantId[0] : queryTenantId) ||
       null;
 
-    console.log('🏢 ClientId Decorator - Debug:', {
+    console.log('🏢 TenantId Decorator - Debug:', {
       url: request.url,
-      requestClientId: request.clientId,
-      userClientId: request.user?.clientId,
-      headerClientId,
-      queryClientId,
-      resolvedClientId,
+      requestTenantId: request.tenantId,
+      userTenantId: request.user?.tenantId,
+      headerTenantId,
+      queryTenantId,
+      resolvedTenantId,
       user: request.user,
       authHeader: request.headers?.authorization?.substring(0, 30) + '...',
       allHeaders: Object.keys(request.headers || {})
     });
 
-    if (!request.clientId && resolvedClientId) {
-      request.clientId = resolvedClientId;
+    if (!request.tenantId && resolvedTenantId) {
+      request.tenantId = resolvedTenantId;
     }
 
-    return resolvedClientId;
+    return resolvedTenantId;
   },
 );
 
-export const CurrentClient = createParamDecorator(
+export const CurrentTenant = createParamDecorator(
   (data: unknown, ctx: ExecutionContext) => {
     const request = ctx.switchToHttp().getRequest();
-    return request.clientId || request.user?.clientId || null;
+    return request.tenantId || request.user?.tenantId || null;
   },
 );
+
+// Backward compatibility alias
+export const ClientId = TenantId;

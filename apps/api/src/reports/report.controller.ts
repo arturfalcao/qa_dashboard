@@ -44,7 +44,7 @@ export class ReportController {
   @ApiOperation({ summary: 'Generate Executive Quality Summary report' })
   @HttpCode(HttpStatus.ACCEPTED)
   async generateExecutiveSummary(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @Body() params: ExecutiveQualitySummaryParams,
     @Query('language') language?: ReportLanguage,
     @CurrentUser() user?: { userId?: string; roles?: UserRole[] },
@@ -53,7 +53,7 @@ export class ReportController {
 
     const request: ReportGenerationRequest = {
       type: ReportType.EXECUTIVE_QUALITY_SUMMARY,
-      clientId,
+      tenantId,
       userId: user?.userId,
       language: language || ReportLanguage.EN,
       parameters: params,
@@ -66,7 +66,7 @@ export class ReportController {
   @ApiOperation({ summary: 'Generate Lot Inspection Report' })
   @HttpCode(HttpStatus.ACCEPTED)
   async generateLotInspectionReport(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @Param('lotId') lotId: string,
     @Body() params: Omit<LotInspectionReportParams, 'lotId'>,
     @Query('language') language?: ReportLanguage,
@@ -76,7 +76,7 @@ export class ReportController {
 
     const request: ReportGenerationRequest = {
       type: ReportType.LOT_INSPECTION_REPORT,
-      clientId,
+      tenantId,
       userId: user?.userId,
       language: language || ReportLanguage.EN,
       parameters: { ...params, lotId },
@@ -89,7 +89,7 @@ export class ReportController {
   @ApiOperation({ summary: 'Generate Measurement Compliance Sheet' })
   @HttpCode(HttpStatus.ACCEPTED)
   async generateMeasurementComplianceSheet(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @Param('lotId') lotId: string,
     @Body() params: Omit<MeasurementComplianceSheetParams, 'lotId'>,
     @Query('language') language?: ReportLanguage,
@@ -99,7 +99,7 @@ export class ReportController {
 
     const request: ReportGenerationRequest = {
       type: ReportType.MEASUREMENT_COMPLIANCE_SHEET,
-      clientId,
+      tenantId,
       userId: user?.userId,
       language: language || ReportLanguage.EN,
       parameters: { ...params, lotId },
@@ -112,7 +112,7 @@ export class ReportController {
   @ApiOperation({ summary: 'Generate Packaging & Readiness Report' })
   @HttpCode(HttpStatus.ACCEPTED)
   async generatePackagingReadinessReport(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @Param('lotId') lotId: string,
     @Body() params: Omit<PackagingReadinessReportParams, 'lotId'>,
     @Query('language') language?: ReportLanguage,
@@ -122,7 +122,7 @@ export class ReportController {
 
     const request: ReportGenerationRequest = {
       type: ReportType.PACKAGING_READINESS_REPORT,
-      clientId,
+      tenantId,
       userId: user?.userId,
       language: language || ReportLanguage.EN,
       parameters: { ...params, lotId },
@@ -135,7 +135,7 @@ export class ReportController {
   @ApiOperation({ summary: 'Generate Supplier Performance Snapshot' })
   @HttpCode(HttpStatus.ACCEPTED)
   async generateSupplierPerformanceSnapshot(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @Body() params: SupplierPerformanceSnapshotParams,
     @Query('language') language?: ReportLanguage,
     @CurrentUser() user?: { userId?: string; roles?: UserRole[] },
@@ -144,7 +144,7 @@ export class ReportController {
 
     const request: ReportGenerationRequest = {
       type: ReportType.SUPPLIER_PERFORMANCE_SNAPSHOT,
-      clientId,
+      tenantId,
       userId: user?.userId,
       language: language || ReportLanguage.EN,
       parameters: params,
@@ -157,7 +157,7 @@ export class ReportController {
   @ApiOperation({ summary: 'Generate CAPA Report' })
   @HttpCode(HttpStatus.ACCEPTED)
   async generateCapaReport(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @Param('capaId') capaId: string,
     @Body() params: Omit<CapaReportParams, 'capaId'>,
     @Query('language') language?: ReportLanguage,
@@ -167,7 +167,7 @@ export class ReportController {
 
     const request: ReportGenerationRequest = {
       type: ReportType.CAPA_REPORT,
-      clientId,
+      tenantId,
       userId: user?.userId,
       language: language || ReportLanguage.EN,
       parameters: { ...params, capaId },
@@ -180,7 +180,7 @@ export class ReportController {
   @ApiOperation({ summary: 'Generate Inline QC Checkpoints report' })
   @HttpCode(HttpStatus.ACCEPTED)
   async generateInlineQcCheckpoints(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @Param('lotId') lotId: string,
     @Body() params: Omit<InlineQcCheckpointsParams, 'lotId'>,
     @Query('language') language?: ReportLanguage,
@@ -190,7 +190,7 @@ export class ReportController {
 
     const request: ReportGenerationRequest = {
       type: ReportType.INLINE_QC_CHECKPOINTS,
-      clientId,
+      tenantId,
       userId: user?.userId,
       language: language || ReportLanguage.EN,
       parameters: { ...params, lotId },
@@ -203,7 +203,7 @@ export class ReportController {
   @ApiOperation({ summary: 'Generate DPP Summary report' })
   @HttpCode(HttpStatus.ACCEPTED)
   async generateDppSummary(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @Body() params: DppSummaryParams,
     @Query('language') language?: ReportLanguage,
     @CurrentUser() user?: { userId?: string; roles?: UserRole[] },
@@ -212,7 +212,7 @@ export class ReportController {
 
     const request: ReportGenerationRequest = {
       type: ReportType.DPP_SUMMARY,
-      clientId,
+      tenantId,
       userId: user?.userId,
       language: language || ReportLanguage.EN,
       parameters: params,
@@ -225,38 +225,38 @@ export class ReportController {
   @ApiOperation({ summary: 'List reports for client' })
   @ApiQuery({ name: 'type', enum: ReportType, required: false })
   async listReports(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @Query('type') type?: ReportType,
     @CurrentUser() user?: { roles?: UserRole[] },
   ) {
     this.ensureReportPermissions(user);
-    return await this.reportService.listReports(clientId, type);
+    return await this.reportService.listReports(tenantId, type);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get report details' })
   async getReport(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @Param('id') id: string,
     @CurrentUser() user?: { roles?: UserRole[] },
   ) {
     this.ensureReportPermissions(user);
-    return await this.reportService.getReport(id, clientId);
+    return await this.reportService.getReport(id, tenantId);
   }
 
   @Get(':id/download')
   @ApiOperation({ summary: 'Download report PDF' })
   @ApiProduces('application/pdf')
   async downloadReport(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @Param('id') id: string,
     @Res() res: Response,
     @CurrentUser() user?: { roles?: UserRole[] },
   ) {
     this.ensureReportPermissions(user);
 
-    const report = await this.reportService.getReport(id, clientId);
-    const fileBuffer = await this.reportService.getReportFile(id, clientId);
+    const report = await this.reportService.getReport(id, tenantId);
+    const fileBuffer = await this.reportService.getReportFile(id, tenantId);
 
     res.set({
       'Content-Type': 'application/pdf',
@@ -272,15 +272,15 @@ export class ReportController {
   @ApiOperation({ summary: 'Generate report (generic endpoint)' })
   @HttpCode(HttpStatus.ACCEPTED)
   async generateReport(
-    @ClientId() clientId: string,
-    @Body() request: Omit<ReportGenerationRequest, 'clientId'>,
+    @ClientId() tenantId: string,
+    @Body() request: Omit<ReportGenerationRequest, 'tenantId'>,
     @CurrentUser() user?: { userId?: string; roles?: UserRole[] },
   ) {
     this.ensureReportPermissions(user);
 
     const fullRequest: ReportGenerationRequest = {
       ...request,
-      clientId,
+      tenantId,
       userId: user?.userId,
     };
 

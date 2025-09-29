@@ -16,5 +16,5 @@ export class UpdateUserDto {
 
   @IsOptional()
   @IsUUID()
-  clientId?: string;
+  tenantId?: string;
 }

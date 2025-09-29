@@ -12,7 +12,7 @@ export default function ClientUsersPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.CLIENT_VIEWER)
-  const [selectedClientId, setSelectedClientId] = useState<string>('')
+  const [selectedTenantId, setSelectedTenantId] = useState<string>('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -31,26 +31,26 @@ export default function ClientUsersPage() {
 
   const { data: clients = [] } = useQuery({
     queryKey: ['clients'],
-    queryFn: () => apiClient.listClients(),
+    queryFn: () => apiClient.listTenants(),
     enabled: isAdmin,
   })
 
   const { data: lots = [], isLoading: lotsLoading } = useQuery<Lot[]>({
     queryKey: ['client-lots'],
     queryFn: () => apiClient.getLots(),
-    enabled: Boolean(user?.clientId),
+    enabled: Boolean(user?.tenantId),
   })
 
   const lotNameMap = useMemo(() => new Map(lots.map((lot) => [lot.id, lot.styleRef])), [lots])
 
   useEffect(() => {
     const fetchUsers = async () => {
-      if (!user?.clientId) {
+      if (!user?.tenantId) {
         return
       }
 
       try {
-        const response = await apiClient.listClientUsers(user.clientId)
+        const response = await apiClient.listTenantUsers(user.tenantId)
         setUsers(response)
       } catch (fetchError: any) {
         console.error('Failed to load client users', fetchError)
@@ -59,12 +59,12 @@ export default function ClientUsersPage() {
     }
 
     fetchUsers()
-  }, [user?.clientId])
+  }, [user?.tenantId])
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
-    const targetClientId = isAdmin && selectedClientId ? selectedClientId : user?.clientId
+    const targetClientId = isAdmin && selectedTenantId ? selectedTenantId : user?.tenantId
 
     if (!targetClientId) {
       setError(isAdmin ? 'Please select a client' : 'You must be associated with a client to invite users')
@@ -76,7 +76,7 @@ export default function ClientUsersPage() {
     setIsSubmitting(true)
 
     try {
-      const created = await apiClient.createClientUser(targetClientId, {
+      const created = await apiClient.createTenantUser(targetClientId, {
         email,
         password,
         roles: [selectedRole],
@@ -86,7 +86,7 @@ export default function ClientUsersPage() {
       setEmail('')
       setPassword('')
       setSelectedRole(UserRole.CLIENT_VIEWER)
-      setSelectedClientId('')
+      setSelectedTenantId('')
       setSuccess('New login created successfully')
     } catch (submitError: any) {
       console.error('Failed to create client user', submitError)
@@ -125,7 +125,7 @@ export default function ClientUsersPage() {
   ) => {
     event.preventDefault()
 
-    if (!user?.clientId) {
+    if (!user?.tenantId) {
       setAssignmentError('You must be associated with a client to update access')
       return
     }
@@ -135,7 +135,7 @@ export default function ClientUsersPage() {
     setIsSavingAssignments(true)
 
     try {
-      const updated = await apiClient.updateClientUserLots(user.clientId, clientUser.id, {
+      const updated = await apiClient.updateTenantUserLots(user.tenantId, clientUser.id, {
         lotIds: selectedLotIds,
       })
 
@@ -166,11 +166,11 @@ export default function ClientUsersPage() {
       </div>
 
       <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
-        <h2 className="text-lg font-medium text-gray-900">Invite a new user</h2>
+        <h2 className="text-lg font-medium text-gray-900">Create a new user</h2>
         <p className="mt-1 text-sm text-gray-500">
           {isAdmin
-            ? 'Select a client and create a user account. Passwords must be at least eight characters. New accounts are active immediately and receive the selected role.'
-            : 'Passwords must be at least eight characters. New accounts are active immediately and receive the selected role.'}
+            ? 'Select a client and create login credentials. Set a password that the user can use to log in immediately. No emails are sent.'
+            : 'Create login credentials with a password. The user can log in immediately. No emails are sent.'}
         </p>
 
         <form className="mt-4 space-y-4" onSubmit={handleSubmit}>
@@ -195,8 +195,8 @@ export default function ClientUsersPage() {
                 <select
                   id="client"
                   required
-                  value={selectedClientId}
-                  onChange={(event) => setSelectedClientId(event.target.value)}
+                  value={selectedTenantId}
+                  onChange={(event) => setSelectedTenantId(event.target.value)}
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
                 >
                   <option value="">Select a client...</option>
@@ -245,7 +245,7 @@ export default function ClientUsersPage() {
 
           <div className="md:w-1/2">
             <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-              Temporary password
+              Password
             </label>
             <input
               id="password"
@@ -258,7 +258,7 @@ export default function ClientUsersPage() {
               placeholder="At least 8 characters"
             />
             <p className="mt-1 text-xs text-gray-500">
-              Share the password securely with the invitee. They will be able to log in right away.
+              Set the login password. Share it securely with the user.
             </p>
           </div>
 

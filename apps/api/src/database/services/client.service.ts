@@ -28,8 +28,11 @@ export class ClientService {
     return client;
   }
 
-  async findBySlug(slug: string): Promise<Client | null> {
-    return this.clientRepository.findOne({ where: { slug } });
+  async findByTenantId(tenantId: string): Promise<Client[]> {
+    return this.clientRepository.find({
+      where: { tenantId },
+      order: { name: "ASC" }
+    });
   }
 
   async update(id: string, data: Partial<Client>): Promise<Client> {

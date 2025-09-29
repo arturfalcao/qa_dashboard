@@ -42,7 +42,7 @@ export class DppController {
   @ApiOperation({ summary: "Create a new DPP" })
   @ApiResponse({ status: 201, description: "DPP created successfully" })
   async createDpp(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @CurrentUser() user: { userId: string; roles: UserRole[] },
     @Body(new ZodValidationPipe(CreateDppSchema)) body: any,
   ) {
@@ -51,7 +51,7 @@ export class DppController {
       throw new BadRequestException("Insufficient permissions to create DPP");
     }
 
-    return await this.dppService.createDpp(clientId, user.userId, body);
+    return await this.dppService.createDpp(tenantId, user.userId, body);
   }
 
   @Patch(":id")
@@ -59,7 +59,7 @@ export class DppController {
   @ApiParam({ name: "id", description: "DPP ID" })
   async updateDpp(
     @Param("id") id: string,
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @CurrentUser() user: { roles: UserRole[] },
     @Body(new ZodValidationPipe(UpdateDppSchema)) body: any,
   ) {
@@ -68,7 +68,7 @@ export class DppController {
       throw new BadRequestException("Insufficient permissions to update DPP");
     }
 
-    return await this.dppService.updateDpp(id, clientId, body);
+    return await this.dppService.updateDpp(id, tenantId, body);
   }
 
   @Post(":id/publish")
@@ -76,7 +76,7 @@ export class DppController {
   @ApiParam({ name: "id", description: "DPP ID" })
   async publishDpp(
     @Param("id") id: string,
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @CurrentUser() user: { userId: string; roles: UserRole[] },
   ) {
     // Check permissions
@@ -84,7 +84,7 @@ export class DppController {
       throw new BadRequestException("Insufficient permissions to publish DPP");
     }
 
-    return await this.dppService.publishDpp(id, clientId, user.userId);
+    return await this.dppService.publishDpp(id, tenantId, user.userId);
   }
 
   @Public()
@@ -97,18 +97,18 @@ export class DppController {
     @Req() req: Request,
     @Res() res: Response,
     @Query("view") view?: string,
-    @ClientId() clientId?: string,
+    @ClientId() tenantId?: string,
     @CurrentUser() user?: { userId: string; roles: UserRole[] },
   ) {
     const { ip, userAgent } = this.getClientIpAndUserAgent(req);
 
     if (view === "restricted") {
       // Restricted view requires authentication
-      if (!user || !clientId) {
+      if (!user || !tenantId) {
         throw new BadRequestException("Authentication required for restricted view");
       }
 
-      const restrictedData = await this.dppService.getRestrictedDpp(id, clientId, user.roles);
+      const restrictedData = await this.dppService.getRestrictedDpp(id, tenantId, user.roles);
 
       // Log restricted access
       await this.dppService.logAccess(id, DppAccessView.RESTRICTED, {
@@ -239,7 +239,7 @@ export class DppController {
   async ingestFromLot(
     @Param("id") id: string,
     @Param("lotId") lotId: string,
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @CurrentUser() user: { roles: UserRole[] },
   ) {
     // Check permissions
@@ -247,7 +247,7 @@ export class DppController {
       throw new BadRequestException("Insufficient permissions to ingest data");
     }
 
-    return await this.dppService.ingestFromLot(id, lotId, clientId);
+    return await this.dppService.ingestFromLot(id, lotId, tenantId);
   }
 
   @Post(":id/events")
@@ -255,12 +255,12 @@ export class DppController {
   @ApiParam({ name: "id", description: "DPP ID" })
   async createEvent(
     @Param("id") id: string,
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @CurrentUser() user: { userId: string; roles: UserRole[] },
     @Body(new ZodValidationPipe(CreateEventSchema)) body: any,
   ) {
     // Verify DPP exists and belongs to client
-    await this.dppService.getDppForClient(id, clientId);
+    await this.dppService.getDppForTenant(id, tenantId);
 
     return await this.dppService.createEvent(id, body);
   }
@@ -270,9 +270,9 @@ export class DppController {
   @ApiParam({ name: "id", description: "DPP ID" })
   async getEvents(
     @Param("id") id: string,
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
   ) {
-    return await this.dppService.getDppEvents(id, clientId);
+    return await this.dppService.getDppEvents(id, tenantId);
   }
 
   @Get(":id/access-logs")
@@ -281,7 +281,7 @@ export class DppController {
   @ApiQuery({ name: "limit", required: false, description: "Limit number of logs returned" })
   async getAccessLogs(
     @Param("id") id: string,
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @CurrentUser() user: { roles: UserRole[] },
     @Query("limit") limit?: string,
   ) {
@@ -291,17 +291,17 @@ export class DppController {
     }
 
     const limitNum = limit ? parseInt(limit, 10) : 100;
-    return await this.dppService.getDppAccessLogs(id, clientId, limitNum);
+    return await this.dppService.getDppAccessLogs(id, tenantId, limitNum);
   }
 
   @Get()
   @ApiOperation({ summary: "List DPPs for the client" })
   @ApiQuery({ name: "status", required: false, description: "Filter by status" })
   async listDpps(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @Query("status") status?: DppStatus,
   ) {
-    return await this.dppService.listDpps(clientId, status);
+    return await this.dppService.listDpps(tenantId, status);
   }
 
   private generatePublicHtml(data: any, baseUrl: string): string {

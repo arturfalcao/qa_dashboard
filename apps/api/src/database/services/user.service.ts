@@ -12,7 +12,7 @@ import { randomBytes } from "crypto";
 import { User } from "../entities/user.entity";
 import { Role } from "../entities/role.entity";
 import { UserRole as UserRoleEntity } from "../entities/user-role.entity";
-import { Client } from "../entities/client.entity";
+import { Tenant } from "../entities/tenant.entity";
 import { Lot } from "../entities/lot.entity";
 import { LotUserAssignment } from "../entities/lot-user-assignment.entity";
 import {
@@ -25,7 +25,7 @@ import {
 interface CreateClientUserInput {
   email: string;
   clientSlug?: string;
-  clientId?: string;
+  tenantId?: string;
   roles?: UserRole[];
   temporaryPassword?: string;
 }
@@ -39,8 +39,8 @@ export class UserService {
     private readonly roleRepository: Repository<Role>,
     @InjectRepository(UserRoleEntity)
     private readonly userRoleRepository: Repository<UserRoleEntity>,
-    @InjectRepository(Client)
-    private readonly clientRepository: Repository<Client>,
+    @InjectRepository(Tenant)
+    private readonly clientRepository: Repository<Tenant>,
     @InjectRepository(Lot)
     private readonly lotRepository: Repository<Lot>,
     @InjectRepository(LotUserAssignment)
@@ -63,7 +63,7 @@ export class UserService {
 
     return {
       id: user.id,
-      clientId: user.clientId ?? null,
+      tenantId: user.tenantId ?? null,
       email: user.email,
       isActive: user.isActive,
       createdAt: user.createdAt.toISOString(),
@@ -74,9 +74,9 @@ export class UserService {
     };
   }
 
-  async listForClient(clientId: string): Promise<ClientUser[]> {
+  async listForTenant(tenantId: string): Promise<ClientUser[]> {
     const users = await this.userRepository.find({
-      where: { clientId },
+      where: { tenantId },
       relations: ["userRoles", "userRoles.role", "assignments"],
       order: { createdAt: "DESC" },
     });
@@ -84,29 +84,29 @@ export class UserService {
     return users.map((user) => this.mapToClientUser(user));
   }
 
-  async createForClient(
-    clientId: string,
+  async createForTenant(
+    tenantId: string,
     payload: CreateClientUserDto,
   ): Promise<ClientUser> {
-    const client = await this.clientRepository.findOne({ where: { id: clientId } });
+    const client = await this.clientRepository.findOne({ where: { id: tenantId } });
     if (!client) {
-      throw new NotFoundException("Client not found");
+      throw new NotFoundException("Tenant not found");
     }
 
     const normalizedEmail = payload.email.toLowerCase();
 
     const existingUser = await this.userRepository.findOne({
-      where: { clientId, email: normalizedEmail },
+      where: { tenantId, email: normalizedEmail },
     });
 
     if (existingUser) {
-      throw new ConflictException("A user with this email already exists for the client");
+      throw new ConflictException("A user with this email already exists for the tenant");
     }
 
     const passwordHash = await bcrypt.hash(payload.password, 10);
 
     const user = this.userRepository.create({
-      clientId,
+      tenantId,
       email: normalizedEmail,
       passwordHash,
       isActive: payload.isActive ?? true,
@@ -152,32 +152,32 @@ export class UserService {
   async createClientUser({
     email,
     clientSlug,
-    clientId,
+    tenantId,
     roles = [UserRole.CLIENT_VIEWER],
     temporaryPassword,
   }: CreateClientUserInput) {
-    if (!clientSlug && !clientId) {
-      throw new BadRequestException("Either clientSlug or clientId must be provided");
+    if (!clientSlug && !tenantId) {
+      throw new BadRequestException("Either clientSlug or tenantId must be provided");
     }
 
     const client = await this.clientRepository.findOne({
-      where: clientId ? { id: clientId } : { slug: clientSlug },
+      where: tenantId ? { id: tenantId } : { slug: clientSlug },
     });
     if (!client) {
       throw new NotFoundException(
-        `Client with ${clientId ? `id ${clientId}` : `slug ${clientSlug}`} not found`,
+        `Tenant with ${tenantId ? `id ${tenantId}` : `slug ${clientSlug}`} not found`,
       );
     }
 
     const normalizedEmail = email.toLowerCase();
 
     const existing = await this.userRepository.findOne({
-      where: { email: normalizedEmail, clientId: client.id }, 
+      where: { email: normalizedEmail, tenantId: client.id },
     });
 
     if (existing) {
       throw new ConflictException(
-        "A user with this email already exists for the client",
+        "A user with this email already exists for the tenant",
       );
     }
 
@@ -186,7 +186,7 @@ export class UserService {
 
     const user = this.userRepository.create({
       email: normalizedEmail,
-      clientId: client.id,
+      tenantId: client.id,
       passwordHash,
       isActive: true,
     });
@@ -216,7 +216,7 @@ export class UserService {
     return {
       id: savedUser.id,
       email: savedUser.email,
-      clientId: savedUser.clientId,
+      tenantId: savedUser.tenantId,
       clientSlug: client.slug,
       clientName: client.name,
       roles: uniqueRoles,
@@ -227,12 +227,12 @@ export class UserService {
   }
 
   async updateAssignedLots(
-    clientId: string,
+    tenantId: string,
     userId: string,
     payload: UpdateClientUserLotsDto,
   ): Promise<ClientUser> {
     const user = await this.userRepository.findOne({
-      where: { id: userId, clientId },
+      where: { id: userId, tenantId },
     });
 
     if (!user) {
@@ -244,12 +244,12 @@ export class UserService {
 
     if (uniqueLotIds.length) {
       const lots = await this.lotRepository.find({
-        where: { clientId, id: In(uniqueLotIds) },
+        where: { tenantId, id: In(uniqueLotIds) },
         select: ["id"],
       });
 
       if (lots.length !== uniqueLotIds.length) {
-        throw new BadRequestException("One or more lots do not belong to this client");
+        throw new BadRequestException("One or more lots do not belong to this tenant");
       }
     }
 

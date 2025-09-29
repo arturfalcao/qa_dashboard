@@ -10,11 +10,11 @@ import { JwtAuthGuard } from "./jwt-auth.guard";
 import { ClientGuard } from "./client.guard";
 
 import { User } from "../database/entities/user.entity";
-import { Client } from "../database/entities/client.entity";
+import { Tenant } from "../database/entities/tenant.entity";
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Client]),
+    TypeOrmModule.forFeature([User, Tenant]),
     PassportModule,
     JwtModule.registerAsync({
       useFactory: () => {

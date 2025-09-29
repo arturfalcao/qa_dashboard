@@ -9,19 +9,19 @@ import {
   Unique,
   JoinColumn,
 } from "typeorm";
-import { Client } from "./client.entity";
+import { Tenant } from "./tenant.entity";
 import { Approval } from "./approval.entity";
 import { UserRole as UserRoleEntity } from "./user-role.entity";
 import { LotUserAssignment } from "./lot-user-assignment.entity";
 
 @Entity("users")
-@Unique(["clientId", "email"])
+@Unique(["tenantId", "email"])
 export class User {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ name: "client_id", nullable: true })
-  clientId?: string | null;
+  @Column({ name: "tenant_id", nullable: true })
+  tenantId?: string | null;
 
   @Column({ length: 255 })
   email: string;
@@ -38,11 +38,11 @@ export class User {
   @UpdateDateColumn({ name: "updated_at" })
   updatedAt: Date;
 
-  @ManyToOne(() => Client, (client) => client.users, {
+  @ManyToOne(() => Tenant, (tenant) => tenant.users, {
     onDelete: "SET NULL",
   })
-  @JoinColumn({ name: "client_id" })
-  client?: Client | null;
+  @JoinColumn({ name: "tenant_id" })
+  tenant?: Tenant | null;
 
   @OneToMany(() => Approval, (approval) => approval.user)
   approvals: Approval[];

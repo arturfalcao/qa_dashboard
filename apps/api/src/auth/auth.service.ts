@@ -21,7 +21,7 @@ export class AuthService {
 
     const user = await this.userRepository.findOne({
       where: { email: normalizedEmail, isActive: true },
-      relations: ["client", "userRoles", "userRoles.role"],
+      relations: ["tenant", "userRoles", "userRoles.role"],
     });
 
     console.log(`User found:`, user ? `${user.email} (${user.id})` : "null");
@@ -53,7 +53,7 @@ export class AuthService {
     const payload = {
       sub: user.id,
       email: user.email,
-      clientId: user.clientId,
+      tenantId: user.tenantId,
       roles: effectiveRoles,
     };
 
@@ -75,7 +75,7 @@ export class AuthService {
       refreshToken,
       user: {
         id: user.id,
-        clientId: user.clientId || null,
+        tenantId: user.tenantId || null,
         email: user.email,
         roles: effectiveRoles,
         isActive: user.isActive,
@@ -111,7 +111,7 @@ export class AuthService {
       const newPayload = {
         sub: user.id,
         email: user.email,
-        clientId: user.clientId,
+        tenantId: user.tenantId,
         roles: effectiveRoles,
       };
 

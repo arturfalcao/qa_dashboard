@@ -8,7 +8,7 @@ import {
   JoinColumn,
 } from "typeorm";
 import { ReportStatus, ReportType, ReportLanguage } from "@qa-dashboard/shared";
-import { Client } from "./client.entity";
+import { Tenant } from "./tenant.entity";
 import { Lot } from "./lot.entity";
 import { User } from "./user.entity";
 
@@ -20,8 +20,8 @@ export class Report {
   @Column({ type: "enum", enum: ReportType })
   type: ReportType;
 
-  @Column({ name: "client_id", type: "uuid" })
-  clientId: string;
+  @Column({ name: "tenant_id", type: "uuid" })
+  tenantId: string;
 
   @Column({ name: "user_id", type: "uuid", nullable: true })
   userId?: string;
@@ -92,9 +92,9 @@ export class Report {
   updatedAt: Date;
 
   // Relations
-  @ManyToOne(() => Client, (client) => client.reports, { onDelete: "CASCADE" })
-  @JoinColumn({ name: "client_id" })
-  client: Client;
+  @ManyToOne(() => Tenant, (tenant) => tenant.reports, { onDelete: "CASCADE" })
+  @JoinColumn({ name: "tenant_id" })
+  tenant: Tenant;
 
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: "user_id" })

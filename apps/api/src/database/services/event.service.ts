@@ -12,13 +12,13 @@ export class EventService {
   ) {}
 
   async getEvents(
-    clientId: string,
+    tenantId: string,
     since?: string,
     limit = 100,
   ): Promise<Event[]> {
     const query = this.eventRepository
       .createQueryBuilder("event")
-      .where("event.clientId = :clientId", { clientId })
+      .where("event.tenantId = :tenantId", { tenantId })
       .orderBy("event.createdAt", "DESC")
       .limit(limit);
 
@@ -30,13 +30,13 @@ export class EventService {
   }
 
   async createEvent(
-    clientId: string,
+    tenantId: string,
     type: EventType,
     payload: Record<string, unknown>,
     lotId?: string,
   ): Promise<Event> {
     const event = this.eventRepository.create({
-      clientId,
+      tenantId,
       lotId,
       type,
       payload,

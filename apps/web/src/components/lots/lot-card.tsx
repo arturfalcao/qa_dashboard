@@ -12,7 +12,7 @@ interface LotCardProps {
 
 export function LotCard({ lot }: LotCardProps) {
   const params = useParams()
-  const clientSlug = params.clientSlug as string
+  const tenantSlug = params.tenantSlug as string
   const suppliers = lot.suppliers?.slice().sort((a, b) => a.sequence - b.sequence) ?? []
   const primarySupplier = suppliers.find((supplier) => supplier.isPrimary)?.factory ?? lot.factory
   const additionalSuppliers = suppliers.filter((supplier) => !supplier.isPrimary)
@@ -75,7 +75,7 @@ export function LotCard({ lot }: LotCardProps) {
 
       <div className="mt-4 pt-4 border-t border-gray-200">
         <Link
-          href={`/c/${clientSlug}/lots/${lot.id}`}
+          href={`/c/${tenantSlug}/lots/${lot.id}`}
           className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-primary-600 bg-primary-50 hover:bg-primary-100 rounded-md transition-colors"
         >
           <EyeIcon className="w-4 h-4 mr-2" />

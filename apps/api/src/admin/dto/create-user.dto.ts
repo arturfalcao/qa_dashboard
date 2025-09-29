@@ -10,5 +10,5 @@ export class CreateUserDto {
 
   @IsOptional()
   @IsUUID()
-  clientId?: string;
+  tenantId?: string;
 }

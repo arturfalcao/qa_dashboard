@@ -60,29 +60,29 @@ export class InspectionController {
     description: "Limit results",
   })
   async getInspections(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @Query("since") since?: string,
     @Query("limit") limit?: string,
   ) {
     const limitNum = limit ? parseInt(limit) : 50;
-    return this.inspectionService.getInspections(clientId, since, limitNum);
+    return this.inspectionService.getInspections(tenantId, since, limitNum);
   }
 
   @Post()
   @ApiOperation({ summary: "Create inspection" })
   async createInspection(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @Body(new ZodValidationPipe(createInspectionSchema)) body: z.infer<typeof createInspectionSchema>,
     @CurrentUser() user?: { userId?: string; roles?: UserRole[] },
   ) {
-    if (!clientId) {
+    if (!tenantId) {
       throw new ForbiddenException("Missing client context");
     }
 
     this.ensureWriteAccess(user);
 
     // Ensure lot belongs to client
-    await this.lotService.getLot(clientId, body.lotId);
+    await this.lotService.getLot(tenantId, body.lotId);
 
     const inspectorId = body.inspectorId ?? user?.userId ?? "demo-user";
 
@@ -97,18 +97,18 @@ export class InspectionController {
   @Post(":id/defects")
   @ApiOperation({ summary: "Add defect to inspection" })
   async createDefect(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @Param("id") inspectionId: string,
     @Body(new ZodValidationPipe(createDefectSchema)) body: z.infer<typeof createDefectSchema>,
     @CurrentUser() user?: { roles?: UserRole[] },
   ) {
-    if (!clientId) {
+    if (!tenantId) {
       throw new ForbiddenException("Missing client context");
     }
 
     this.ensureWriteAccess(user);
 
-    await this.inspectionService.ensureInspectionOwnership(clientId, inspectionId);
+    await this.inspectionService.ensureInspectionOwnership(tenantId, inspectionId);
     return this.defectService.create({
       inspectionId,
       pieceCode: body.pieceCode,

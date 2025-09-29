@@ -23,7 +23,7 @@ export class AnalyticsService {
   ) {}
 
   async getDefectRate(
-    clientId: string,
+    tenantId: string,
     range: "last_7d" | "last_30d" = "last_7d",
     groupBy?: "style" | "factory",
   ): Promise<DefectRateAnalytics> {
@@ -34,7 +34,7 @@ export class AnalyticsService {
     let query = this.inspectionRepository
       .createQueryBuilder("ins")
       .innerJoin("ins.lot", "lot")
-      .where("lot.clientId = :clientId", { clientId })
+      .where("lot.tenantId = :tenantId", { tenantId })
       .andWhere("ins.createdAt >= :since", { since });
 
     if (groupBy === "factory") {
@@ -78,7 +78,7 @@ export class AnalyticsService {
       const totalInspected = await this.inspectionRepository
         .createQueryBuilder("ins")
         .innerJoin("ins.lot", "lot")
-        .where("lot.clientId = :clientId", { clientId })
+        .where("lot.tenantId = :tenantId", { tenantId })
         .andWhere("ins.createdAt >= :since", { since })
         .getCount();
 
@@ -86,7 +86,7 @@ export class AnalyticsService {
         .createQueryBuilder("defect")
         .innerJoin("defect.inspection", "inspection")
         .innerJoin("inspection.lot", "lot")
-        .where("lot.clientId = :clientId", { clientId })
+        .where("lot.tenantId = :tenantId", { tenantId })
         .andWhere("inspection.createdAt >= :since", { since })
         .getCount();
 
@@ -121,7 +121,7 @@ export class AnalyticsService {
   }
 
   async getThroughput(
-    clientId: string,
+    tenantId: string,
     bucket: "day" | "week" = "day",
     range: "last_7d" | "last_30d" = "last_7d",
   ): Promise<ThroughputAnalytics> {
@@ -138,7 +138,7 @@ export class AnalyticsService {
         "COUNT(*) as inspections",
       ])
       .innerJoin("ins.lot", "lot")
-      .where("lot.clientId = :clientId", { clientId })
+      .where("lot.tenantId = :tenantId", { tenantId })
       .andWhere("ins.createdAt >= :since", { since })
       .groupBy(`TO_CHAR(ins.createdAt, '${dateFormat}')`)
       .orderBy("date", "ASC");
@@ -154,7 +154,7 @@ export class AnalyticsService {
   }
 
   async getDefectTypes(
-    clientId: string,
+    tenantId: string,
     range: "last_7d" | "last_30d" = "last_7d",
   ): Promise<DefectTypeAnalytics> {
     const days = range === "last_7d" ? 7 : 30;
@@ -170,7 +170,7 @@ export class AnalyticsService {
         "COALESCE(type.name, 'Unclassified') as type",
         "COUNT(defect.id) as count",
       ])
-      .where("lot.clientId = :clientId", { clientId })
+      .where("lot.tenantId = :tenantId", { tenantId })
       .andWhere("defect.createdAt >= :since", { since })
       .groupBy("type.name")
       .getRawMany();
@@ -191,7 +191,7 @@ export class AnalyticsService {
   }
 
   async getApprovalTime(
-    clientId: string,
+    tenantId: string,
     range: "last_7d" | "last_30d" = "last_7d",
   ): Promise<ApprovalTimeAnalytics> {
     const days = range === "last_7d" ? 7 : 30;
@@ -204,7 +204,7 @@ export class AnalyticsService {
       .select([
         "EXTRACT(EPOCH FROM (approval.decidedAt - lot.createdAt)) / 3600 as approvalTimeHours",
       ])
-      .where("lot.clientId = :clientId", { clientId })
+      .where("lot.tenantId = :tenantId", { tenantId })
       .andWhere("approval.decidedAt >= :since", { since })
       .getRawMany();
 

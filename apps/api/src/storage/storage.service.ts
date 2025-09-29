@@ -38,11 +38,11 @@ export class StorageService {
   }
 
   async getPresignedUploadUrl(
-    clientId: string,
+    tenantId: string,
     bucket: "photos" | "reports" = "photos",
   ): Promise<{ uploadUrl: string; key: string }> {
     const targetBucket = this.getBucket(bucket);
-    const key = this.generateKey(clientId, undefined, bucket);
+    const key = this.generateKey(tenantId, undefined, bucket);
     const uploadUrl = await this.minioClient.presignedPutObject(
       targetBucket,
       key,
@@ -83,10 +83,10 @@ export class StorageService {
     buffer: Buffer,
     filename: string,
     contentType = "image/jpeg",
-    clientId?: string,
+    tenantId?: string,
     bucket: "photos" | "reports" = "photos",
   ): Promise<string> {
-    const key = this.generateKey(clientId || "public", filename, bucket);
+    const key = this.generateKey(tenantId || "public", filename, bucket);
     const targetBucket = this.getBucket(bucket);
 
     await this.minioClient.putObject(targetBucket, key, buffer, buffer.length, {
@@ -121,7 +121,7 @@ export class StorageService {
   }
 
   generateKey(
-    clientId: string,
+    tenantId: string,
     filename?: string,
     bucket: "photos" | "reports" = "photos",
   ): string {
@@ -131,11 +131,11 @@ export class StorageService {
         .basename(filename, ext)
         .replace(/[^a-zA-Z0-9-_]/g, "_");
       const prefix = bucket === "reports" ? "reports" : "images";
-      return `clients/${clientId}/${prefix}/${this.generateUUID()}-${baseName}${ext}`;
+      return `clients/${tenantId}/${prefix}/${this.generateUUID()}-${baseName}${ext}`;
     }
 
     const prefix = bucket === "reports" ? "reports" : "images";
-    return `clients/${clientId}/${prefix}/${this.generateUUID()}.jpg`;
+    return `clients/${tenantId}/${prefix}/${this.generateUUID()}.jpg`;
   }
 
   private getBucket(type: "photos" | "reports"): string {

@@ -22,11 +22,11 @@ export class EventController {
     description: "Limit results",
   })
   async getEvents(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @Query("since") since?: string,
     @Query("limit") limit?: string,
   ) {
     const limitNum = limit ? parseInt(limit) : 100;
-    return this.eventService.getEvents(clientId, since, limitNum);
+    return this.eventService.getEvents(tenantId, since, limitNum);
   }
 }

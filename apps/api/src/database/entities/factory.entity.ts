@@ -9,7 +9,7 @@ import {
   JoinColumn,
 } from "typeorm";
 import { Lot } from "./lot.entity";
-import { Client } from "./client.entity";
+import { Tenant } from "./tenant.entity";
 import { FactoryRole } from "./factory-role.entity";
 import { LotFactory } from "./lot-factory.entity";
 import { FactoryCertification } from "./factory-certification.entity";
@@ -19,8 +19,8 @@ export class Factory {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ name: "client_id", type: "uuid", nullable: true })
-  clientId?: string | null;
+  @Column({ name: "tenant_id", type: "uuid", nullable: true })
+  tenantId?: string | null;
 
   @Column({ length: 255 })
   name: string;
@@ -37,12 +37,12 @@ export class Factory {
   @UpdateDateColumn({ name: "updated_at" })
   updatedAt: Date;
 
-  @ManyToOne(() => Client, (client) => client.factories, {
+  @ManyToOne(() => Tenant, (tenant) => tenant.factories, {
     nullable: true,
     onDelete: "SET NULL",
   })
-  @JoinColumn({ name: "client_id" })
-  client?: Client | null;
+  @JoinColumn({ name: "tenant_id" })
+  tenant?: Tenant | null;
 
   @OneToMany(() => Lot, (lot) => lot.factory)
   lots: Lot[];

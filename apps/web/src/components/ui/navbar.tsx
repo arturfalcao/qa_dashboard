@@ -10,8 +10,8 @@ export function Navbar() {
   const params = useParams()
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
 
-  const clientSlug = params.clientSlug as string
-  const clientName = user?.clientName || clientSlug
+  const tenantSlug = params.tenantSlug as string
+  const clientName = user?.clientName || tenantSlug
 
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200 fixed w-full z-40">

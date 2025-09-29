@@ -6,16 +6,16 @@ export class ClientGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
-    if (!user || !user.clientId) {
-      throw new ForbiddenException("Invalid client access");
+    if (!user || !user.tenantId) {
+      throw new ForbiddenException("Invalid tenant access");
     }
 
-    const requestedClientId = request.params.clientId || request.query.clientId;
-    if (requestedClientId && requestedClientId !== user.clientId) {
-      throw new ForbiddenException("Client mismatch");
+    const requestedTenantId = request.params.tenantId || request.query.tenantId;
+    if (requestedTenantId && requestedTenantId !== user.tenantId) {
+      throw new ForbiddenException("Tenant mismatch");
     }
 
-    request.clientId = user.clientId;
+    request.tenantId = user.tenantId;
     return true;
   }
 }

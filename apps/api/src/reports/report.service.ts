@@ -20,6 +20,7 @@ import {
 } from './report-types';
 import { AnalyticsService } from '../database/services/analytics.service';
 import { ClientService } from '../database/services/client.service';
+import { TenantService } from '../database/services/tenant.service';
 import { LotService } from '../database/services/lot.service';
 import { InspectionService } from '../database/services/inspection.service';
 import { StorageService } from '../storage/storage.service';
@@ -34,6 +35,7 @@ export class ReportService {
     private reportRepository: Repository<Report>,
     private analyticsService: AnalyticsService,
     private clientService: ClientService,
+    private tenantService: TenantService,
     private lotService: LotService,
     private inspectionService: InspectionService,
     private storageService: StorageService,
@@ -43,12 +45,12 @@ export class ReportService {
     const startTime = Date.now();
 
     try {
-      this.logger.log(`Starting report generation: ${request.type} for client ${request.clientId}`);
+      this.logger.log(`Starting report generation: ${request.type} for client ${request.tenantId}`);
 
       // Create report record
-      const fileName = this.generateFileName(request.type, request.clientId);
+      const fileName = this.generateFileName(request.type, request.tenantId);
       const report = this.reportRepository.create({
-        clientId: request.clientId,
+        tenantId: request.tenantId,
         userId: request.userId,
         type: request.type,
         language: request.language || ReportLanguage.EN,
@@ -131,7 +133,7 @@ export class ReportService {
 
     // Get data for the report
     const data: ExecutiveQualitySummaryData = await this.getExecutiveQualitySummaryData(
-      report.clientId,
+      report.tenantId,
       params
     );
 
@@ -139,7 +141,7 @@ export class ReportService {
     const htmlContent = this.renderExecutiveQualitySummaryTemplate(data, report.language);
 
     // Convert to PDF
-    const key = await this.generatePDF(htmlContent, report.fileName, report.clientId, {
+    const key = await this.generatePDF(htmlContent, report.fileName, report.tenantId, {
       format: 'A4',
       margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' },
       displayHeaderFooter: true,
@@ -155,7 +157,7 @@ export class ReportService {
 
     // Get data for the report
     const data: LotInspectionReportData = await this.getLotInspectionReportData(
-      report.clientId,
+      report.tenantId,
       params
     );
 
@@ -163,7 +165,7 @@ export class ReportService {
     const htmlContent = this.renderLotInspectionReportTemplate(data, report.language);
 
     // Convert to PDF
-    const key = await this.generatePDF(htmlContent, report.fileName, report.clientId, {
+    const key = await this.generatePDF(htmlContent, report.fileName, report.tenantId, {
       format: 'A4',
       margin: { top: '60px', right: '20px', bottom: '60px', left: '20px' },
       displayHeaderFooter: true,
@@ -179,7 +181,7 @@ export class ReportService {
 
     // Get data for the report
     const data: MeasurementComplianceSheetData = await this.getMeasurementComplianceSheetData(
-      report.clientId,
+      report.tenantId,
       params
     );
 
@@ -187,7 +189,7 @@ export class ReportService {
     const htmlContent = this.renderMeasurementComplianceSheetTemplate(data, report.language);
 
     // Convert to PDF
-    const key = await this.generatePDF(htmlContent, report.fileName, report.clientId, {
+    const key = await this.generatePDF(htmlContent, report.fileName, report.tenantId, {
       format: 'A4',
       margin: { top: '60px', right: '20px', bottom: '60px', left: '20px' },
       displayHeaderFooter: true,
@@ -203,7 +205,7 @@ export class ReportService {
 
     // Get packaging readiness data
     const data: PackagingReadinessReportData = await this.getPackagingReadinessReportData(
-      report.clientId,
+      report.tenantId,
       params
     );
 
@@ -211,8 +213,8 @@ export class ReportService {
     const htmlContent = this.renderPackagingReadinessReportTemplate(data, report.language);
 
     // Generate PDF
-    const fileName = this.generateFileName(report.type, report.clientId);
-    const key = await this.generatePDF(htmlContent, fileName, report.clientId, {
+    const fileName = this.generateFileName(report.type, report.tenantId);
+    const key = await this.generatePDF(htmlContent, fileName, report.tenantId, {
       format: 'A4',
       printBackground: true,
       margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' }
@@ -221,7 +223,7 @@ export class ReportService {
     return key;
   }
 
-  private async generatePDF(htmlContent: string, fileName: string, clientId: string, options: any): Promise<string> {
+  private async generatePDF(htmlContent: string, fileName: string, tenantId: string, options: any): Promise<string> {
     const browser = await launchPuppeteer({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox']
@@ -240,7 +242,7 @@ export class ReportService {
         Buffer.from(pdfBuffer),
         fileName,
         'application/pdf',
-        clientId,
+        tenantId,
         'reports'
       );
 
@@ -250,10 +252,10 @@ export class ReportService {
     }
   }
 
-  private generateFileName(reportType: ReportType, clientId: string): string {
+  private generateFileName(reportType: ReportType, tenantId: string): string {
     const timestamp = new Date().toISOString().split('T')[0];
     const hash = crypto.randomBytes(4).toString('hex');
-    return `${reportType.toLowerCase()}_${clientId.slice(0, 8)}_${timestamp}_${hash}.pdf`;
+    return `${reportType.toLowerCase()}_${tenantId.slice(0, 8)}_${timestamp}_${hash}.pdf`;
   }
 
 
@@ -285,7 +287,7 @@ export class ReportService {
   }
 
   private async getExecutiveQualitySummaryData(
-    clientId: string,
+    tenantId: string,
     params: ExecutiveQualitySummaryParams
   ): Promise<ExecutiveQualitySummaryData> {
     const { period } = params;
@@ -295,7 +297,7 @@ export class ReportService {
     const range = days <= 7 ? 'last_7d' : 'last_30d';
 
     // Fetch client information
-    const client = await this.clientService.findById(clientId);
+    const client = await this.tenantService.findById(tenantId);
 
     // Fetch analytics data in parallel
     const [
@@ -306,12 +308,12 @@ export class ReportService {
       throughputData,
       lots
     ] = await Promise.all([
-      this.analyticsService.getDefectRate(clientId, range),
-      this.analyticsService.getDefectTypes(clientId, range),
-      this.analyticsService.getApprovalTime(clientId, range),
-      this.analyticsService.getDefectRate(clientId, range, 'factory'),
-      this.analyticsService.getThroughput(clientId, 'day', range),
-      this.lotService.listLots(clientId)
+      this.analyticsService.getDefectRate(tenantId, range),
+      this.analyticsService.getDefectTypes(tenantId, range),
+      this.analyticsService.getApprovalTime(tenantId, range),
+      this.analyticsService.getDefectRate(tenantId, range, 'factory'),
+      this.analyticsService.getThroughput(tenantId, 'day', range),
+      this.lotService.listLots(tenantId)
     ]);
 
     // Calculate KPIs
@@ -423,11 +425,11 @@ export class ReportService {
   }
 
   private async getLotInspectionReportData(
-    clientId: string,
+    tenantId: string,
     params: LotInspectionReportParams
   ): Promise<LotInspectionReportData> {
     // Fetch lot data with all related information
-    const lot = await this.lotService.getLot(clientId, params.lotId);
+    const lot = await this.lotService.getLot(tenantId, params.lotId);
     if (!lot) {
       throw new NotFoundException(`Lot not found: ${params.lotId}`);
     }
@@ -522,11 +524,11 @@ export class ReportService {
   }
 
   private async getMeasurementComplianceSheetData(
-    clientId: string,
+    tenantId: string,
     params: MeasurementComplianceSheetParams
   ): Promise<MeasurementComplianceSheetData> {
     // Fetch lot data with all related information
-    const lot = await this.lotService.getLot(clientId, params.lotId);
+    const lot = await this.lotService.getLot(tenantId, params.lotId);
     if (!lot) {
       throw new NotFoundException(`Lot not found: ${params.lotId}`);
     }
@@ -627,11 +629,11 @@ export class ReportService {
   }
 
   private async getPackagingReadinessReportData(
-    clientId: string,
+    tenantId: string,
     params: PackagingReadinessReportParams
   ): Promise<PackagingReadinessReportData> {
     // Fetch lot data with all related information
-    const lot = await this.lotService.getLot(clientId, params.lotId);
+    const lot = await this.lotService.getLot(tenantId, params.lotId);
     if (!lot) {
       throw new NotFoundException(`Lot not found: ${params.lotId}`);
     }
@@ -3073,7 +3075,7 @@ export class ReportService {
 
     // Get data for the report
     const data: DppSummaryReportData = await this.getDppSummaryReportData(
-      report.clientId,
+      report.tenantId,
       params
     );
 
@@ -3081,12 +3083,12 @@ export class ReportService {
     const htmlContent = await this.renderDppSummaryReportTemplate(data, report.language || ReportLanguage.EN);
 
     // Generate PDF
-    const key = await this.generatePDF(htmlContent, `dpp-summary-${report.id}.pdf`, report.clientId, { format: 'A4' });
+    const key = await this.generatePDF(htmlContent, `dpp-summary-${report.id}.pdf`, report.tenantId, { format: 'A4' });
     return key;
   }
 
   private async getDppSummaryReportData(
-    clientId: string,
+    tenantId: string,
     params: DppSummaryParams
   ): Promise<DppSummaryReportData> {
     // In a real implementation, this would fetch actual DPP data from the database
@@ -3909,9 +3911,9 @@ export class ReportService {
     `;
   }
 
-  async listReports(clientId: string, type?: ReportType): Promise<Report[]> {
+  async listReports(tenantId: string, type?: ReportType): Promise<Report[]> {
     const query = this.reportRepository.createQueryBuilder('report')
-      .where('report.clientId = :clientId', { clientId })
+      .where('report.tenantId = :tenantId', { tenantId })
       .orderBy('report.createdAt', 'DESC');
 
     if (type) {
@@ -3921,9 +3923,9 @@ export class ReportService {
     return await query.getMany();
   }
 
-  async getReport(id: string, clientId: string): Promise<Report> {
+  async getReport(id: string, tenantId: string): Promise<Report> {
     const report = await this.reportRepository.findOne({
-      where: { id, clientId }
+      where: { id, tenantId }
     });
 
     if (!report) {
@@ -3933,8 +3935,8 @@ export class ReportService {
     return report;
   }
 
-  async getReportFile(id: string, clientId: string): Promise<Buffer> {
-    const report = await this.getReport(id, clientId);
+  async getReportFile(id: string, tenantId: string): Promise<Buffer> {
+    const report = await this.getReport(id, tenantId);
 
     if (!report.filePath) {
       throw new NotFoundException('Report file not found');

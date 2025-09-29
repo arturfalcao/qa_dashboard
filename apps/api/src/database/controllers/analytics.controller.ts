@@ -17,12 +17,12 @@ export class AnalyticsController {
   @ApiQuery({ name: "groupBy", required: false, enum: ["style", "factory"] })
   @ApiQuery({ name: "range", required: false, enum: ["last_7d", "last_30d"] })
   async getDefectRate(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @Query("groupBy") groupBy?: "style" | "factory",
     @Query("range") range?: "last_7d" | "last_30d",
   ) {
     return this.analyticsService.getDefectRate(
-      clientId,
+      tenantId,
       range || "last_7d",
       groupBy,
     );
@@ -33,12 +33,12 @@ export class AnalyticsController {
   @ApiQuery({ name: "bucket", required: false, enum: ["day", "week"] })
   @ApiQuery({ name: "range", required: false, enum: ["last_7d", "last_30d"] })
   async getThroughput(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @Query("bucket") bucket?: "day" | "week",
     @Query("range") range?: "last_7d" | "last_30d",
   ) {
     return this.analyticsService.getThroughput(
-      clientId,
+      tenantId,
       bucket || "day",
       range || "last_7d",
     );
@@ -48,11 +48,11 @@ export class AnalyticsController {
   @ApiOperation({ summary: "Get defect type breakdown" })
   @ApiQuery({ name: "range", required: false, enum: ["last_7d", "last_30d"] })
   async getDefectTypes(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @Query("range") range?: "last_7d" | "last_30d",
   ) {
     return this.analyticsService.getDefectTypes(
-      clientId,
+      tenantId,
       range || "last_7d",
     );
   }
@@ -61,11 +61,11 @@ export class AnalyticsController {
   @ApiOperation({ summary: "Get approval time analytics" })
   @ApiQuery({ name: "range", required: false, enum: ["last_7d", "last_30d"] })
   async getApprovalTime(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @Query("range") range?: "last_7d" | "last_30d",
   ) {
     return this.analyticsService.getApprovalTime(
-      clientId,
+      tenantId,
       range || "last_7d",
     );
   }

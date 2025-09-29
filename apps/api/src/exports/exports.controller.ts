@@ -13,11 +13,11 @@ export class ExportsController {
   @Post("pdf")
   @ApiOperation({ summary: "Generate PDF report" })
   async generatePDF(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @Body(new ZodValidationPipe(ExportQuerySchema)) query: ExportQuery,
   ): Promise<{ downloadUrl: string }> {
     const downloadUrl = await this.exportsService.generatePDF(
-      clientId,
+      tenantId,
       query.lotId,
       query.range,
     );
@@ -28,11 +28,11 @@ export class ExportsController {
   @Post("csv")
   @ApiOperation({ summary: "Generate CSV export" })
   async generateCSV(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @Body(new ZodValidationPipe(ExportQuerySchema)) query: ExportQuery,
   ): Promise<{ downloadUrl: string }> {
     const downloadUrl = await this.exportsService.generateCSV(
-      clientId,
+      tenantId,
       query.range,
     );
     return { downloadUrl };

@@ -7,7 +7,7 @@ import {
   JoinColumn,
 } from "typeorm";
 import { EventType } from "@qa-dashboard/shared";
-import { Client } from "./client.entity";
+import { Tenant } from "./tenant.entity";
 import { Lot } from "./lot.entity";
 
 @Entity("events")
@@ -15,8 +15,8 @@ export class Event {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ name: "client_id" })
-  clientId: string;
+  @Column({ name: "tenant_id" })
+  tenantId: string;
 
   @Column({ name: "lot_id", nullable: true })
   lotId?: string | null;
@@ -33,9 +33,9 @@ export class Event {
   @CreateDateColumn({ name: "created_at" })
   createdAt: Date;
 
-  @ManyToOne(() => Client, (client) => client.events, { onDelete: "CASCADE" })
-  @JoinColumn({ name: "client_id" })
-  client: Client;
+  @ManyToOne(() => Tenant, (tenant) => tenant.events, { onDelete: "CASCADE" })
+  @JoinColumn({ name: "tenant_id" })
+  tenant: Tenant;
 
   @ManyToOne(() => Lot, { nullable: true, onDelete: "SET NULL" })
   @JoinColumn({ name: "lot_id" })

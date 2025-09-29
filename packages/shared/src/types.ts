@@ -96,7 +96,7 @@ export const CreateClientUserSchema = z.object({
 
 export const ClientUserSchema = z.object({
   id: z.string().uuid(),
-  clientId: z.string().uuid().nullable(),
+  tenantId: z.string().uuid().nullable(),
   email: z.string().email(),
   isActive: z.boolean(),
   createdAt: z.string(),
@@ -139,7 +139,7 @@ export interface AuthResponse {
 
 export interface User {
   id: string;
-  clientId?: string | null;
+  tenantId?: string | null;
   email: string;
   isActive: boolean;
   createdAt: string;
@@ -148,6 +148,20 @@ export interface User {
 }
 
 export interface Client {
+  id: string;
+  tenantId: string;
+  name: string;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  address?: string | null;
+  country?: string | null;
+  notes?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Tenant {
   id: string;
   name: string;
   slug: string;
@@ -163,7 +177,7 @@ export interface Factory {
   country: string;
   createdAt: string;
   updatedAt: string;
-  clientId?: string;
+  tenantId?: string | null;
   capabilities?: FactoryCapability[];
   certifications?: FactoryCertification[];
 }

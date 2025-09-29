@@ -9,6 +9,7 @@ import {
   JoinColumn,
 } from "typeorm";
 import { LotStatus } from "@qa-dashboard/shared";
+import { Tenant } from "./tenant.entity";
 import { Client } from "./client.entity";
 import { Factory } from "./factory.entity";
 import { Inspection } from "./inspection.entity";
@@ -28,8 +29,11 @@ export class Lot {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ name: "client_id" })
-  clientId: string;
+  @Column({ name: "tenant_id" })
+  tenantId: string;
+
+  @Column({ name: "client_id", nullable: true })
+  clientId?: string | null;
 
   @Column({ name: "factory_id" })
   factoryId: string;
@@ -117,9 +121,16 @@ export class Lot {
   @UpdateDateColumn({ name: "updated_at" })
   updatedAt: Date;
 
-  @ManyToOne(() => Client, (client) => client.lots, { onDelete: "CASCADE" })
+  @ManyToOne(() => Tenant, (tenant) => tenant.lots, { onDelete: "CASCADE" })
+  @JoinColumn({ name: "tenant_id" })
+  tenant: Tenant;
+
+  @ManyToOne(() => Client, (client) => client.lots, {
+    nullable: true,
+    onDelete: "SET NULL"
+  })
   @JoinColumn({ name: "client_id" })
-  client: Client;
+  client?: Client | null;
 
   @ManyToOne(() => Factory, (factory) => factory.lots, { onDelete: "CASCADE" })
   @JoinColumn({ name: "factory_id" })

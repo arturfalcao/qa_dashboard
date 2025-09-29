@@ -29,9 +29,9 @@ export class DppService {
     private lotRepository: Repository<Lot>,
   ) {}
 
-  async createDpp(clientId: string, userId: string, data: CreateDppDto): Promise<Dpp> {
+  async createDpp(tenantId: string, userId: string, data: CreateDppDto): Promise<Dpp> {
     const dpp = this.dppRepository.create({
-      clientId,
+      tenantId,
       createdBy: userId,
       ...data,
     });
@@ -48,8 +48,8 @@ export class DppService {
     return savedDpp;
   }
 
-  async updateDpp(id: string, clientId: string, data: UpdateDppDto): Promise<Dpp> {
-    const dpp = await this.getDppForClient(id, clientId);
+  async updateDpp(id: string, tenantId: string, data: UpdateDppDto): Promise<Dpp> {
+    const dpp = await this.getDppForTenant(id, tenantId);
 
     if (dpp.status === DppStatus.PUBLISHED) {
       throw new BadRequestException("Cannot update published DPP");
@@ -59,8 +59,8 @@ export class DppService {
     return await this.dppRepository.save(dpp);
   }
 
-  async publishDpp(id: string, clientId: string, userId: string): Promise<Dpp> {
-    const dpp = await this.getDppForClient(id, clientId);
+  async publishDpp(id: string, tenantId: string, userId: string): Promise<Dpp> {
+    const dpp = await this.getDppForTenant(id, tenantId);
 
     if (dpp.status !== DppStatus.DRAFT) {
       throw new BadRequestException("Only draft DPPs can be published");
@@ -79,10 +79,10 @@ export class DppService {
     return savedDpp;
   }
 
-  async getDppForClient(id: string, clientId: string): Promise<Dpp> {
+  async getDppForTenant(id: string, tenantId: string): Promise<Dpp> {
     const dpp = await this.dppRepository.findOne({
-      where: { id, clientId },
-      relations: ["client", "creator"],
+      where: { id, tenantId },
+      relations: ["tenant", "creator"],
     });
 
     if (!dpp) {
@@ -116,8 +116,8 @@ export class DppService {
     return { dpp, publicData };
   }
 
-  async getRestrictedDpp(id: string, clientId: string, userRoles: UserRole[]): Promise<any> {
-    const dpp = await this.getDppForClient(id, clientId);
+  async getRestrictedDpp(id: string, tenantId: string, userRoles: UserRole[]): Promise<any> {
+    const dpp = await this.getDppForTenant(id, tenantId);
 
     // Check if user has restricted access permissions
     const canViewRestricted = userRoles.some(role =>
@@ -161,10 +161,10 @@ export class DppService {
     return qrBuffer;
   }
 
-  async ingestFromLot(dppId: string, lotId: string, clientId: string): Promise<{ dpp: Dpp; warnings: string[] }> {
-    const dpp = await this.getDppForClient(dppId, clientId);
+  async ingestFromLot(dppId: string, lotId: string, tenantId: string): Promise<{ dpp: Dpp; warnings: string[] }> {
+    const dpp = await this.getDppForTenant(dppId, tenantId);
     const lot = await this.lotRepository.findOne({
-      where: { id: lotId, clientId },
+      where: { id: lotId, tenantId },
       relations: [
         "suppliers",
         "suppliers.factory",
@@ -292,9 +292,9 @@ export class DppService {
     return await this.eventRepository.save(event);
   }
 
-  async getDppEvents(dppId: string, clientId: string): Promise<DppEvent[]> {
-    // Verify the DPP belongs to the client
-    await this.getDppForClient(dppId, clientId);
+  async getDppEvents(dppId: string, tenantId: string): Promise<DppEvent[]> {
+    // Verify the DPP belongs to the tenant
+    await this.getDppForTenant(dppId, tenantId);
 
     return await this.eventRepository.find({
       where: { dppId },
@@ -316,9 +316,9 @@ export class DppService {
     await this.accessLogRepository.save(log);
   }
 
-  async getDppAccessLogs(dppId: string, clientId: string, limit = 100): Promise<DppAccessLog[]> {
-    // Verify the DPP belongs to the client
-    await this.getDppForClient(dppId, clientId);
+  async getDppAccessLogs(dppId: string, tenantId: string, limit = 100): Promise<DppAccessLog[]> {
+    // Verify the DPP belongs to the tenant
+    await this.getDppForTenant(dppId, tenantId);
 
     return await this.accessLogRepository.find({
       where: { dppId },
@@ -327,8 +327,8 @@ export class DppService {
     });
   }
 
-  async listDpps(clientId: string, status?: DppStatus): Promise<Dpp[]> {
-    const where: any = { clientId };
+  async listDpps(tenantId: string, status?: DppStatus): Promise<Dpp[]> {
+    const where: any = { tenantId };
     if (status) {
       where.status = status;
     }
@@ -339,8 +339,8 @@ export class DppService {
     });
   }
 
-  async archiveDpp(id: string, clientId: string): Promise<Dpp> {
-    const dpp = await this.getDppForClient(id, clientId);
+  async archiveDpp(id: string, tenantId: string): Promise<Dpp> {
+    const dpp = await this.getDppForTenant(id, tenantId);
     dpp.status = DppStatus.ARCHIVED;
     return await this.dppRepository.save(dpp);
   }

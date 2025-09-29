@@ -2,7 +2,7 @@ import { Injectable, ForbiddenException, NotFoundException } from "@nestjs/commo
 import { InjectRepository } from "@nestjs/typeorm";
 import { In, Repository } from "typeorm";
 import { Factory } from "../entities/factory.entity";
-import { Client } from "../entities/client.entity";
+import { Tenant } from "../entities/tenant.entity";
 import { FactoryRole } from "../entities/factory-role.entity";
 import { SupplyChainRole } from "../entities/supply-chain-role.entity";
 import { FactoryCertification } from "../entities/factory-certification.entity";
@@ -21,7 +21,7 @@ type FactoryPayload = {
   name?: string;
   city?: string | null;
   country?: string;
-  clientId?: string | null;
+  tenantId?: string | null;
   capabilities?: FactoryCapabilityInput[];
   certifications?: FactoryCertificationInput[];
 };
@@ -31,8 +31,8 @@ export class FactoryService {
   constructor(
     @InjectRepository(Factory)
     private readonly factoryRepository: Repository<Factory>,
-    @InjectRepository(Client)
-    private readonly clientRepository: Repository<Client>,
+    @InjectRepository(Tenant)
+    private readonly clientRepository: Repository<Tenant>,
     @InjectRepository(FactoryRole)
     private readonly factoryRoleRepository: Repository<FactoryRole>,
     @InjectRepository(SupplyChainRole)
@@ -41,27 +41,27 @@ export class FactoryService {
     private readonly factoryCertificationRepository: Repository<FactoryCertification>,
   ) {}
 
-  async listByClient(clientId: string | null): Promise<Factory[]> {
-    if (!clientId) {
+  async listByTenant(tenantId: string | null): Promise<Factory[]> {
+    if (!tenantId) {
       return this.factoryRepository.find({
         order: { name: "ASC" },
         relations: ["capabilities", "capabilities.role", "certifications"],
       });
     }
 
-    await this.ensureClientExists(clientId);
+    await this.ensureTenantExists(tenantId);
 
     return this.factoryRepository.find({
-      where: { clientId },
+      where: { tenantId },
       order: { name: "ASC" },
       relations: ["capabilities", "capabilities.role", "certifications"],
     });
   }
 
-  async create(clientId: string | null, data: FactoryPayload): Promise<Factory> {
-    const effectiveClientId = clientId ? await this.ensureClientExists(clientId) : null;
+  async create(tenantId: string | null, data: FactoryPayload): Promise<Factory> {
+    const effectiveTenantId = tenantId ? await this.ensureTenantExists(tenantId) : null;
     const { capabilities, certifications, ...factoryData } = data;
-    const factory = this.factoryRepository.create({ ...factoryData, clientId: effectiveClientId });
+    const factory = this.factoryRepository.create({ ...factoryData, tenantId: effectiveTenantId });
     const saved = await this.factoryRepository.save(factory);
 
     if (Array.isArray(capabilities)) {
@@ -75,17 +75,17 @@ export class FactoryService {
     return this.getFactory(saved.id);
   }
 
-  async update(clientId: string | null, factoryId: string, data: FactoryPayload): Promise<Factory> {
-    const effectiveClientId = clientId ? await this.ensureClientExists(clientId) : null;
+  async update(tenantId: string | null, factoryId: string, data: FactoryPayload): Promise<Factory> {
+    const effectiveTenantId = tenantId ? await this.ensureTenantExists(tenantId) : null;
 
-    const where = effectiveClientId ? { id: factoryId, clientId: effectiveClientId } : { id: factoryId };
+    const where = effectiveTenantId ? { id: factoryId, tenantId: effectiveTenantId } : { id: factoryId };
     const factory = await this.factoryRepository.findOne({ where });
     if (!factory) {
       throw new NotFoundException("Factory not found");
     }
 
-    if (effectiveClientId) {
-      factory.clientId = effectiveClientId;
+    if (effectiveTenantId) {
+      factory.tenantId = effectiveTenantId;
     }
 
     const { capabilities, certifications, ...factoryData } = data;
@@ -104,29 +104,29 @@ export class FactoryService {
     return this.getFactory(saved.id);
   }
 
-  async ensureBelongsToClient(clientId: string, factoryId: string): Promise<Factory> {
-    const factory = await this.factoryRepository.findOne({ where: { id: factoryId, clientId } });
+  async ensureBelongsToTenant(tenantId: string, factoryId: string): Promise<Factory> {
+    const factory = await this.factoryRepository.findOne({ where: { id: factoryId, tenantId } });
     if (!factory) {
-      throw new ForbiddenException("Factory not found for client");
+      throw new ForbiddenException("Factory not found for tenant");
     }
 
     return factory;
   }
 
-  private async ensureClientExists(clientId: string): Promise<string> {
-    const existing = await this.clientRepository.findOne({ where: { id: clientId } });
+  private async ensureTenantExists(tenantId: string): Promise<string> {
+    const existing = await this.clientRepository.findOne({ where: { id: tenantId } });
     if (existing) {
       return existing.id;
     }
 
-    const fallbackSlug = `demo-${clientId.slice(0, 8)}`;
-    const client = this.clientRepository.create({
-      id: clientId,
-      name: "Demo Client",
+    const fallbackSlug = `demo-${tenantId.slice(0, 8)}`;
+    const tenant = this.clientRepository.create({
+      id: tenantId,
+      name: "Demo Tenant",
       slug: fallbackSlug,
     });
 
-    const saved = await this.clientRepository.save(client);
+    const saved = await this.clientRepository.save(tenant);
     return saved.id;
   }
 

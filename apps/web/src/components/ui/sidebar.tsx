@@ -19,8 +19,8 @@ export function Sidebar() {
   const params = useParams()
   const pathname = usePathname()
   const { user } = useAuth()
-  const clientSlug = params.clientSlug as string
-  const resolvedSlug = user?.clientSlug || clientSlug
+  const tenantSlug = params.tenantSlug as string
+  const resolvedSlug = user?.tenantSlug || tenantSlug
   const basePath = `/c/${resolvedSlug}`
 
   const navigation = useMemo(() => {

@@ -93,35 +93,40 @@ class ApiClient {
     return response
   }
 
+  // Tenants
+  async getTenantById(tenantId: string): Promise<Client> {
+    return this.request<Client>(`/tenants/${tenantId}`)
+  }
+
+  async listTenants() {
+    return this.request<Array<{ id: string; name: string; slug: string; logoUrl?: string }>>('/tenants')
+  }
+
   // Clients
-  async getClientById(clientId: string): Promise<Client> {
-    return this.request<Client>(`/clients/${clientId}`)
+  async listClients(): Promise<Client[]> {
+    return this.request<Client[]>('/clients')
   }
 
-  async listClients() {
-    return this.request<Array<{ id: string; name: string; slug: string; logoUrl?: string }>>('/clients')
+  async listTenantUsers(tenantId: string): Promise<ClientUser[]> {
+    return this.request<ClientUser[]>(`/tenants/${tenantId}/users`)
   }
 
-  async listClientUsers(clientId: string): Promise<ClientUser[]> {
-    return this.request<ClientUser[]>(`/clients/${clientId}/users`)
-  }
-
-  async createClientUser(
-    clientId: string,
+  async createTenantUser(
+    tenantId: string,
     payload: CreateClientUserDto,
   ): Promise<ClientUser> {
-    return this.request<ClientUser>(`/clients/${clientId}/users`, {
+    return this.request<ClientUser>(`/tenants/${tenantId}/users`, {
       method: 'POST',
       body: JSON.stringify(payload),
     })
   }
 
-  async updateClientUserLots(
-    clientId: string,
+  async updateTenantUserLots(
+    tenantId: string,
     userId: string,
     payload: UpdateClientUserLotsDto,
   ): Promise<ClientUser> {
-    return this.request<ClientUser>(`/clients/${clientId}/users/${userId}/lots`, {
+    return this.request<ClientUser>(`/tenants/${tenantId}/users/${userId}/lots`, {
       method: 'PUT',
       body: JSON.stringify(payload),
     })
@@ -223,6 +228,7 @@ class ApiClient {
   }
 
   async createLot(payload: {
+    tenantId?: string
     suppliers: Array<{
       factoryId: string
       stage?: string | null

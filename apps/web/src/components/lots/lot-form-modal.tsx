@@ -54,8 +54,10 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
     () => user?.roles?.some((role) => [UserRole.ADMIN, UserRole.OPS_MANAGER].includes(role)) ?? false,
     [user?.roles],
   )
+  const isAdmin = useMemo(() => user?.roles?.includes(UserRole.ADMIN) ?? false, [user?.roles])
 
   const [suppliers, setSuppliers] = useState<SupplierDraft[]>([])
+  const [selectedClientId, setSelectedClientId] = useState<string>('')
   const [styleRef, setStyleRef] = useState('')
   const [quantityTotal, setQuantityTotal] = useState<number>(0)
   const [status, setStatus] = useState<LotStatus>(LotStatus.PLANNED)
@@ -101,6 +103,7 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
       setDppMetadata((initialLot as any).dppMetadata ? JSON.stringify((initialLot as any).dppMetadata, null, 2) : '')
     } else {
       setSuppliers([])
+      setSelectedClientId('')
       setStyleRef('')
       setQuantityTotal(0)
       setStatus(LotStatus.PLANNED)
@@ -114,11 +117,37 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
     setError('')
   }, [initialLot, isOpen])
 
-  const { data: factories = [], isLoading: factoriesLoading } = useQuery<Factory[]>({
+  const { data: clients = [] } = useQuery({
+    queryKey: ['clients'],
+    queryFn: () => apiClient.listClients(),
+    enabled: isOpen,
+  })
+
+  const { data: allFactories = [], isLoading: factoriesLoading } = useQuery<Factory[]>({
     queryKey: ['factories'],
     queryFn: () => apiClient.getFactories(),
     enabled: isOpen,
   })
+
+  // Filter factories based on selected client's tenant (for admins) or user's tenant
+  const factories = useMemo(() => {
+    let targetTenantId: string | undefined
+
+    if (isAdmin && selectedClientId) {
+      // Admin selected a client, find the client's tenantId
+      const selectedClient = clients.find((c) => c.id === selectedClientId)
+      targetTenantId = selectedClient?.tenantId
+    } else if (!isAdmin) {
+      // Non-admin user, use their tenantId
+      targetTenantId = user?.tenantId ?? undefined
+    }
+
+    if (!targetTenantId) {
+      return []
+    }
+
+    return allFactories.filter((factory) => factory.tenantId === targetTenantId)
+  }, [allFactories, isAdmin, selectedClientId, clients, user?.tenantId])
 
   const { data: supplyChainRoles = [], isLoading: rolesLoading } = useQuery<SupplyChainRole[]>({
     queryKey: ['supply-chain-roles'],
@@ -325,6 +354,10 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
               setError('You do not have permission to modify lots')
               return
             }
+            if (isAdmin && !selectedClientId && !initialLot) {
+              setError('Please select a client')
+              return
+            }
             if (suppliers.length === 0) {
               setError('Please select at least one supplier factory')
               return
@@ -429,6 +462,7 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
             }
 
             const payload = {
+              clientId: isAdmin && selectedClientId ? selectedClientId : undefined,
               suppliers: submissionSuppliers,
               factoryId: primaryFactoryId,
               styleRef: trimmedStyleRef,
@@ -449,6 +483,33 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
           {error && (
             <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
               {error}
+            </div>
+          )}
+
+          {isAdmin && !initialLot && (
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700">Client</label>
+              <select
+                value={selectedClientId}
+                onChange={(e) => {
+                  setSelectedClientId(e.target.value)
+                  // Reset suppliers when client changes since factories will change
+                  setSuppliers([])
+                }}
+                disabled={createMutation.isPending}
+                required
+                className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+              >
+                <option value="">Select a client...</option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.name}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Select which client this lot belongs to
+              </p>
             </div>
           )}
 

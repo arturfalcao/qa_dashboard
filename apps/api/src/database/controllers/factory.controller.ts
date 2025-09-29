@@ -54,20 +54,20 @@ export class FactoryController {
 
   @Get()
   @ApiOperation({ summary: "List factories for the current client" })
-  async list(@ClientId() clientId: string) {
-    return this.factoryService.listByClient(clientId);
+  async list(@ClientId() tenantId: string) {
+    return this.factoryService.listByTenant(tenantId);
   }
 
   @Post()
   @ApiOperation({ summary: "Create a factory for the current client" })
   async create(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @CurrentUser() user: { roles?: UserRole[] },
     @Body(new ZodValidationPipe(createFactorySchema)) body: z.infer<typeof createFactorySchema>,
   ) {
     this.ensureWriter(user);
     const { capabilities, certifications, ...factoryData } = body;
-    return this.factoryService.create(clientId, {
+    return this.factoryService.create(tenantId, {
       ...factoryData,
       capabilities: capabilities?.map((capability) => ({
         roleId: capability.roleId,
@@ -83,14 +83,14 @@ export class FactoryController {
   @Patch(":id")
   @ApiOperation({ summary: "Update a factory" })
   async update(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @CurrentUser() user: { roles?: UserRole[] },
     @Param("id") id: string,
     @Body(new ZodValidationPipe(updateFactorySchema)) body: z.infer<typeof updateFactorySchema>,
   ) {
     this.ensureWriter(user);
     const { capabilities, certifications, ...factoryData } = body;
-    return this.factoryService.update(clientId, id, {
+    return this.factoryService.update(tenantId, id, {
       ...factoryData,
       capabilities: capabilities?.map((capability) => ({
         roleId: capability.roleId,

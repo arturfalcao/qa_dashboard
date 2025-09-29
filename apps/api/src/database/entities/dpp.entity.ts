@@ -10,7 +10,7 @@ import {
   JoinColumn,
 } from "typeorm";
 import { User } from "./user.entity";
-import { Client } from "./client.entity";
+import { Tenant } from "./tenant.entity";
 import { DppEvent } from "./dpp-event.entity";
 import { DppAccessLog } from "./dpp-access-log.entity";
 
@@ -24,13 +24,13 @@ export enum DppStatus {
 @Index("idx_dpp_sku", ["productSku"])
 @Index("idx_dpp_gtin", ["gtin"])
 @Index("idx_dpp_status", ["status"])
-@Index("idx_dpp_client", ["clientId"])
+@Index("idx_dpp_tenant", ["tenantId"])
 export class Dpp {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ name: "client_id" })
-  clientId: string;
+  @Column({ name: "tenant_id" })
+  tenantId: string;
 
   @Column({ name: "schema_version", default: "textile.v0.1" })
   schemaVersion: string;
@@ -70,9 +70,9 @@ export class Dpp {
   updatedAt: Date;
 
   // Relations
-  @ManyToOne(() => Client)
-  @JoinColumn({ name: "client_id" })
-  client: Client;
+  @ManyToOne(() => Tenant)
+  @JoinColumn({ name: "tenant_id" })
+  tenant: Tenant;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: "created_by" })

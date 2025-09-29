@@ -2,29 +2,47 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  ManyToOne,
+  JoinColumn,
   OneToMany,
   CreateDateColumn,
   UpdateDateColumn,
 } from "typeorm";
-import { User } from "./user.entity";
+import { Tenant } from "./tenant.entity";
 import { Lot } from "./lot.entity";
-import { Report } from "./report.entity";
-import { Event } from "./event.entity";
-import { Factory } from "./factory.entity";
 
 @Entity("clients")
 export class Client {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
+  @Column({ name: "tenant_id", type: "uuid" })
+  tenantId: string;
+
+  @ManyToOne(() => Tenant, (tenant) => tenant.clients, { onDelete: "CASCADE" })
+  @JoinColumn({ name: "tenant_id" })
+  tenant: Tenant;
+
   @Column({ length: 255 })
   name: string;
 
-  @Column({ length: 120, unique: true })
-  slug: string;
+  @Column({ name: "contact_email", nullable: true })
+  contactEmail?: string;
 
-  @Column({ name: "logo_url", nullable: true })
-  logoUrl?: string;
+  @Column({ name: "contact_phone", nullable: true })
+  contactPhone?: string;
+
+  @Column({ type: "text", nullable: true })
+  address?: string;
+
+  @Column({ nullable: true })
+  country?: string;
+
+  @Column({ type: "text", nullable: true })
+  notes?: string;
+
+  @Column({ name: "is_active", default: true })
+  isActive: boolean;
 
   @CreateDateColumn({ name: "created_at" })
   createdAt: Date;
@@ -32,18 +50,6 @@ export class Client {
   @UpdateDateColumn({ name: "updated_at" })
   updatedAt: Date;
 
-  @OneToMany(() => User, (user) => user.client)
-  users: User[];
-
   @OneToMany(() => Lot, (lot) => lot.client)
   lots: Lot[];
-
-  @OneToMany(() => Report, (report) => report.client)
-  reports: Report[];
-
-  @OneToMany(() => Factory, (factory) => factory.client)
-  factories: Factory[];
-
-  @OneToMany(() => Event, (event) => event.client)
-  events: Event[];
 }

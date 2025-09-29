@@ -14,7 +14,7 @@ interface EventBannerProps {
 export function EventBanner({ event }: EventBannerProps) {
   const [isVisible, setIsVisible] = useState(true)
   const params = useParams()
-  const clientSlug = params.clientSlug as string
+  const tenantSlug = params.tenantSlug as string
 
   if (!isVisible) return null
 
@@ -39,7 +39,7 @@ export function EventBanner({ event }: EventBannerProps) {
                       {defectType} defect found in garment {garmentSerial}
                       {defectLotId && (
                         <Link 
-                          href={`/c/${clientSlug}/lots/${defectLotId}`}
+                          href={`/c/${tenantSlug}/lots/${defectLotId}`}
                           className="ml-2 underline hover:no-underline"
                         >
                           View lot
@@ -81,7 +81,7 @@ export function EventBanner({ event }: EventBannerProps) {
                       Lot {approvalStyleRef || 'N/A'} is ready for review
                       {approvalLotId && (
                         <Link 
-                          href={`/c/${clientSlug}/lots/${approvalLotId}`}
+                          href={`/c/${tenantSlug}/lots/${approvalLotId}`}
                           className="ml-2 underline hover:no-underline"
                         >
                           Review now

@@ -3,7 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { In, Repository } from "typeorm";
 import * as bcrypt from "bcryptjs";
 
-import { Client } from "../entities/client.entity";
+import { Tenant } from "../entities/tenant.entity";
 import { User } from "../entities/user.entity";
 import { Factory } from "../entities/factory.entity";
 import { Lot } from "../entities/lot.entity";
@@ -1168,8 +1168,8 @@ export class SeedService {
   private readonly logger = new Logger(SeedService.name);
 
   constructor(
-    @InjectRepository(Client)
-    private readonly clientRepository: Repository<Client>,
+    @InjectRepository(Tenant)
+    private readonly clientRepository: Repository<Tenant>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     @InjectRepository(Factory)
@@ -1252,8 +1252,8 @@ export class SeedService {
     }
   }
 
-  private async seedClients(): Promise<Map<string, Client>> {
-    const map = new Map<string, Client>();
+  private async seedClients(): Promise<Map<string, Tenant>> {
+    const map = new Map<string, Tenant>();
 
     for (const clientSeed of CLIENTS) {
       let client = await this.clientRepository.findOne({
@@ -1294,7 +1294,7 @@ export class SeedService {
   }
 
   private async seedFactories(
-    clients: Map<string, Client>,
+    clients: Map<string, Tenant>,
     supplyChainRoles: Map<string, SupplyChainRole>,
   ): Promise<void> {
     for (const factorySeed of FACTORIES) {
@@ -1304,13 +1304,13 @@ export class SeedService {
       }
 
       let factory = await this.factoryRepository.findOne({
-        where: { name: factorySeed.name, clientId: client.id },
+        where: { name: factorySeed.name, tenantId: client.id },
         relations: ["capabilities", "capabilities.role"],
       });
 
       if (!factory) {
         factory = this.factoryRepository.create({
-          clientId: client.id,
+          tenantId: client.id,
           name: factorySeed.name,
           city: factorySeed.city,
           country: factorySeed.country,
@@ -1434,7 +1434,7 @@ export class SeedService {
     }
   }
 
-  private async seedUsers(clients: Map<string, Client>): Promise<Map<string, User>> {
+  private async seedUsers(clients: Map<string, Tenant>): Promise<Map<string, User>> {
     const userMap = new Map<string, User>();
 
     for (const [clientSlug, users] of Object.entries(USERS)) {
@@ -1454,11 +1454,11 @@ export class SeedService {
           user = this.userRepository.create({
             email: seedUser.email,
             passwordHash,
-            clientId: client.id,
+            tenantId: client.id,
           });
           user = await this.userRepository.save(user);
-        } else if (!user.clientId) {
-          user.clientId = client.id;
+        } else if (!user.tenantId) {
+          user.tenantId = client.id;
           user = await this.userRepository.save(user);
         }
 
@@ -1495,7 +1495,7 @@ export class SeedService {
   }
 
   private async seedLots(
-    clients: Map<string, Client>,
+    clients: Map<string, Tenant>,
     defectTypes: Map<string, DefectType>,
     users: Map<string, User>,
     supplyChainRoles: Map<string, SupplyChainRole>,
@@ -1521,7 +1521,7 @@ export class SeedService {
 
       const factoryRecords = await this.factoryRepository.find({
         where: {
-          clientId: client.id,
+          tenantId: client.id,
           name: In(supplierSeeds.map((supplier) => supplier.name)),
         },
       });
@@ -1569,12 +1569,12 @@ export class SeedService {
       const primaryFactoryId = supplierRows.find((supplier) => supplier.isPrimary)?.factoryId ?? supplierRows[0].factoryId;
 
       let lot = await this.lotRepository.findOne({
-        where: { clientId: client.id, styleRef: lotSeed.styleRef },
+        where: { tenantId: client.id, styleRef: lotSeed.styleRef },
       });
 
       if (!lot) {
         lot = this.lotRepository.create({
-          clientId: client.id,
+          tenantId: client.id,
           factoryId: primaryFactoryId,
           styleRef: lotSeed.styleRef,
           quantityTotal: lotSeed.quantityTotal,
@@ -1680,7 +1680,7 @@ export class SeedService {
   }
 
   private async seedDpps(
-    clients: Map<string, Client>,
+    clients: Map<string, Tenant>,
     users: Map<string, User>,
     seededLots: Map<string, Lot>,
   ): Promise<void> {
@@ -1688,9 +1688,9 @@ export class SeedService {
 
     for (const [styleRef, lot] of seededLots) {
       if (lot.dppMetadata?.dppId) {
-        const client = Array.from(clients.values()).find(c => c.id === lot.clientId);
+        const client = Array.from(clients.values()).find(c => c.id === lot.tenantId);
         const adminUser = Array.from(users.values()).find(u =>
-          u.clientId === lot.clientId && u.userRoles?.some(ur => ur.role?.name === UserRole.ADMIN)
+          u.tenantId === lot.tenantId && u.userRoles?.some(ur => ur.role?.name === UserRole.ADMIN)
         );
 
         if (!client || !adminUser) continue;
@@ -1744,11 +1744,11 @@ export class SeedService {
           };
 
           try {
-            const dpp = await this.dppService.createDpp(lot.clientId, adminUser.id, createDppDto);
+            const dpp = await this.dppService.createDpp(lot.tenantId, adminUser.id, createDppDto);
 
             // Publish if lot is approved
             if (lot.status === LotStatus.APPROVED) {
-              await this.dppService.publishDpp(dpp.id, lot.clientId, adminUser.id);
+              await this.dppService.publishDpp(dpp.id, lot.tenantId, adminUser.id);
             }
 
             this.logger.log(`Created DPP for: ${styleRef}`);
@@ -1761,7 +1761,7 @@ export class SeedService {
   }
 
   private async seedEvents(
-    clients: Map<string, Client>,
+    clients: Map<string, Tenant>,
     seededLots: Map<string, Lot>,
   ): Promise<void> {
     if (!FEED_EVENTS.length) {
@@ -1779,7 +1779,7 @@ export class SeedService {
         const timestamp = new Date(feedEvent.timestamp);
 
         return this.eventRepository.create({
-          clientId: client.id,
+          tenantId: client.id,
           lotId: lot?.id ?? null,
           type: feedEvent.type,
           payload: {

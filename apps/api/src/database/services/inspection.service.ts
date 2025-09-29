@@ -11,7 +11,7 @@ export class InspectionService {
   ) {}
 
   async getInspections(
-    clientId: string,
+    tenantId: string,
     since?: string,
     limit = 50,
   ): Promise<Inspection[]> {
@@ -23,7 +23,7 @@ export class InspectionService {
       .leftJoinAndSelect("defect.defectType", "defectType")
       .leftJoinAndSelect("defect.photos", "photo")
       .leftJoinAndSelect("inspection.inspector", "inspector")
-      .where("lot.clientId = :clientId", { clientId })
+      .where("lot.tenantId = :tenantId", { tenantId })
       .orderBy("inspection.createdAt", "DESC")
       .take(limit);
 
@@ -51,14 +51,14 @@ export class InspectionService {
     }) as Promise<Inspection>;
   }
 
-  async ensureInspectionOwnership(clientId: string, inspectionId: string): Promise<Inspection> {
+  async ensureInspectionOwnership(tenantId: string, inspectionId: string): Promise<Inspection> {
     const inspection = await this.inspectionRepository.findOne({
       where: { id: inspectionId },
       relations: ["lot"],
     });
 
-    if (!inspection || inspection.lot.clientId !== clientId) {
-      throw new NotFoundException("Inspection not found for client");
+    if (!inspection || inspection.lot.tenantId !== tenantId) {
+      throw new NotFoundException("Inspection not found for tenant");
     }
 
     return inspection;

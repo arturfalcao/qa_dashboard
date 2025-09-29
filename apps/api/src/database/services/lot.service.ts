@@ -65,14 +65,14 @@ export class LotService {
   ) {}
 
   private isViewerRestricted(
-    user: { id?: string; roles?: UserRole[]; clientId?: string | null } | undefined,
-    clientId: string,
-  ): user is { id: string; roles?: UserRole[]; clientId?: string | null } {
+    user: { id?: string; roles?: UserRole[]; tenantId?: string | null } | undefined,
+    tenantId: string,
+  ): user is { id: string; roles?: UserRole[]; tenantId?: string | null } {
     if (!user?.id) {
       return false;
     }
 
-    if (user.clientId !== clientId) {
+    if (user.tenantId !== tenantId) {
       return false;
     }
 
@@ -81,12 +81,12 @@ export class LotService {
   }
 
   async listLots(
-    clientId: string,
-    user?: { id?: string; roles?: UserRole[]; clientId?: string | null },
+    tenantId: string,
+    user?: { id?: string; roles?: UserRole[]; tenantId?: string | null },
   ): Promise<any[]> {
     let lots: Lot[] = [];
 
-    if (this.isViewerRestricted(user, clientId)) {
+    if (this.isViewerRestricted(user, tenantId)) {
       const assignments = await this.lotUserAssignmentRepository.find({
         where: { userId: user.id },
         select: ["lotId"],
@@ -98,7 +98,7 @@ export class LotService {
 
       const lotIds = Array.from(new Set(assignments.map((assignment) => assignment.lotId)));
       lots = await this.lotRepository.find({
-        where: { clientId, id: In(lotIds) },
+        where: { tenantId, id: In(lotIds) },
         relations: [
           "factory",
           "suppliers",
@@ -109,7 +109,7 @@ export class LotService {
       });
     } else {
       lots = await this.lotRepository.find({
-        where: { clientId },
+        where: { tenantId },
         relations: [
           "factory",
           "suppliers",
@@ -155,8 +155,9 @@ export class LotService {
   }
 
   async createLot(
-    clientId: string,
+    tenantId: string,
     payload: {
+      clientId?: string;
       suppliers?: LotSupplierInput[];
       factoryId?: string;
       styleRef: string;
@@ -178,10 +179,11 @@ export class LotService {
       dppMetadata?: Record<string, any>;
     },
   ): Promise<any> {
-    const { suppliers, primaryFactoryId } = await this.normalizeSuppliers(clientId, payload);
+    const { suppliers, primaryFactoryId } = await this.normalizeSuppliers(tenantId, payload);
 
     const lot = this.lotRepository.create({
-      clientId,
+      tenantId,
+      clientId: payload.clientId || null,
       factoryId: primaryFactoryId,
       styleRef: payload.styleRef,
       quantityTotal: payload.quantityTotal,
@@ -197,11 +199,11 @@ export class LotService {
     const saved = await this.lotRepository.save(lot);
     await this.syncSuppliers(saved.id, suppliers, primaryFactoryId);
 
-    return this.getLot(clientId, saved.id);
+    return this.getLot(tenantId, saved.id);
   }
 
   async updateLot(
-    clientId: string,
+    tenantId: string,
     lotId: string,
     payload: {
       suppliers?: LotSupplierInput[];
@@ -225,7 +227,7 @@ export class LotService {
       dppMetadata?: Record<string, any>;
     },
   ): Promise<any> {
-    const lot = await this.lotRepository.findOne({ where: { id: lotId, clientId } });
+    const lot = await this.lotRepository.findOne({ where: { id: lotId, tenantId } });
     if (!lot) {
       throw new NotFoundException("Lot not found");
     }
@@ -242,7 +244,7 @@ export class LotService {
     let primaryFactoryId: string | undefined;
 
     if (payload.suppliers) {
-      const normalized = await this.normalizeSuppliers(clientId, {
+      const normalized = await this.normalizeSuppliers(tenantId, {
         suppliers: payload.suppliers,
         factoryId: payload.factoryId ?? lot.factoryId,
       });
@@ -251,7 +253,7 @@ export class LotService {
       primaryFactoryId = normalized.primaryFactoryId;
       lot.factoryId = primaryFactoryId;
     } else if (payload.factoryId && payload.factoryId !== lot.factoryId) {
-      const normalized = await this.normalizeSuppliers(clientId, {
+      const normalized = await this.normalizeSuppliers(tenantId, {
         suppliers: [{ factoryId: payload.factoryId, isPrimary: true }],
         factoryId: payload.factoryId,
       });
@@ -297,15 +299,15 @@ export class LotService {
     }
 
     await this.recalculateLotMetrics(lotId);
-    return this.getLot(clientId, lotId);
+    return this.getLot(tenantId, lotId);
   }
 
   async getLot(
-    clientId: string,
+    tenantId: string,
     lotId: string,
-    user?: { id?: string; roles?: UserRole[]; clientId?: string | null },
+    user?: { id?: string; roles?: UserRole[]; tenantId?: string | null },
   ): Promise<any> {
-    if (this.isViewerRestricted(user, clientId)) {
+    if (this.isViewerRestricted(user, tenantId)) {
       const assignmentCount = await this.lotUserAssignmentRepository.count({
         where: { userId: user.id, lotId },
       });
@@ -316,7 +318,7 @@ export class LotService {
     }
 
     const lot = await this.lotRepository.findOne({
-      where: { id: lotId, clientId },
+      where: { id: lotId, tenantId },
       relations: [
         "factory",
         "suppliers",
@@ -339,7 +341,7 @@ export class LotService {
   }
 
   private async normalizeSuppliers(
-    clientId: string,
+    tenantId: string,
     payload: { suppliers?: LotSupplierInput[]; factoryId?: string },
   ): Promise<{
     suppliers: Array<{
@@ -480,12 +482,34 @@ export class LotService {
     });
 
     const factoryIds = normalizedBase.map((supplier) => supplier.factoryId);
+
+    // First, get ALL factories to see what's in the database
+    const allFactories = await this.factoryRepository.find({
+      where: { id: In(factoryIds) },
+    });
+
+    // Then filter by tenantId
     const factories = await this.factoryRepository.find({
-      where: { id: In(factoryIds), clientId },
+      where: { id: In(factoryIds), tenantId },
+    });
+
+    console.log('🏭 Factory Validation Debug:', {
+      requestedFactoryIds: factoryIds,
+      requestedClientId: tenantId,
+      allFactoriesInDb: allFactories.map(f => ({ id: f.id, name: f.name, tenantId: f.tenantId })),
+      factoriesMatchingTenant: factories.map(f => ({ id: f.id, name: f.name, tenantId: f.tenantId })),
+      foundCount: factories.length,
+      requestedCount: factoryIds.length,
     });
 
     if (factories.length !== factoryIds.length) {
-      throw new ForbiddenException("One or more selected factories are not available for this client");
+      const foundIds = new Set(factories.map(f => f.id));
+      const missingIds = factoryIds.filter(id => !foundIds.has(id));
+      const missingFactories = allFactories.filter(f => missingIds.includes(f.id));
+      throw new ForbiddenException(
+        `One or more selected factories are not available for this client (${tenantId}). ` +
+        `Missing factories: ${missingFactories.map(f => `${f.name} (tenantId: ${f.tenantId})`).join(', ')}`
+      );
     }
 
     const suppliers = normalizedBase.map((supplier) => ({
@@ -694,8 +718,8 @@ export class LotService {
     };
   }
 
-  async advanceSupplyChainStage(clientId: string, lotId: string): Promise<any> {
-    const lot = await this.lotRepository.findOne({ where: { id: lotId, clientId } });
+  async advanceSupplyChainStage(tenantId: string, lotId: string): Promise<any> {
+    const lot = await this.lotRepository.findOne({ where: { id: lotId, tenantId } });
     if (!lot) {
       throw new NotFoundException("Lot not found");
     }
@@ -718,7 +742,7 @@ export class LotService {
     if (currentIndex < 0) {
       const next = roles.find((role) => role.status !== SupplyChainStageStatus.COMPLETED);
       if (!next) {
-        return this.getLot(clientId, lotId);
+        return this.getLot(tenantId, lotId);
       }
 
       next.status = SupplyChainStageStatus.IN_PROGRESS;
@@ -727,7 +751,7 @@ export class LotService {
       await this.lotFactoryRoleRepository.save(next);
 
       await this.ensureLotSupplyChainProgress(lotId);
-      return this.getLot(clientId, lotId);
+      return this.getLot(tenantId, lotId);
     }
 
     const current = roles[currentIndex];
@@ -767,7 +791,7 @@ export class LotService {
       await this.lotRepository.update(lotId, { status: LotStatus.IN_PRODUCTION });
     }
 
-    return this.getLot(clientId, lotId);
+    return this.getLot(tenantId, lotId);
   }
 
   private validateTransition(current: LotStatus, next: LotStatus) {
@@ -799,7 +823,7 @@ export class LotService {
     await this.lotRepository.update(lotId, { status: LotStatus.PENDING_APPROVAL });
 
     await this.eventService.createEvent(
-      lot.clientId,
+      lot.tenantId,
       EventType.LOT_AWAITING_APPROVAL,
       { lotId, styleRef: lot.styleRef, factory: lot.factory?.name },
       lotId,
@@ -807,12 +831,12 @@ export class LotService {
   }
 
   async approveLot(
-    clientId: string,
+    tenantId: string,
     lotId: string,
     approvedBy: string,
     note?: string,
   ): Promise<void> {
-    const lot = await this.lotRepository.findOne({ where: { id: lotId, clientId } });
+    const lot = await this.lotRepository.findOne({ where: { id: lotId, tenantId } });
     if (!lot) {
       throw new NotFoundException("Lot not found");
     }
@@ -829,7 +853,7 @@ export class LotService {
     await this.lotRepository.update(lotId, { status: LotStatus.APPROVED });
 
     await this.eventService.createEvent(
-      clientId,
+      tenantId,
       EventType.LOT_DECIDED,
       {
         lotId,
@@ -842,12 +866,12 @@ export class LotService {
   }
 
   async rejectLot(
-    clientId: string,
+    tenantId: string,
     lotId: string,
     approvedBy: string,
     note: string,
   ): Promise<void> {
-    const lot = await this.lotRepository.findOne({ where: { id: lotId, clientId } });
+    const lot = await this.lotRepository.findOne({ where: { id: lotId, tenantId } });
     if (!lot) {
       throw new NotFoundException("Lot not found");
     }
@@ -864,7 +888,7 @@ export class LotService {
     await this.lotRepository.update(lotId, { status: LotStatus.REJECTED });
 
     await this.eventService.createEvent(
-      clientId,
+      tenantId,
       EventType.LOT_DECIDED,
       {
         lotId,

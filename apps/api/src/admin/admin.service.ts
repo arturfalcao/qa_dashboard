@@ -32,13 +32,13 @@ export class AdminService {
     const existingUser = await this.userRepository.findOne({
       where: {
         email: createUserDto.email,
-        clientId: createUserDto.clientId || null,
+        tenantId: createUserDto.tenantId || null,
       },
     });
 
     if (existingUser) {
       throw new ConflictException(
-        "User with this email already exists for this client",
+        "User with this email already exists for this tenant",
       );
     }
 
@@ -47,7 +47,7 @@ export class AdminService {
     const user = this.userRepository.create({
       email: createUserDto.email,
       passwordHash,
-      clientId: createUserDto.clientId,
+      tenantId: createUserDto.tenantId,
       isActive: true,
     });
 
@@ -56,7 +56,7 @@ export class AdminService {
 
   async getUsers(): Promise<User[]> {
     return this.userRepository.find({
-      relations: ["client", "userRoles", "userRoles.role"],
+      relations: ["tenant", "userRoles", "userRoles.role"],
       order: { createdAt: "DESC" },
     });
   }
@@ -64,7 +64,7 @@ export class AdminService {
   async getUser(id: string): Promise<User> {
     const user = await this.userRepository.findOne({
       where: { id },
-      relations: ["client", "userRoles", "userRoles.role"],
+      relations: ["tenant", "userRoles", "userRoles.role"],
     });
 
     if (!user) {
@@ -81,13 +81,13 @@ export class AdminService {
       const existingUser = await this.userRepository.findOne({
         where: {
           email: updateUserDto.email,
-          clientId: updateUserDto.clientId || user.clientId || null,
+          tenantId: updateUserDto.tenantId || user.tenantId || null,
         },
       });
 
       if (existingUser && existingUser.id !== id) {
         throw new ConflictException(
-          "User with this email already exists for this client",
+          "User with this email already exists for this tenant",
         );
       }
       user.email = updateUserDto.email;
@@ -101,8 +101,8 @@ export class AdminService {
       user.isActive = updateUserDto.isActive;
     }
 
-    if (updateUserDto.clientId !== undefined) {
-      user.clientId = updateUserDto.clientId;
+    if (updateUserDto.tenantId !== undefined) {
+      user.tenantId = updateUserDto.tenantId;
     }
 
     return this.userRepository.save(user);

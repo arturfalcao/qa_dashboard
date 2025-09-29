@@ -12,7 +12,7 @@ const createClientUserSchema = z
   .object({
     email: z.string().email(),
     clientSlug: z.string().min(1).optional(),
-    clientId: z.string().uuid().optional(),
+    tenantId: z.string().uuid().optional(),
     roles: z
       .array(z.nativeEnum(UserRole))
       .min(1)
@@ -20,16 +20,16 @@ const createClientUserSchema = z
     temporaryPassword: z.string().min(8).max(64).optional(),
   })
   .superRefine((value, ctx) => {
-    if (!value.clientSlug && !value.clientId) {
+    if (!value.clientSlug && !value.tenantId) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Either clientSlug or clientId must be provided",
+        message: "Either clientSlug or tenantId must be provided",
         path: ["clientSlug"],
       });
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Either clientSlug or clientId must be provided",
-        path: ["clientId"],
+        message: "Either clientSlug or tenantId must be provided",
+        path: ["tenantId"],
       });
     }
   });
@@ -62,7 +62,7 @@ export class UserController {
     return this.userService.createClientUser({
       email: body.email,
       clientSlug: body.clientSlug,
-      clientId: body.clientId,
+      tenantId: body.tenantId,
       roles: body.roles,
       temporaryPassword: body.temporaryPassword,
     });

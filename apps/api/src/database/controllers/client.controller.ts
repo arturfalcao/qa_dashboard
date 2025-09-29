@@ -23,15 +23,17 @@ import {
 } from "@qa-dashboard/shared";
 
 const createClientSchema = z.object({
+  tenantId: z.string().uuid(),
   name: z.string().min(1, "Name is required"),
-  slug: z
-    .string()
-    .min(1)
-    .regex(/^[a-z0-9-]+$/, "Slug must contain lowercase letters, numbers or dashes"),
-  logoUrl: z.string().url().optional(),
+  contactEmail: z.string().email().optional(),
+  contactPhone: z.string().optional(),
+  address: z.string().optional(),
+  country: z.string().optional(),
+  notes: z.string().optional(),
+  isActive: z.boolean().optional(),
 });
 
-const updateClientSchema = createClientSchema.partial();
+const updateClientSchema = createClientSchema.partial().omit({ tenantId: true });
 
 @ApiTags("clients")
 @Controller("clients")
@@ -49,83 +51,39 @@ export class ClientController {
   }
 
   private assertClientAccess(
-    clientId: string,
-    user?: { roles?: UserRole[]; clientId?: string | null },
+    tenantId: string,
+    user?: { roles?: UserRole[]; tenantId?: string | null },
   ) {
-    if (user?.clientId && user.clientId === clientId) {
+    if (user?.tenantId && user.tenantId === tenantId) {
       return;
     }
 
     this.assertAdmin(user);
   }
 
-  @Get("me")
-  @ApiOperation({ summary: "Retrieve the current client's profile" })
-  async getCurrentClient(@CurrentUser() user?: { clientId?: string | null }) {
-    if (user?.clientId) {
-      return this.clientService.findById(user.clientId);
-    }
-
-    const [first] = await this.clientService.findAll();
-    if (!first) {
-      throw new ForbiddenException("No clients configured in the system");
-    }
-
-    return first;
-  }
-
   @Get()
-  @ApiOperation({ summary: "List all clients" })
-  async listClients(@CurrentUser() user?: { roles?: UserRole[] }) {
-    this.assertAdmin(user);
-    return this.clientService.findAll();
+  @ApiOperation({ summary: "List all clients for current tenant" })
+  async listClients(@CurrentUser() user?: { tenantId?: string | null }) {
+    if (!user?.tenantId) {
+      throw new ForbiddenException("No tenant context");
+    }
+    return this.clientService.findByTenantId(user.tenantId);
   }
 
   @Get(":id")
   @ApiOperation({ summary: "Get client by ID" })
   async getClient(
     @Param("id") id: string,
-    @CurrentUser() user?: { roles?: UserRole[]; clientId?: string | null },
+    @CurrentUser() user?: { tenantId?: string | null },
   ) {
-    if (user.clientId && user.clientId === id) {
-      return this.clientService.findById(id);
+    const client = await this.clientService.findById(id);
+
+    // Verify client belongs to user's tenant
+    if (user?.tenantId && client.tenantId !== user.tenantId) {
+      throw new ForbiddenException("Access denied");
     }
 
-    this.assertAdmin(user);
-    return this.clientService.findById(id);
-  }
-
-  @Get(":id/users")
-  @ApiOperation({ summary: "List client users" })
-  async listClientUsers(
-    @Param("id") id: string,
-    @CurrentUser() user?: { roles?: UserRole[]; clientId?: string | null },
-  ) {
-    this.assertClientAccess(id, user);
-    return this.userService.listForClient(id);
-  }
-
-  @Post(":id/users")
-  @ApiOperation({ summary: "Create a new client user" })
-  async createClientUser(
-    @Param("id") id: string,
-    @Body(new ZodValidationPipe(CreateClientUserSchema)) body: CreateClientUserDto,
-    @CurrentUser() user?: { roles?: UserRole[]; clientId?: string | null },
-  ) {
-    this.assertClientAccess(id, user);
-    return this.userService.createForClient(id, body);
-  }
-
-  @Put(":id/users/:userId/lots")
-  @ApiOperation({ summary: "Update which lots a client user can access" })
-  async updateClientUserLots(
-    @Param("id") id: string,
-    @Param("userId") userId: string,
-    @Body(new ZodValidationPipe(UpdateClientUserLotsSchema)) body: UpdateClientUserLotsDto,
-    @CurrentUser() user?: { roles?: UserRole[]; clientId?: string | null },
-  ) {
-    this.assertClientAccess(id, user);
-    return this.userService.updateAssignedLots(id, userId, body);
+    return client;
   }
 
   @Post()

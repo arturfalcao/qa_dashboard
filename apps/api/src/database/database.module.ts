@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 
+import { Tenant } from "./entities/tenant.entity";
 import { Client } from "./entities/client.entity";
 import { User } from "./entities/user.entity";
 import { Role } from "./entities/role.entity";
@@ -33,6 +34,7 @@ import { AnalyticsService } from "./services/analytics.service";
 import { EventService } from "./services/event.service";
 import { SeedService } from "./services/seed.service";
 import { ClientService } from "./services/client.service";
+import { TenantService } from "./services/tenant.service";
 import { FactoryService } from "./services/factory.service";
 import { DefectService } from "./services/defect.service";
 import { SupplyChainService } from "./services/supply-chain.service";
@@ -44,6 +46,7 @@ import { AnalyticsController } from "./controllers/analytics.controller";
 import { EventController } from "./controllers/event.controller";
 import { AdminController } from "./controllers/admin.controller";
 import { ClientController } from "./controllers/client.controller";
+import { TenantController } from "./controllers/tenant.controller";
 import { FactoryController } from "./controllers/factory.controller";
 import { SupplyChainController } from "./controllers/supply-chain.controller";
 import { UserController } from "./controllers/user.controller";
@@ -54,6 +57,7 @@ import { DppService } from "../dpp/dpp.service";
 @Module({
   imports: [
     TypeOrmModule.forFeature([
+      Tenant,
       Client,
       User,
       Role,
@@ -90,11 +94,11 @@ import { DppService } from "../dpp/dpp.service";
     EventService,
     SeedService,
     ClientService,
+    TenantService,
     UserService,
     FactoryService,
     DefectService,
     SupplyChainService,
-    UserService,
     DppService,
   ],
   controllers: [
@@ -104,6 +108,7 @@ import { DppService } from "../dpp/dpp.service";
     EventController,
     AdminController,
     ClientController,
+    TenantController,
     FactoryController,
     SupplyChainController,
     UserController,
@@ -115,6 +120,7 @@ import { DppService } from "../dpp/dpp.service";
     EventService,
     SeedService,
     ClientService,
+    TenantService,
     FactoryService,
     DefectService,
     SupplyChainService,

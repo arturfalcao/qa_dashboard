@@ -23,27 +23,27 @@ export default function LoginPage() {
     try {
       const response = await apiClient.login({ email, password })
 
-      let clientSlug: string | null = null
-      let clientName: string | null = null
+      let tenantSlug: string | null = null
+      let tenantName: string | null = null
 
-      if (response.user.clientId) {
+      if (response.user.tenantId) {
         try {
-          const client = await apiClient.getClientById(response.user.clientId)
-          clientSlug = client.slug
-          clientName = client.name
-        } catch (clientError) {
-          console.error('Failed to load client information', clientError)
+          const tenant = await apiClient.getTenantById(response.user.tenantId)
+          tenantSlug = tenant.slug
+          tenantName = tenant.name
+        } catch (tenantError) {
+          console.error('Failed to load tenant information', tenantError)
         }
       }
 
-      const userWithClient = {
+      const userWithTenant = {
         ...response.user,
-        clientSlug,
-        clientName,
+        tenantSlug,
+        tenantName,
       }
 
-      storeUser(userWithClient)
-      setUser(userWithClient)
+      storeUser(userWithTenant)
+      setUser(userWithTenant)
 
       const isOperator = response.user.roles.some((role) =>
         [UserRole.OPERATOR, UserRole.SUPERVISOR].includes(role),
@@ -52,8 +52,8 @@ export default function LoginPage() {
       if (isOperator) {
         router.push('/operator')
       } else {
-        if (clientSlug) {
-          router.push(`/c/${clientSlug}/feed`)
+        if (tenantSlug) {
+          router.push(`/c/${tenantSlug}/feed`)
         } else {
           router.push('/')
         }

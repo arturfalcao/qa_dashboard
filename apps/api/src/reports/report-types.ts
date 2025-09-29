@@ -2,7 +2,7 @@ import { ReportType, ReportLanguage, ReportStatus } from '@qa-dashboard/shared';
 
 export interface ReportGenerationRequest {
   type: ReportType;
-  clientId: string;
+  tenantId: string;
   userId?: string;
   language?: ReportLanguage;
   parameters: Record<string, any>;

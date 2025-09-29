@@ -13,26 +13,26 @@ export default function ClientLayout({
   params,
 }: {
   children: React.ReactNode
-  params: { clientSlug: string }
+  params: { tenantSlug: string }
 }) {
   const { user, setUser, isLoading } = useAuth()
   const pathname = usePathname()
 
   useEffect(() => {
-    const hydrateClient = async () => {
-      if (user && user.clientId && !user.clientSlug) {
+    const hydrateTenant = async () => {
+      if (user && user.tenantId && !user.tenantSlug) {
         try {
-          const client = await apiClient.getClientById(user.clientId)
-          const nextUser = { ...user, clientSlug: client.slug, clientName: client.name }
+          const tenant = await apiClient.getTenantById(user.tenantId)
+          const nextUser = { ...user, tenantSlug: tenant.slug, tenantName: tenant.name }
           setUser(nextUser)
           storeUser(nextUser)
         } catch (error) {
-          console.error('Unable to hydrate client information', error)
+          console.error('Unable to hydrate tenant information', error)
         }
       }
     }
 
-    hydrateClient()
+    hydrateTenant()
   }, [user, setUser])
 
   if (isLoading) {
@@ -47,7 +47,7 @@ export default function ClientLayout({
     return null // AuthProvider will handle redirect
   }
 
-  if (user.clientSlug && user.clientSlug !== params.clientSlug) {
+  if (user.tenantSlug && user.tenantSlug !== params.tenantSlug) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">

@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Param, Body, ForbiddenException, Patch } from "@nestjs/common";
 import { ApiTags, ApiOperation } from "@nestjs/swagger";
 import { LotService } from "../services/lot.service";
+import { ClientService } from "../services/client.service";
 import { ClientId, CurrentUser } from "../../common/decorators";
 import { ApprovalDto, RejectDto, ApprovalSchema, RejectSchema, UserRole, LotStatus } from "@qa-dashboard/shared";
 import { ZodValidationPipe } from "../../common/zod-validation.pipe";
@@ -38,6 +39,8 @@ const certificationSchema = z.object({
 
 const createLotSchema = z
   .object({
+    tenantId: z.string().uuid().optional(),
+    clientId: z.string().uuid().optional(),
     suppliers: z.array(supplierSchema).min(1).optional(),
     factoryId: z.string().uuid().optional(),
     styleRef: z.string().min(1),
@@ -70,7 +73,10 @@ const updateLotSchema = z.object({
 @ApiTags("lots")
 @Controller("lots")
 export class LotController {
-  constructor(private readonly lotService: LotService) {}
+  constructor(
+    private readonly lotService: LotService,
+    private readonly clientService: ClientService,
+  ) {}
 
   private ensureWriter(user?: { roles?: UserRole[] }) {
     const roles = user?.roles || [];
@@ -83,21 +89,44 @@ export class LotController {
   @Post()
   @ApiOperation({ summary: "Create lot" })
   async createLot(
-    @ClientId() clientId: string,
+    @ClientId() defaultTenantId: string,
     @Body(new ZodValidationPipe(createLotSchema)) body: z.infer<typeof createLotSchema>,
     @CurrentUser() user?: { roles?: UserRole[] },
   ) {
+    this.ensureWriter(user);
+
+    const isAdmin = user?.roles?.includes(UserRole.ADMIN) ?? false;
+
+    let tenantId: string;
+    let clientId: string | undefined;
+
+    if (isAdmin && body.clientId) {
+      // Admin selected a specific client, get the client's tenant
+      const client = await this.clientService.findById(body.clientId);
+      tenantId = client.tenantId;
+      clientId = client.id;
+    } else if (isAdmin && body.tenantId) {
+      // Legacy support: admin specified tenantId directly
+      tenantId = body.tenantId;
+    } else {
+      // Non-admin user, use their tenant context
+      tenantId = defaultTenantId;
+    }
+
     console.log('🎯 CREATE LOT - Request received:', {
-      clientId,
+      defaultTenantId,
+      requestedClientId: body.clientId,
+      requestedTenantId: body.tenantId,
+      finalTenantId: tenantId,
+      finalClientId: clientId,
+      isAdmin,
       body: JSON.stringify(body, null, 2),
       user: user?.roles || 'no user'
     });
 
-    if (!clientId) {
-      throw new ForbiddenException("Missing client context");
+    if (!tenantId) {
+      throw new ForbiddenException(isAdmin ? "Admin must specify a client" : "Missing client context");
     }
-
-    this.ensureWriter(user);
     const { factoryId, styleRef, quantityTotal, status } = body;
     const suppliersPayload = body.suppliers?.map((supplier) => ({
       factoryId: supplier.factoryId,
@@ -120,7 +149,8 @@ export class LotController {
       dppMetadata: body.dppMetadata
     });
 
-    return this.lotService.createLot(clientId, {
+    return this.lotService.createLot(tenantId, {
+      clientId,
       factoryId,
       suppliers: suppliersPayload,
       styleRef,
@@ -135,43 +165,43 @@ export class LotController {
 
   @Get()
   @ApiOperation({ summary: "List lots for client" })
-  async listLots(@ClientId() clientId: string, @CurrentUser() user: any) {
+  async listLots(@ClientId() tenantId: string, @CurrentUser() user: any) {
     console.log('🎯 Lots Controller - Debug:', {
-      clientId,
+      tenantId,
       user,
       hasUser: !!user
     });
 
-    if (!clientId) {
+    if (!tenantId) {
       throw new ForbiddenException("Missing client context");
     }
 
-    return this.lotService.listLots(clientId, user);
+    return this.lotService.listLots(tenantId, user);
   }
 
   @Get(":id")
   @ApiOperation({ summary: "Get lot by ID" })
   async getLot(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @Param("id") id: string,
-    @CurrentUser() user?: { id?: string; roles?: UserRole[]; clientId?: string | null },
+    @CurrentUser() user?: { id?: string; roles?: UserRole[]; tenantId?: string | null },
   ) {
-    if (!clientId) {
+    if (!tenantId) {
       throw new ForbiddenException("Missing client context");
     }
 
-    return this.lotService.getLot(clientId, id, user);
+    return this.lotService.getLot(tenantId, id, user);
   }
 
   @Patch(":id")
   @ApiOperation({ summary: "Update lot" })
   async updateLot(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @Param("id") id: string,
     @Body(new ZodValidationPipe(updateLotSchema)) body: z.infer<typeof updateLotSchema>,
     @CurrentUser() user?: { roles?: UserRole[] },
   ) {
-    if (!clientId) {
+    if (!tenantId) {
       throw new ForbiddenException("Missing client context");
     }
 
@@ -198,7 +228,7 @@ export class LotController {
       dppMetadata: body.dppMetadata
     });
 
-    return this.lotService.updateLot(clientId, id, {
+    return this.lotService.updateLot(tenantId, id, {
       factoryId,
       suppliers: suppliersPayload,
       styleRef,
@@ -214,22 +244,22 @@ export class LotController {
   @Post(":id/supply-chain/advance")
   @ApiOperation({ summary: "Advance to the next supply-chain stage" })
   async advanceSupplyChain(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @Param("id") id: string,
     @CurrentUser() user?: { roles?: UserRole[] },
   ) {
-    if (!clientId) {
+    if (!tenantId) {
       throw new ForbiddenException("Missing client context");
     }
 
     this.ensureWriter(user);
-    return this.lotService.advanceSupplyChainStage(clientId, id);
+    return this.lotService.advanceSupplyChainStage(tenantId, id);
   }
 
   @Post(":id/approve")
   @ApiOperation({ summary: "Approve lot" })
   async approveLot(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @Param("id") id: string,
     @Body(new ZodValidationPipe(ApprovalSchema)) approvalDto: ApprovalDto,
     @CurrentUser() user?: { userId?: string; roles?: UserRole[] },
@@ -245,7 +275,7 @@ export class LotController {
 
     const approverId = user?.userId ?? "demo-user";
 
-    await this.lotService.approveLot(clientId, id, approverId, approvalDto.note);
+    await this.lotService.approveLot(tenantId, id, approverId, approvalDto.note);
 
     return { message: "Lot approved successfully" };
   }
@@ -253,7 +283,7 @@ export class LotController {
   @Post(":id/reject")
   @ApiOperation({ summary: "Reject lot" })
   async rejectLot(
-    @ClientId() clientId: string,
+    @ClientId() tenantId: string,
     @Param("id") id: string,
     @Body(new ZodValidationPipe(RejectSchema)) rejectDto: RejectDto,
     @CurrentUser() user?: { userId?: string; roles?: UserRole[] },
@@ -269,7 +299,7 @@ export class LotController {
 
     const approverId = user?.userId ?? "demo-user";
 
-    await this.lotService.rejectLot(clientId, id, approverId, rejectDto.note);
+    await this.lotService.rejectLot(tenantId, id, approverId, rejectDto.note);
 
     return { message: "Lot rejected successfully" };
   }

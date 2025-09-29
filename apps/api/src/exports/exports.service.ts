@@ -19,21 +19,21 @@ export class ExportsService {
   ) {}
 
   async generatePDF(
-    clientId: string,
+    tenantId: string,
     lotId?: string,
     range?: "last_7d" | "last_30d",
   ): Promise<string> {
-    if (!clientId) {
-      throw new NotFoundException("Client not provided");
+    if (!tenantId) {
+      throw new NotFoundException("Tenant not provided");
     }
 
     const lot = lotId
       ? await this.lotRepository.findOne({
-          where: { id: lotId, clientId },
+          where: { id: lotId, tenantId },
           relations: ["factory"],
         })
       : await this.lotRepository.findOne({
-          where: { clientId },
+          where: { tenantId },
           order: { updatedAt: "DESC" },
           relations: ["factory"],
         });
@@ -54,10 +54,10 @@ export class ExportsService {
     });
 
     const [defectRate, throughput, defectTypes, approvalTime] = await Promise.all([
-      this.analyticsService.getDefectRate(clientId, range || "last_7d", "factory"),
-      this.analyticsService.getThroughput(clientId, "day", range || "last_7d"),
-      this.analyticsService.getDefectTypes(clientId, range || "last_7d"),
-      this.analyticsService.getApprovalTime(clientId, range || "last_7d"),
+      this.analyticsService.getDefectRate(tenantId, range || "last_7d", "factory"),
+      this.analyticsService.getThroughput(tenantId, "day", range || "last_7d"),
+      this.analyticsService.getDefectTypes(tenantId, range || "last_7d"),
+      this.analyticsService.getApprovalTime(tenantId, range || "last_7d"),
     ]);
 
     const htmlContent = this.buildLotReportHtml({
@@ -76,7 +76,7 @@ export class ExportsService {
     await browser.close();
 
     const key = this.storageService.generateKey(
-      clientId,
+      tenantId,
       `lot-${lot.id}-${Date.now()}.pdf`,
       "reports",
     );
@@ -91,11 +91,11 @@ export class ExportsService {
   }
 
   async generateCSV(
-    clientId: string,
+    tenantId: string,
     range?: "last_7d" | "last_30d",
   ): Promise<string> {
-    if (!clientId) {
-      throw new NotFoundException("Client not provided");
+    if (!tenantId) {
+      throw new NotFoundException("Tenant not provided");
     }
 
     const since = range === "last_30d"
@@ -108,7 +108,7 @@ export class ExportsService {
       .leftJoinAndSelect("lot.factory", "factory")
       .leftJoinAndSelect("inspection.defects", "defect")
       .leftJoinAndSelect("defect.defectType", "defectType")
-      .where("lot.clientId = :clientId", { clientId })
+      .where("lot.tenantId = :tenantId", { tenantId })
       .andWhere("inspection.createdAt >= :since", { since })
       .orderBy("inspection.createdAt", "DESC")
       .getMany();
@@ -137,7 +137,7 @@ export class ExportsService {
     const buffer = Buffer.from(csv, "utf-8");
 
     const key = this.storageService.generateKey(
-      clientId,
+      tenantId,
       `inspections-${Date.now()}.csv`,
       "reports",
     );

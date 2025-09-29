@@ -153,7 +153,7 @@ function buildSnapshot(lot: Lot): SupplyChainSnapshot {
 
 export function LotTable({ lots }: LotTableProps) {
   const params = useParams()
-  const clientSlug = params.clientSlug as string
+  const tenantSlug = params.tenantSlug as string
 
   const rows = useMemo(
     () =>
@@ -275,7 +275,7 @@ export function LotTable({ lots }: LotTableProps) {
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
                     <Link
-                      href={`/c/${clientSlug}/lots/${lot.id}`}
+                      href={`/c/${tenantSlug}/lots/${lot.id}`}
                       className="inline-flex items-center rounded-md border border-primary-200 px-3 py-1.5 text-sm font-medium text-primary-600 hover:bg-primary-50"
                     >
                       View
