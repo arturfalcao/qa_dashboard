@@ -25,12 +25,13 @@ This guide summarizes how to demonstrate and deliver full interoperability betwe
      "logoUrl": "https://cdn.paco.example/lux-brand-x.png"
    }
    ```
-2. **Add brand users with the correct role:** Use the dedicated provisioning endpoint to mint credentials and enforce the viewer role for downstream customers.【F:apps/api/src/database/controllers/user.controller.ts†L1-L38】【F:apps/api/src/database/services/user.service.ts†L10-L107】
+2. **Add brand users with the correct role:** Use the dedicated provisioning endpoint to mint credentials and enforce the viewer role for downstream customers. The API now accepts either a `clientSlug` or a `clientId`, so Paco can integrate with whichever identifier their internal systems prefer (and even send both for extra safety). If both are provided the platform will verify they refer to the same tenant before proceeding.【F:apps/api/src/database/controllers/user.controller.ts†L1-L62】【F:apps/api/src/database/services/user.service.ts†L19-L120】
    ```http
    POST /client-users
    {
      "email": "qa.lead@lux-brand-x.com",
      "clientSlug": "lux-brand-x",
+     "clientId": "c87d0d39-4c67-4a75-bd54-84e483bcf900",
      "roles": ["CLIENT_VIEWER"]
    }
    ```

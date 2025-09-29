@@ -8,15 +8,31 @@ import { ZodValidationPipe } from "../../common/zod-validation.pipe";
 import { CurrentUser } from "../../common/decorators";
 import { UserService } from "../services/user.service";
 
-const createClientUserSchema = z.object({
-  email: z.string().email(),
-  clientSlug: z.string().min(1),
-  roles: z
-    .array(z.nativeEnum(UserRole))
-    .min(1)
-    .default([UserRole.CLIENT_VIEWER]),
-  temporaryPassword: z.string().min(8).max(64).optional(),
-});
+const createClientUserSchema = z
+  .object({
+    email: z.string().email(),
+    clientSlug: z.string().min(1).optional(),
+    clientId: z.string().uuid().optional(),
+    roles: z
+      .array(z.nativeEnum(UserRole))
+      .min(1)
+      .default([UserRole.CLIENT_VIEWER]),
+    temporaryPassword: z.string().min(8).max(64).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (!value.clientSlug && !value.clientId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Either clientSlug or clientId must be provided",
+        path: ["clientSlug"],
+      });
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Either clientSlug or clientId must be provided",
+        path: ["clientId"],
+      });
+    }
+  });
 
 type CreateClientUserDto = z.infer<typeof createClientUserSchema>;
 
