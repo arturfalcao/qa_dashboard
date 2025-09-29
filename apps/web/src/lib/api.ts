@@ -98,6 +98,10 @@ class ApiClient {
     return this.request<Client>(`/clients/${clientId}`)
   }
 
+  async listClients() {
+    return this.request<Array<{ id: string; name: string; slug: string; logoUrl?: string }>>('/clients')
+  }
+
   async listClientUsers(clientId: string): Promise<ClientUser[]> {
     return this.request<ClientUser[]>(`/clients/${clientId}/users`)
   }

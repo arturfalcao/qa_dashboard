@@ -12,6 +12,7 @@ export default function ClientUsersPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.CLIENT_VIEWER)
+  const [selectedClientId, setSelectedClientId] = useState<string>('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -21,10 +22,18 @@ export default function ClientUsersPage() {
   const [assignmentSuccess, setAssignmentSuccess] = useState<string | null>(null)
   const [isSavingAssignments, setIsSavingAssignments] = useState(false)
 
+  const isAdmin = useMemo(() => user?.roles?.includes(UserRole.ADMIN), [user?.roles])
+
   const availableRoles = useMemo(
     () => [UserRole.CLIENT_VIEWER, UserRole.OPS_MANAGER, UserRole.ADMIN],
     [],
   )
+
+  const { data: clients = [] } = useQuery({
+    queryKey: ['clients'],
+    queryFn: () => apiClient.listClients(),
+    enabled: isAdmin,
+  })
 
   const { data: lots = [], isLoading: lotsLoading } = useQuery<Lot[]>({
     queryKey: ['client-lots'],
@@ -55,8 +64,10 @@ export default function ClientUsersPage() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
-    if (!user?.clientId) {
-      setError('You must be associated with a client to invite users')
+    const targetClientId = isAdmin && selectedClientId ? selectedClientId : user?.clientId
+
+    if (!targetClientId) {
+      setError(isAdmin ? 'Please select a client' : 'You must be associated with a client to invite users')
       return
     }
 
@@ -65,7 +76,7 @@ export default function ClientUsersPage() {
     setIsSubmitting(true)
 
     try {
-      const created = await apiClient.createClientUser(user.clientId, {
+      const created = await apiClient.createClientUser(targetClientId, {
         email,
         password,
         roles: [selectedRole],
@@ -75,6 +86,7 @@ export default function ClientUsersPage() {
       setEmail('')
       setPassword('')
       setSelectedRole(UserRole.CLIENT_VIEWER)
+      setSelectedClientId('')
       setSuccess('New login created successfully')
     } catch (submitError: any) {
       console.error('Failed to create client user', submitError)
@@ -156,7 +168,9 @@ export default function ClientUsersPage() {
       <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
         <h2 className="text-lg font-medium text-gray-900">Invite a new user</h2>
         <p className="mt-1 text-sm text-gray-500">
-          Passwords must be at least eight characters. New accounts are active immediately and receive the selected role.
+          {isAdmin
+            ? 'Select a client and create a user account. Passwords must be at least eight characters. New accounts are active immediately and receive the selected role.'
+            : 'Passwords must be at least eight characters. New accounts are active immediately and receive the selected role.'}
         </p>
 
         <form className="mt-4 space-y-4" onSubmit={handleSubmit}>
@@ -173,6 +187,28 @@ export default function ClientUsersPage() {
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {isAdmin && (
+              <div className="md:col-span-3">
+                <label htmlFor="client" className="block text-sm font-medium text-gray-700">
+                  Client
+                </label>
+                <select
+                  id="client"
+                  required
+                  value={selectedClientId}
+                  onChange={(event) => setSelectedClientId(event.target.value)}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+                >
+                  <option value="">Select a client...</option>
+                  {clients.map((client) => (
+                    <option key={client.id} value={client.id}>
+                      {client.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="md:col-span-2">
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                 Email address
