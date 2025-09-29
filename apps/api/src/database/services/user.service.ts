@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, In } from "typeorm";
 import * as bcrypt from "bcryptjs";
+import { randomBytes } from "crypto";
 
 import { User } from "../entities/user.entity";
 import { Role } from "../entities/role.entity";
@@ -20,6 +21,13 @@ import {
   UserRole,
   UpdateClientUserLotsDto,
 } from "@qa-dashboard/shared";
+
+interface CreateClientUserInput {
+  email: string;
+  clientSlug: string;
+  roles?: UserRole[];
+  temporaryPassword?: string;
+}
 
 @Injectable()
 export class UserService {
@@ -106,14 +114,18 @@ export class UserService {
     const savedUser = await this.userRepository.save(user);
 
     const roles = payload.roles?.length ? payload.roles : [UserRole.CLIENT_VIEWER];
+    const uniqueRoles = Array.from(new Set(roles));
+
+    const roleRecords = await this.roleRepository.find({
+      where: { name: In(uniqueRoles) },
+    });
+
+    if (roleRecords.length !== uniqueRoles.length) {
+      throw new BadRequestException("One or more roles are invalid");
+    }
 
     await Promise.all(
-      roles.map(async (roleName, index) => {
-        const role = await this.roleRepository.findOne({ where: { name: roleName } });
-        if (!role) {
-          throw new NotFoundException(`Role ${roleName} not found`);
-        }
-
+      roleRecords.map(async (role, index) => {
         await this.userRoleRepository.save(
           this.userRoleRepository.create({
             userId: savedUser.id,
@@ -134,6 +146,74 @@ export class UserService {
     }
 
     return this.mapToClientUser(createdUser);
+  }
+
+  async createClientUser({
+    email,
+    clientSlug,
+    roles = [UserRole.CLIENT_VIEWER],
+    temporaryPassword,
+  }: CreateClientUserInput) {
+    const client = await this.clientRepository.findOne({ where: { slug: clientSlug } });
+    if (!client) {
+      throw new NotFoundException(`Client with slug ${clientSlug} not found`);
+    }
+
+    const normalizedEmail = email.toLowerCase();
+
+    const existing = await this.userRepository.findOne({
+      where: { email: normalizedEmail, clientId: client.id },
+    });
+
+    if (existing) {
+      throw new ConflictException(
+        "A user with this email already exists for the client",
+      );
+    }
+
+    const password = temporaryPassword ?? this.generateTemporaryPassword();
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    const user = this.userRepository.create({
+      email: normalizedEmail,
+      clientId: client.id,
+      passwordHash,
+      isActive: true,
+    });
+
+    const savedUser = await this.userRepository.save(user);
+
+    const uniqueRoles = Array.from(new Set(roles.length ? roles : [UserRole.CLIENT_VIEWER]));
+
+    const roleRecords = await this.roleRepository.find({
+      where: { name: In(uniqueRoles) },
+    });
+
+    if (roleRecords.length !== uniqueRoles.length) {
+      throw new BadRequestException("One or more roles are invalid");
+    }
+
+    const userRoles = roleRecords.map((role, index) =>
+      this.userRoleRepository.create({
+        userId: savedUser.id,
+        roleId: role.id,
+        isPrimary: index === 0,
+      }),
+    );
+
+    await this.userRoleRepository.save(userRoles);
+
+    return {
+      id: savedUser.id,
+      email: savedUser.email,
+      clientId: savedUser.clientId,
+      clientSlug: client.slug,
+      clientName: client.name,
+      roles: uniqueRoles,
+      temporaryPassword: password,
+      createdAt: savedUser.createdAt.toISOString(),
+      updatedAt: savedUser.updatedAt.toISOString(),
+    };
   }
 
   async updateAssignedLots(
@@ -182,5 +262,18 @@ export class UserService {
     }
 
     return this.mapToClientUser(refreshedUser);
+  }
+
+  private generateTemporaryPassword(): string {
+    const raw = randomBytes(12)
+      .toString("base64")
+      .replace(/[^a-zA-Z0-9]/g, "");
+
+    const candidate = raw.slice(0, 12);
+    if (candidate.length >= 8) {
+      return candidate;
+    }
+
+    return `${candidate}${randomBytes(4).toString("hex")}`.slice(0, 12);
   }
 }
