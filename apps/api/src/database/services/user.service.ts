@@ -273,4 +273,71 @@ export class UserService {
 
     return this.mapToClientUser(refreshedUser);
   }
+
+  async findById(id: string): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: { id },
+      relations: ["userRoles", "userRoles.role"],
+    });
+  }
+
+  async findByRole(roleName: string, tenantId?: string): Promise<User[]> {
+    const query = this.userRepository
+      .createQueryBuilder("user")
+      .leftJoinAndSelect("user.userRoles", "userRoles")
+      .leftJoinAndSelect("userRoles.role", "role")
+      .where("role.name = :roleName", { roleName });
+
+    if (tenantId) {
+      query.andWhere("user.tenant_id = :tenantId", { tenantId });
+    }
+
+    return query.getMany();
+  }
+
+  async createOperator(
+    tenantId: string,
+    email: string,
+    password: string,
+  ): Promise<User> {
+    const normalizedEmail = email.toLowerCase();
+
+    const existingUser = await this.userRepository.findOne({
+      where: { tenantId, email: normalizedEmail },
+    });
+
+    if (existingUser) {
+      throw new ConflictException("A user with this email already exists for the tenant");
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    const user = this.userRepository.create({
+      tenantId,
+      email: normalizedEmail,
+      passwordHash,
+      isActive: true,
+    });
+
+    const savedUser = await this.userRepository.save(user);
+
+    // Assign OPERATOR role
+    const operatorRole = await this.roleRepository.findOne({
+      where: { name: "OPERATOR" },
+    });
+
+    if (!operatorRole) {
+      throw new BadRequestException("OPERATOR role not found");
+    }
+
+    await this.userRoleRepository.save(
+      this.userRoleRepository.create({
+        userId: savedUser.id,
+        roleId: operatorRole.id,
+        isPrimary: true,
+      }),
+    );
+
+    return savedUser;
+  }
 }

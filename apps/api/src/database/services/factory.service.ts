@@ -192,4 +192,16 @@ export class FactoryService {
       await this.factoryCertificationRepository.save(records);
     }
   }
+
+  async delete(tenantId: string | null, factoryId: string): Promise<void> {
+    const effectiveTenantId = tenantId ? await this.ensureTenantExists(tenantId) : null;
+    const where = effectiveTenantId ? { id: factoryId, tenantId: effectiveTenantId } : { id: factoryId };
+
+    const factory = await this.factoryRepository.findOne({ where });
+    if (!factory) {
+      throw new NotFoundException("Factory not found");
+    }
+
+    await this.factoryRepository.remove(factory);
+  }
 }

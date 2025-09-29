@@ -927,4 +927,15 @@ export class LotService {
       inspectedProgress: Math.round(inspectedProgress * 100) / 100,
     });
   }
+
+  async findById(id: string): Promise<Lot | null> {
+    return this.lotRepository.findOne({
+      where: { id },
+      relations: ["factory", "client", "suppliers", "suppliers.factory"],
+    });
+  }
+
+  async updateStatus(id: string, status: LotStatus): Promise<void> {
+    await this.lotRepository.update(id, { status });
+  }
 }

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, ForbiddenException } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, ForbiddenException } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { z } from "zod";
 import { ClientId, CurrentUser } from "../../common/decorators";
@@ -101,5 +101,24 @@ export class FactoryController {
         certification: certification.certification,
       })),
     });
+  }
+
+  @Delete(":id")
+  @ApiOperation({ summary: "Delete a factory" })
+  async delete(
+    @ClientId() tenantId: string,
+    @CurrentUser() user: { roles?: UserRole[] },
+    @Param("id") id: string,
+  ) {
+    // Only admins can delete factories
+    const roles = user?.roles || [];
+    const canDelete = roles.includes(UserRole.ADMIN);
+
+    if (!canDelete) {
+      throw new ForbiddenException("Only admins can delete factories");
+    }
+
+    await this.factoryService.delete(tenantId, id);
+    return { message: "Factory deleted successfully" };
   }
 }

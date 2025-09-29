@@ -10,6 +10,7 @@ import {
   DownloadIcon,
   Factory as FactoryIcon,
   Users as UsersIcon,
+  Building2 as ClientsIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/components/providers/auth-provider'
@@ -29,6 +30,7 @@ export function Sidebar() {
       [UserRole.ADMIN, UserRole.OPS_MANAGER].includes(role),
     )
     const canManageUsers = canManageFactories
+    const canManageClients = canManageFactories
 
     const items = [
       { name: 'Live Feed', href: '/feed', icon: ActivityIcon },
@@ -37,8 +39,12 @@ export function Sidebar() {
       { name: 'Exports', href: '/exports', icon: DownloadIcon },
     ]
 
+    if (canManageClients) {
+      items.splice(2, 0, { name: 'Clients', href: '/clients', icon: ClientsIcon })
+    }
+
     if (canManageFactories) {
-      items.splice(2, 0, { name: 'Factories', href: '/factories', icon: FactoryIcon })
+      items.splice(canManageClients ? 3 : 2, 0, { name: 'Factories', href: '/factories', icon: FactoryIcon })
     }
 
     if (canManageUsers) {

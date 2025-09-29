@@ -40,4 +40,9 @@ export class ClientService {
     this.clientRepository.merge(client, data);
     return this.clientRepository.save(client);
   }
+
+  async delete(id: string): Promise<void> {
+    const client = await this.findById(id);
+    await this.clientRepository.remove(client);
+  }
 }

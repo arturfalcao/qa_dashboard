@@ -27,6 +27,11 @@ import { Dpp } from "./entities/dpp.entity";
 import { DppEvent } from "./entities/dpp-event.entity";
 import { DppAccessLog } from "./entities/dpp-access-log.entity";
 import { LotUserAssignment } from "./entities/lot-user-assignment.entity";
+import { EdgeDevice } from "./entities/edge-device.entity";
+import { InspectionSession } from "./entities/inspection-session.entity";
+import { ApparelPiece } from "./entities/apparel-piece.entity";
+import { PiecePhoto } from "./entities/piece-photo.entity";
+import { PieceDefect } from "./entities/piece-defect.entity";
 
 import { InspectionService } from "./services/inspection.service";
 import { LotService } from "./services/lot.service";
@@ -39,6 +44,11 @@ import { FactoryService } from "./services/factory.service";
 import { DefectService } from "./services/defect.service";
 import { SupplyChainService } from "./services/supply-chain.service";
 import { UserService } from "./services/user.service";
+import { EdgeDeviceService } from "./services/edge-device.service";
+import { InspectionSessionService } from "./services/inspection-session.service";
+import { ApparelPieceService } from "./services/apparel-piece.service";
+import { PiecePhotoService } from "./services/piece-photo.service";
+import { PieceDefectService } from "./services/piece-defect.service";
 
 import { InspectionController } from "./controllers/inspection.controller";
 import { LotController } from "./controllers/lot.controller";
@@ -50,6 +60,10 @@ import { TenantController } from "./controllers/tenant.controller";
 import { FactoryController } from "./controllers/factory.controller";
 import { SupplyChainController } from "./controllers/supply-chain.controller";
 import { UserController } from "./controllers/user.controller";
+import { EdgeController } from "./controllers/edge.controller";
+import { OperatorController } from "./controllers/operator.controller";
+import { DashboardController } from "./controllers/dashboard.controller";
+import { SuperAdminController } from "./controllers/super-admin.controller";
 import { StorageModule } from "../storage/storage.module";
 import { DppModule } from "../dpp/dpp.module";
 import { DppService } from "../dpp/dpp.service";
@@ -83,6 +97,11 @@ import { DppService } from "../dpp/dpp.service";
       Dpp,
       DppEvent,
       DppAccessLog,
+      EdgeDevice,
+      InspectionSession,
+      ApparelPiece,
+      PiecePhoto,
+      PieceDefect,
     ]),
     StorageModule,
     DppModule,
@@ -100,6 +119,11 @@ import { DppService } from "../dpp/dpp.service";
     DefectService,
     SupplyChainService,
     DppService,
+    EdgeDeviceService,
+    InspectionSessionService,
+    ApparelPieceService,
+    PiecePhotoService,
+    PieceDefectService,
   ],
   controllers: [
     InspectionController,
@@ -112,6 +136,10 @@ import { DppService } from "../dpp/dpp.service";
     FactoryController,
     SupplyChainController,
     UserController,
+    EdgeController,
+    OperatorController,
+    DashboardController,
+    SuperAdminController,
   ],
   exports: [
     InspectionService,

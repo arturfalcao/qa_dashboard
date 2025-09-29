@@ -99,6 +99,13 @@ export default function LoginPage() {
       storeUser(userWithTenant)
       setUser(userWithTenant)
 
+      // Check for super admin
+      const isSuperAdmin = email === 'celso.silva@packpolish.com'
+      if (isSuperAdmin) {
+        router.push('/admin')
+        return
+      }
+
       const isOperator = response.user.roles.some((role) =>
         [UserRole.OPERATOR, UserRole.SUPERVISOR].includes(role),
       )

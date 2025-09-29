@@ -23,6 +23,7 @@ import {
   OperatorReprintPayload,
   OperatorFlagPayload,
   Client,
+  Tenant,
   ClientUser,
   CreateClientUserDto,
   UpdateClientUserLotsDto,
@@ -94,8 +95,8 @@ class ApiClient {
   }
 
   // Tenants
-  async getTenantById(tenantId: string): Promise<Client> {
-    return this.request<Client>(`/tenants/${tenantId}`)
+  async getTenantById(tenantId: string): Promise<Tenant> {
+    return this.request<Tenant>(`/tenants/${tenantId}`)
   }
 
   async listTenants() {
@@ -105,6 +106,45 @@ class ApiClient {
   // Clients
   async listClients(): Promise<Client[]> {
     return this.request<Client[]>('/clients')
+  }
+
+  async createClient(payload: {
+    name: string
+    contactEmail?: string
+    contactPhone?: string
+    address?: string
+    country?: string
+    notes?: string
+    isActive?: boolean
+  }): Promise<Client> {
+    return this.request<Client>('/clients', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  }
+
+  async updateClient(
+    id: string,
+    payload: {
+      name?: string
+      contactEmail?: string
+      contactPhone?: string
+      address?: string
+      country?: string
+      notes?: string
+      isActive?: boolean
+    }
+  ): Promise<Client> {
+    return this.request<Client>(`/clients/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    })
+  }
+
+  async deleteClient(id: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/clients/${id}`, {
+      method: 'DELETE',
+    })
   }
 
   async listTenantUsers(tenantId: string): Promise<ClientUser[]> {
@@ -362,6 +402,12 @@ class ApiClient {
     })
   }
 
+  async deleteFactory(id: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/factories/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
   async getSupplyChainRoles(): Promise<SupplyChainRole[]> {
     return this.request<SupplyChainRole[]>('/supply-chain/roles')
   }
@@ -511,6 +557,120 @@ class ApiClient {
   // Admin
   async seedData(): Promise<any> {
     return this.request('/admin/seed', { method: 'POST' })
+  }
+
+  // Super Admin
+  async getAllTenants(): Promise<{ tenants: any[] }> {
+    return this.request('/super-admin/tenants')
+  }
+
+  async getAllDevices(tenantId?: string): Promise<{ devices: any[] }> {
+    const params = tenantId ? `?tenantId=${tenantId}` : ''
+    return this.request(`/super-admin/devices${params}`)
+  }
+
+  async createDevice(data: { tenantId: string; name: string; workbenchNumber: number }): Promise<any> {
+    return this.request('/super-admin/devices', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateDeviceStatus(deviceId: string, status: 'active' | 'inactive' | 'maintenance'): Promise<any> {
+    return this.request(`/super-admin/devices/${deviceId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    })
+  }
+
+  async assignOperatorToDevice(deviceId: string, operatorId: string): Promise<any> {
+    return this.request(`/super-admin/devices/${deviceId}/assign`, {
+      method: 'PATCH',
+      body: JSON.stringify({ operatorId }),
+    })
+  }
+
+  async unassignOperatorFromDevice(deviceId: string): Promise<any> {
+    return this.request(`/super-admin/devices/${deviceId}/assign`, {
+      method: 'DELETE',
+    })
+  }
+
+  async getAllOperators(tenantId?: string): Promise<{ operators: any[] }> {
+    const params = tenantId ? `?tenantId=${tenantId}` : ''
+    return this.request(`/super-admin/operators${params}`)
+  }
+
+  async createOperator(data: { tenantId: string; email: string; password: string }): Promise<any> {
+    return this.request('/super-admin/operators', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  // Operator Session Management
+  async startInspectionSession(data: { lotId: string; deviceId: string }): Promise<{ success: boolean; sessionId: string }> {
+    return this.request('/operator/session/start', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async pauseInspectionSession(sessionId: string): Promise<{ success: boolean; message: string }> {
+    return this.request('/operator/session/pause', {
+      method: 'PATCH',
+      body: JSON.stringify({ sessionId }),
+    })
+  }
+
+  async resumeInspectionSession(sessionId: string): Promise<{ success: boolean; message: string }> {
+    return this.request('/operator/session/resume', {
+      method: 'PATCH',
+      body: JSON.stringify({ sessionId }),
+    })
+  }
+
+  async endInspectionSession(sessionId: string): Promise<{ success: boolean; message: string }> {
+    return this.request('/operator/session/end', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId }),
+    })
+  }
+
+  async getLiveSession(sessionId: string): Promise<any> {
+    return this.request(`/operator/session/${sessionId}/live`)
+  }
+
+  // Get assigned devices for current operator
+  async getAssignedDevices(): Promise<any[]> {
+    return this.request('/operator/devices')
+  }
+
+  // Get available lots for inspection
+  async getAvailableLots(): Promise<any[]> {
+    return this.request('/operator/lots')
+  }
+
+  // Dashboard - Photo Gallery & Defect Review
+  async getLotGallery(lotId: string, status?: string): Promise<any> {
+    const params = status ? `?status=${status}` : ''
+    return this.request(`/dashboard/lots/${lotId}/gallery${params}`)
+  }
+
+  async getLotDefects(lotId: string, status?: string): Promise<any> {
+    const params = status ? `?status=${status}` : ''
+    return this.request(`/dashboard/lots/${lotId}/defects${params}`)
+  }
+
+  async reviewDefect(defectId: string, data: { status: 'confirmed' | 'rejected'; notes?: string }): Promise<any> {
+    return this.request(`/dashboard/defects/${defectId}/review`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async getLiveFeed(): Promise<any> {
+    return this.request('/dashboard/feed/live')
   }
 }
 
