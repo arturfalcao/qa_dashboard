@@ -162,7 +162,7 @@ export class UserService {
     const normalizedEmail = email.toLowerCase();
 
     const existing = await this.userRepository.findOne({
-      where: { email: normalizedEmail, clientId: client.id },
+      where: { email: normalizedEmail, clientId: client.id }, 
     });
 
     if (existing) {
@@ -263,17 +263,3 @@ export class UserService {
 
     return this.mapToClientUser(refreshedUser);
   }
-
-  private generateTemporaryPassword(): string {
-    const raw = randomBytes(12)
-      .toString("base64")
-      .replace(/[^a-zA-Z0-9]/g, "");
-
-    const candidate = raw.slice(0, 12);
-    if (candidate.length >= 8) {
-      return candidate;
-    }
-
-    return `${candidate}${randomBytes(4).toString("hex")}`.slice(0, 12);
-  }
-}
