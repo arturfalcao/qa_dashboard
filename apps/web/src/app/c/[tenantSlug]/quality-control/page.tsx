@@ -6,7 +6,7 @@ import { apiClient } from '@/lib/api'
 import { Lot, LotStatus } from '@qa-dashboard/shared'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { AlertTriangleIcon, CheckCircleIcon, ClockIcon, TrendingUpIcon } from 'lucide-react'
+import { AlertTriangleIcon, CheckCircleIcon, ClockIcon, TrendingUpIcon, ActivityIcon } from 'lucide-react'
 import Link from 'next/link'
 
 export default function QualityControlPage() {
