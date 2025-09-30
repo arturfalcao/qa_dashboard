@@ -127,6 +127,11 @@ export class RefactorToMultiTenant1759000000000 implements MigrationInterface {
     await queryRunner.query(`
       ALTER TABLE events RENAME COLUMN client_id TO tenant_id;
     `);
+    // Convert tenant_id to UUID type if it's not already
+    await queryRunner.query(`
+      ALTER TABLE events
+      ALTER COLUMN tenant_id TYPE uuid USING tenant_id::uuid;
+    `);
     await queryRunner.query(`
       ALTER TABLE events ADD CONSTRAINT events_tenant_id_fkey
         FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
@@ -135,6 +140,11 @@ export class RefactorToMultiTenant1759000000000 implements MigrationInterface {
     // Notifications: rename client_id to tenant_id
     await queryRunner.query(`
       ALTER TABLE notifications RENAME COLUMN client_id TO tenant_id;
+    `);
+    // Convert tenant_id to UUID type if it's not already
+    await queryRunner.query(`
+      ALTER TABLE notifications
+      ALTER COLUMN tenant_id TYPE uuid USING tenant_id::uuid;
     `);
     await queryRunner.query(`
       ALTER TABLE notifications ADD CONSTRAINT notifications_tenant_id_fkey
@@ -145,6 +155,11 @@ export class RefactorToMultiTenant1759000000000 implements MigrationInterface {
     await queryRunner.query(`
       ALTER TABLE reports RENAME COLUMN client_id TO tenant_id;
     `);
+    // Convert tenant_id to UUID type if it's not already
+    await queryRunner.query(`
+      ALTER TABLE reports
+      ALTER COLUMN tenant_id TYPE uuid USING tenant_id::uuid;
+    `);
     await queryRunner.query(`
       ALTER TABLE reports ADD CONSTRAINT reports_tenant_id_fkey
         FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE SET NULL;
@@ -153,6 +168,11 @@ export class RefactorToMultiTenant1759000000000 implements MigrationInterface {
     // DPPs: rename client_id to tenant_id
     await queryRunner.query(`
       ALTER TABLE dpps RENAME COLUMN client_id TO tenant_id;
+    `);
+    // Convert tenant_id to UUID type if it's not already
+    await queryRunner.query(`
+      ALTER TABLE dpps
+      ALTER COLUMN tenant_id TYPE uuid USING tenant_id::uuid;
     `);
     await queryRunner.query(`
       ALTER TABLE dpps ADD CONSTRAINT dpps_tenant_id_fkey
