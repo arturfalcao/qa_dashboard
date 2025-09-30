@@ -11,8 +11,13 @@ export class StorageService {
   constructor() {
     this.photosBucket = process.env.MINIO_PHOTOS_BUCKET || "pp-photos";
     this.reportsBucket = process.env.MINIO_REPORTS_BUCKET || "pp-reports";
+
+    // Strip protocol from endpoint if present (DigitalOcean Spaces compatibility)
+    const rawEndpoint = process.env.MINIO_ENDPOINT || "localhost";
+    const endPoint = rawEndpoint.replace(/^https?:\/\//, "");
+
     this.minioClient = new Minio.Client({
-      endPoint: process.env.MINIO_ENDPOINT || "localhost",
+      endPoint,
       port: parseInt(process.env.MINIO_PORT || "9000"),
       useSSL: process.env.MINIO_USE_SSL === "true",
       accessKey: process.env.MINIO_ACCESS_KEY || "minio",

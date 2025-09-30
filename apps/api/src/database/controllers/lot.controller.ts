@@ -267,7 +267,7 @@ export class LotController {
     const roles = user?.roles || [];
     const canApprove =
       roles.length === 0 ||
-      roles.some((role) => [UserRole.ADMIN, UserRole.OPS_MANAGER].includes(role));
+      roles.some((role) => [UserRole.ADMIN, UserRole.OPS_MANAGER, UserRole.QUALITY_DIRECTOR].includes(role));
 
     if (!canApprove) {
       throw new ForbiddenException("User lacks approval permissions");
@@ -291,7 +291,7 @@ export class LotController {
     const roles = user?.roles || [];
     const canReject =
       roles.length === 0 ||
-      roles.some((role) => [UserRole.ADMIN, UserRole.OPS_MANAGER].includes(role));
+      roles.some((role) => [UserRole.ADMIN, UserRole.OPS_MANAGER, UserRole.QUALITY_DIRECTOR].includes(role));
 
     if (!canReject) {
       throw new ForbiddenException("User lacks rejection permissions");
