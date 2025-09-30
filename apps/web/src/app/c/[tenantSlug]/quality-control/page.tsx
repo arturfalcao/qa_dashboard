@@ -2,14 +2,17 @@
 
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useParams } from 'next/navigation'
 import { apiClient } from '@/lib/api'
 import { Lot, LotStatus } from '@qa-dashboard/shared'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { AlertTriangleIcon, CheckCircleIcon, ClockIcon, TrendingUpIcon } from 'lucide-react'
+import { AlertTriangleIcon, CheckCircleIcon, ClockIcon, TrendingUpIcon, ActivityIcon } from 'lucide-react'
 import Link from 'next/link'
 
 export default function QualityControlPage() {
+  const params = useParams()
+  const tenantSlug = params.tenantSlug as string
   const { data: lots = [], isLoading } = useQuery({
     queryKey: ['lots'],
     queryFn: () => apiClient.getLots(),
@@ -135,7 +138,7 @@ export default function QualityControlPage() {
               {qualityMetrics.pendingApprovalLots.map((lot: Lot) => (
                 <Link
                   key={lot.id}
-                  href={`/c/${lot.client?.slug || 'unknown'}/lots/${lot.id}`}
+                  href={`/c/${tenantSlug}/lots/${lot.id}`}
                   className="flex items-center justify-between rounded-lg border border-slate-200 p-4 transition hover:border-primary-300 hover:bg-slate-50"
                 >
                   <div>
@@ -174,7 +177,7 @@ export default function QualityControlPage() {
               {qualityMetrics.highRiskLots.map((lot: Lot) => (
                 <Link
                   key={lot.id}
-                  href={`/c/${lot.client?.slug || 'unknown'}/lots/${lot.id}`}
+                  href={`/c/${tenantSlug}/lots/${lot.id}`}
                   className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 p-4 transition hover:border-red-300"
                 >
                   <div>
