@@ -93,17 +93,17 @@ export interface IconButtonProps
 }
 
 export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
-  ({ icon, size = 'sm', ...props }, ref) => (
+  ({ icon, size = 'sm', 'aria-label': ariaLabel, ...props }, ref) => (
     <Button
       ref={ref}
       variant="subtle"
       size={size}
       className={cn('aspect-square p-0')}
       icon={icon}
-      aria-label={props['aria-label']}
+      aria-label={ariaLabel}
       {...props}
     >
-      <span className="sr-only">{props['aria-label']}</span>
+      <span className="sr-only">{ariaLabel}</span>
     </Button>
   ),
 )
