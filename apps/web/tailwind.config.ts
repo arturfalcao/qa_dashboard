@@ -16,13 +16,13 @@ const colors = {
 }
 
 const fontSize = {
-  xs: [tokens.text.xs, { lineHeight: tokens.leading.snug, letterSpacing: tokens.tracking.normal }],
-  sm: [tokens.text.sm, { lineHeight: tokens.leading.snug, letterSpacing: tokens.tracking.normal }],
-  base: [tokens.text.md, { lineHeight: tokens.leading.normal, letterSpacing: tokens.tracking.normal }],
-  lg: [tokens.text.lg, { lineHeight: tokens.leading.normal, letterSpacing: tokens.tracking.normal }],
-  xl: [tokens.text.xl, { lineHeight: tokens.leading.relaxed, letterSpacing: tokens.tracking.tight }],
-  '2xl': [tokens.text['2xl'], { lineHeight: tokens.leading.relaxed, letterSpacing: tokens.tracking.tight }],
-  '3xl': [tokens.text['3xl'], { lineHeight: tokens.leading.relaxed, letterSpacing: tokens.tracking.tight }],
+  xs: [tokens.text.xs, { lineHeight: tokens.leading.snug, letterSpacing: tokens.tracking.normal }] as [string, { lineHeight: string; letterSpacing: string }],
+  sm: [tokens.text.sm, { lineHeight: tokens.leading.snug, letterSpacing: tokens.tracking.normal }] as [string, { lineHeight: string; letterSpacing: string }],
+  base: [tokens.text.md, { lineHeight: tokens.leading.normal, letterSpacing: tokens.tracking.normal }] as [string, { lineHeight: string; letterSpacing: string }],
+  lg: [tokens.text.lg, { lineHeight: tokens.leading.normal, letterSpacing: tokens.tracking.normal }] as [string, { lineHeight: string; letterSpacing: string }],
+  xl: [tokens.text.xl, { lineHeight: tokens.leading.relaxed, letterSpacing: tokens.tracking.tight }] as [string, { lineHeight: string; letterSpacing: string }],
+  '2xl': [tokens.text['2xl'], { lineHeight: tokens.leading.relaxed, letterSpacing: tokens.tracking.tight }] as [string, { lineHeight: string; letterSpacing: string }],
+  '3xl': [tokens.text['3xl'], { lineHeight: tokens.leading.relaxed, letterSpacing: tokens.tracking.tight }] as [string, { lineHeight: string; letterSpacing: string }],
 }
 
 const config: Config = {
@@ -39,8 +39,8 @@ const config: Config = {
       borderRadius: tokens.radius,
       boxShadow: tokens.shadow,
       fontFamily: {
-        sans: tokens.font.sans,
-        mono: tokens.font.mono,
+        sans: [...tokens.font.sans],
+        mono: [...tokens.font.mono],
       },
       fontSize,
     },

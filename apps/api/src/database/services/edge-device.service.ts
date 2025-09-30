@@ -4,7 +4,7 @@ import { Repository } from "typeorm";
 import { EdgeDevice } from "../entities/edge-device.entity";
 
 interface CreateEdgeDeviceInput {
-  tenantId: string;
+  tenantId?: string | null;
   name: string;
   secretKey: string;
   workbenchNumber: number;

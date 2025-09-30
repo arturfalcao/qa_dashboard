@@ -114,9 +114,20 @@ export default function TenantsPage() {
                     {new Date(tenant.createdAt).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <a href={`/c/${tenant.slug}/feed`} className="text-primary-600 hover:text-primary-900">
-                      View Dashboard
-                    </a>
+                    <div className="flex items-center justify-end gap-3">
+                      <a
+                        href={`/admin/tenants/${tenant.id}/lots`}
+                        className="text-primary-600 hover:text-primary-900 font-medium"
+                      >
+                        View Lots
+                      </a>
+                      <a
+                        href={`/c/${tenant.slug}/feed`}
+                        className="text-slate-600 hover:text-slate-900"
+                      >
+                        Dashboard
+                      </a>
+                    </div>
                   </td>
                 </tr>
               ))

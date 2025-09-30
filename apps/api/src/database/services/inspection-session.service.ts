@@ -59,6 +59,13 @@ export class InspectionSessionService {
       .getMany();
   }
 
+  async findAllActive(): Promise<InspectionSession[]> {
+    return this.sessionRepository.find({
+      where: { endedAt: IsNull() },
+      relations: ["lot", "lot.client", "device"],
+    });
+  }
+
   async create(input: CreateSessionInput): Promise<InspectionSession> {
     const session = this.sessionRepository.create(input);
     return this.sessionRepository.save(session);

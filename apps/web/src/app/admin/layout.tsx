@@ -13,11 +13,14 @@ const navigation = [
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth()
+  const { user, isLoading } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
 
   useEffect(() => {
+    // Wait for loading to complete
+    if (isLoading) return
+
     if (!user) {
       router.push('/login')
       return
@@ -27,14 +30,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (user.email !== 'celso.silva@packpolish.com') {
       router.push('/login')
     }
-  }, [user, router])
+  }, [user, router, isLoading])
 
-  if (!user || user.email !== 'celso.silva@packpolish.com') {
+  // Show loading state while checking authentication
+  if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
       </div>
     )
+  }
+
+  // After loading, check if user is authenticated
+  if (!user || user.email !== 'celso.silva@packpolish.com') {
+    return null // Will redirect via useEffect
   }
 
   return (

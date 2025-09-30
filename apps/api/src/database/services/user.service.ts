@@ -296,7 +296,7 @@ export class UserService {
   }
 
   async createOperator(
-    tenantId: string,
+    tenantId: string | null,
     email: string,
     password: string,
   ): Promise<User> {
@@ -307,7 +307,7 @@ export class UserService {
     });
 
     if (existingUser) {
-      throw new ConflictException("A user with this email already exists for the tenant");
+      throw new ConflictException("A user with this email already exists");
     }
 
     const passwordHash = await bcrypt.hash(password, 10);

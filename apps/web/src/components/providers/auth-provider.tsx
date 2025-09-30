@@ -37,12 +37,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const storedUser = getStoredUser()
     setUser(storedUser)
     setIsLoading(false)
+  }, [])
 
-    // Redirect logic
-    if (!storedUser && pathname !== '/login') {
+  // Separate effect for redirect logic to avoid race conditions
+  useEffect(() => {
+    // Skip if still loading
+    if (isLoading) return
+
+    // Redirect logic - only run after auth state is loaded
+    if (!user && pathname !== '/login') {
       router.push('/login')
     }
-  }, [pathname, router])
+  }, [user, pathname, router, isLoading])
 
   const logout = () => {
     clearAuth()

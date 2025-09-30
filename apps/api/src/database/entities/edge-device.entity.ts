@@ -17,8 +17,8 @@ export class EdgeDevice {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ name: "tenant_id" })
-  tenantId: string;
+  @Column({ name: "tenant_id", type: "uuid", nullable: true })
+  tenantId?: string | null;
 
   @Column({ length: 255 })
   name: string;
@@ -48,9 +48,9 @@ export class EdgeDevice {
   @UpdateDateColumn({ name: "updated_at" })
   updatedAt: Date;
 
-  @ManyToOne(() => Tenant, { onDelete: "CASCADE" })
+  @ManyToOne(() => Tenant, { nullable: true, onDelete: "SET NULL" })
   @JoinColumn({ name: "tenant_id" })
-  tenant: Tenant;
+  tenant?: Tenant | null;
 
   @ManyToOne(() => User, { nullable: true, onDelete: "SET NULL" })
   @JoinColumn({ name: "assigned_operator_id" })

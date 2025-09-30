@@ -121,6 +121,47 @@ export class OperatorController {
     };
   }
 
+  @Get("lots/active")
+  @ApiOperation({ summary: "Get active lots for operator" })
+  async getActiveLots(@CurrentUser() user: any) {
+    this.ensureOperatorAccess(user);
+
+    // Get all active inspection sessions
+    const activeSessions = await this.inspectionSessionService.findAllActive();
+
+    // Group by lot and aggregate data
+    const lotMap = new Map();
+
+    for (const session of activeSessions) {
+      const lotId = session.lot.id;
+
+      if (!lotMap.has(lotId)) {
+        lotMap.set(lotId, {
+          lotId: session.lot.id,
+          lotCode: session.lot.styleRef,
+          customer: session.lot.client?.name || "Unknown",
+          styleRef: session.lot.styleRef,
+          activeDeviceIds: [],
+          piecesInspected: 0,
+          defectsFound: 0,
+          defectRate: 0,
+          lastEventAt: null,
+        });
+      }
+
+      const lotData = lotMap.get(lotId);
+      lotData.activeDeviceIds.push(session.deviceId);
+      lotData.piecesInspected += session.piecesInspected || 0;
+      lotData.piecesDefect = (session.piecesDefect || 0) + (session.piecesPotentialDefect || 0);
+
+      if (lotData.piecesInspected > 0) {
+        lotData.defectRate = lotData.piecesDefect / lotData.piecesInspected;
+      }
+    }
+
+    return Array.from(lotMap.values());
+  }
+
   @Get("session/:id/live")
   @ApiOperation({ summary: "Get live session data (polling endpoint)" })
   async getLiveSession(@CurrentUser() user: any, @Param("id") sessionId: string) {

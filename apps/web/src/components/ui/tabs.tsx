@@ -4,8 +4,9 @@ import * as React from 'react'
 import { Tab } from '@headlessui/react'
 import { cn } from '@/lib/utils'
 
-export interface TabsProps extends React.ComponentProps<typeof Tab.Group> {
+export interface TabsProps extends Omit<React.ComponentProps<typeof Tab.Group>, 'children'> {
   className?: string
+  children: React.ReactNode
 }
 
 export function Tabs({ children, className, ...props }: TabsProps) {
@@ -34,7 +35,7 @@ export const TabsTrigger = React.forwardRef<HTMLButtonElement, React.ComponentPr
   ({ className, ...props }, ref) => (
     <Tab
       ref={ref}
-      className={({ selected }) =>
+      className={({ selected }: { selected: boolean }) =>
         cn(
           'inline-flex items-center gap-2 rounded-full px-4 py-2 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400',
           selected

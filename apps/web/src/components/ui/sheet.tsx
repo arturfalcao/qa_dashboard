@@ -27,7 +27,7 @@ const sideClasses: Record<SheetSide, string> = {
   bottom: 'inset-x-0 bottom-0 h-auto max-h-[90vh]',
 }
 
-const sizeModifiers: Record<SheetProps['size'], string> = {
+const sizeModifiers: Record<'sm' | 'md' | 'lg', string> = {
   sm: 'max-w-sm',
   md: 'max-w-lg',
   lg: 'max-w-xl',

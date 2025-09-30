@@ -608,6 +608,17 @@ class ApiClient {
     })
   }
 
+  async getTenantLots(tenantId: string): Promise<{ tenant: any; lots: any[] }> {
+    return this.request(`/super-admin/tenants/${tenantId}/lots`)
+  }
+
+  async assignLotToDevice(deviceId: string, data: { lotId: string; operatorId?: string }): Promise<any> {
+    return this.request(`/super-admin/devices/${deviceId}/assign-lot`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
   // Operator Session Management
   async startInspectionSession(data: { lotId: string; deviceId: string }): Promise<{ success: boolean; sessionId: string }> {
     return this.request('/operator/session/start', {
