@@ -17,10 +17,9 @@ import { ApparelPieceService } from "../services/apparel-piece.service";
 import { PiecePhotoService } from "../services/piece-photo.service";
 import { PieceDefectService } from "../services/piece-defect.service";
 import { InspectionSessionService } from "../services/inspection-session.service";
+import { StorageService } from "../../storage/storage.service";
 import { ZodValidationPipe } from "../../common/zod-validation.pipe";
 import { z } from "zod";
-import { diskStorage } from "multer";
-import { extname } from "path";
 
 const photoUploadSchema = z.object({
   sessionId: z.string().uuid(),
@@ -53,6 +52,7 @@ export class EdgeController {
     private readonly piecePhotoService: PiecePhotoService,
     private readonly pieceDefectService: PieceDefectService,
     private readonly inspectionSessionService: InspectionSessionService,
+    private readonly storageService: StorageService,
   ) {}
 
   private async validateDeviceSecret(secretKey?: string) {
@@ -145,13 +145,6 @@ export class EdgeController {
   @ApiHeader({ name: "X-Device-Secret", required: true })
   @UseInterceptors(
     FileInterceptor("photo", {
-      storage: diskStorage({
-        destination: "./uploads/edge-photos",
-        filename: (_req, file, cb) => {
-          const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-          cb(null, `photo-${uniqueSuffix}${extname(file.originalname)}`);
-        },
-      }),
       limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
     }),
   )
@@ -160,7 +153,7 @@ export class EdgeController {
     @Body(new ZodValidationPipe(photoUploadSchema)) body: z.infer<typeof photoUploadSchema>,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    await this.validateDeviceSecret(secretKey);
+    const device = await this.validateDeviceSecret(secretKey);
 
     if (!file) {
       throw new BadRequestException("Photo file required");
@@ -184,10 +177,20 @@ export class EdgeController {
       pieceId = piece.id;
     }
 
-    // Save photo
+    // Upload to S3/Spaces bucket
+    const filename = `edge-${device.id}-${Date.now()}-${file.originalname}`;
+    const fileKey = await this.storageService.uploadFile(
+      file.buffer,
+      filename,
+      file.mimetype || "image/jpeg",
+      "edge-devices",
+      "photos"
+    );
+
+    // Save photo with S3 key
     const photo = await this.piecePhotoService.create({
       pieceId,
-      filePath: file.path,
+      filePath: fileKey,
       capturedAt: new Date(),
     });
 

@@ -62,9 +62,7 @@ class CameraController:
         if not self._camera or not self._started:
             raise CameraUnavailable("Camera not initialized")
         path.parent.mkdir(parents=True, exist_ok=True)
-        output = FileOutput(str(path)) if FileOutput else str(path)
-        capture_kwargs = {"quality": self._quality}
-        self._camera.capture_file(output, **capture_kwargs)
+        self._camera.capture_file(str(path), format='jpeg')
         if overlay_text and Image:
             self._add_overlay(path, overlay_text)
         return path
@@ -82,7 +80,7 @@ class CameraController:
                         font = ImageFont.load_default()
                 draw.rectangle([(0, height - 70), (width, height)], fill=(0, 0, 0, 160))
                 draw.text((10, height - 65), text, fill="white", font=font)
-                img.save(path, format="JPEG")
+                img.save(path, format="JPEG", quality=self._quality)
         except Exception as exc:  # pragma: no cover - best effort overlay
             log.warning("Failed to apply overlay: %s", exc)
 

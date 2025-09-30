@@ -68,7 +68,7 @@ class EdgeDeviceApp:
     def __init__(self, config_path: Path) -> None:
         self._config_manager = ConfigManager(config_path)
         config = self._config_manager.config
-        storage_path = Path("/home/pi/edge-photos")
+        storage_path = Path("edge-photos")
         self._storage = StorageManager(storage_path, 5000)
         self._queue = QueueManager(Path("queue.db"))
         self._api_client = ApiClient(config.api_base_url, config.device_secret)
