@@ -66,6 +66,16 @@ export class InspectionSessionService {
     });
   }
 
+  async findActiveByDeviceId(deviceId: string): Promise<InspectionSession | null> {
+    return this.sessionRepository.findOne({
+      where: {
+        deviceId,
+        endedAt: IsNull(),
+      },
+      relations: ["lot", "device"],
+    });
+  }
+
   async create(input: CreateSessionInput): Promise<InspectionSession> {
     const session = this.sessionRepository.create(input);
     return this.sessionRepository.save(session);

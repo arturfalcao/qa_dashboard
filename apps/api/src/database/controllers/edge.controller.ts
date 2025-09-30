@@ -106,19 +106,17 @@ export class EdgeController {
   async getCurrentSession(@Headers("x-device-secret") secretKey: string) {
     const device = await this.validateDeviceSecret(secretKey);
 
-    // Find active session for this device
-    const sessions = await this.inspectionSessionService.findActiveByTenantId(
-      device.tenantId,
-    );
-    const activeSession = sessions.find(
-      (s) => s.deviceId === device.id && !s.endedAt,
+    // Find active session for this specific device
+    const activeSession = await this.inspectionSessionService.findActiveByDeviceId(
+      device.id,
     );
 
     if (!activeSession) {
       return {
         active: false,
-        session: null,
-        currentPiece: null,
+        sessionId: null,
+        currentPieceId: null,
+        status: "inactive",
       };
     }
 
@@ -130,20 +128,13 @@ export class EdgeController {
 
     return {
       active: true,
-      session: {
-        id: activeSession.id,
-        lotId: activeSession.lotId,
-        startedAt: activeSession.startedAt,
-        pausedAt: activeSession.pausedAt,
-        piecesInspected: activeSession.piecesInspected,
-      },
-      currentPiece: currentPiece
-        ? {
-            id: currentPiece.id,
-            pieceNumber: currentPiece.pieceNumber,
-            status: currentPiece.status,
-          }
-        : null,
+      sessionId: activeSession.id,
+      currentPieceId: currentPiece?.id || null,
+      status: activeSession.pausedAt ? "paused" : "active",
+      lotId: activeSession.lotId,
+      piecesInspected: activeSession.piecesInspected,
+      startedAt: activeSession.startedAt,
+      pausedAt: activeSession.pausedAt,
     };
   }
 

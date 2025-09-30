@@ -8,6 +8,7 @@ export enum UserRole {
   CLEVEL = "CLEVEL",
   SUPERVISOR = "SUPERVISOR",
   OPERATOR = "OPERATOR",
+  QUALITY_DIRECTOR = "QUALITY_DIRECTOR",
 }
 
 export enum FactoryCertificationType {

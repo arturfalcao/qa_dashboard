@@ -1,0 +1,14 @@
+[Unit]
+Description=Edge Photo Inspection Device
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/edge-device
+ExecStart=/usr/bin/python3 /home/pi/edge-device/main.py --config /home/pi/edge-device/config.json
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -10,6 +10,7 @@ import {
   Factory as FactoryIcon,
   Users as UsersIcon,
   Building2 as ClientsIcon,
+  ShieldCheckIcon,
 } from 'lucide-react'
 import { AppShell } from '@/components/navigation/app-shell'
 import { SidebarItem } from '@/components/ui/sidebar'
@@ -52,6 +53,7 @@ export default function ClientLayout({
 
   const roles = user?.roles ?? []
   const canManage = roles.some((role) => [UserRole.ADMIN, UserRole.OPS_MANAGER].includes(role))
+  const isQualityDirector = roles.includes(UserRole.QUALITY_DIRECTOR)
 
   const navigation: SidebarItem[] = [
     { label: 'Live Feed', href: `${basePath}/feed`, icon: ActivityIcon },
@@ -60,9 +62,14 @@ export default function ClientLayout({
     { label: 'Exports', href: `${basePath}/exports`, icon: DownloadIcon },
   ]
 
+  // Add Quality Control for Quality Directors
+  if (isQualityDirector || canManage) {
+    navigation.splice(2, 0, { label: 'Quality Control', href: `${basePath}/quality-control`, icon: ShieldCheckIcon })
+  }
+
   if (canManage) {
-    navigation.splice(2, 0, { label: 'Clients', href: `${basePath}/clients`, icon: ClientsIcon })
-    navigation.splice(3, 0, { label: 'Factories', href: `${basePath}/factories`, icon: FactoryIcon })
+    navigation.splice(isQualityDirector ? 3 : 2, 0, { label: 'Clients', href: `${basePath}/clients`, icon: ClientsIcon })
+    navigation.splice(isQualityDirector ? 4 : 3, 0, { label: 'Factories', href: `${basePath}/factories`, icon: FactoryIcon })
     navigation.push({ label: 'User Access', href: `${basePath}/users`, icon: UsersIcon })
   }
 
