@@ -1,5 +1,10 @@
 'use client'
 
+import { Card, CardContent } from '@/components/ui/card'
+import { Select, SelectOption } from '@/components/ui/select'
+import { useMemo } from 'react'
+import { Button } from '@/components/ui/button'
+
 interface AnalyticsFiltersProps {
   range: 'last_7d' | 'last_30d'
   setRange: (range: 'last_7d' | 'last_30d') => void
@@ -8,37 +13,49 @@ interface AnalyticsFiltersProps {
 }
 
 export function AnalyticsFilters({ range, setRange, groupBy, setGroupBy }: AnalyticsFiltersProps) {
+  const rangeOptions = useMemo<SelectOption<string>[]>(
+    () => [
+      { value: 'last_7d', label: 'Last 7 days' },
+      { value: 'last_30d', label: 'Last 30 days' },
+    ],
+    [],
+  )
+
+  const groupOptions = useMemo<SelectOption<string>[]>(
+    () => [
+      { value: 'factory', label: 'By factory' },
+      { value: 'style', label: 'By style' },
+    ],
+    [],
+  )
+
+  const hasCustomFilters = range !== 'last_7d' || groupBy !== 'factory'
+
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Time Range
-          </label>
-          <select
-            value={range}
-            onChange={(e) => setRange(e.target.value as 'last_7d' | 'last_30d')}
-            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-          >
-            <option value="last_7d">Last 7 Days</option>
-            <option value="last_30d">Last 30 Days</option>
-          </select>
+    <Card>
+      <CardContent className="flex flex-col gap-4 p-6">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Time range</p>
+            <Select value={range} onChange={(value) => setRange(value as 'last_7d' | 'last_30d')} options={rangeOptions} />
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Group by</p>
+            <Select value={groupBy} onChange={(value) => setGroupBy(value as 'style' | 'factory')} options={groupOptions} />
+          </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Group By
-          </label>
-          <select
-            value={groupBy}
-            onChange={(e) => setGroupBy(e.target.value as 'style' | 'factory')}
-            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-          >
-            <option value="factory">Factory</option>
-            <option value="style">Style</option>
-          </select>
-        </div>
-      </div>
-    </div>
+        {hasCustomFilters && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-neutral-100 px-3 py-2 text-xs text-neutral-600 dark:bg-neutral-900/50 dark:text-neutral-300">
+            <span>
+              Showing {range === 'last_7d' ? 'last 7 days' : 'last 30 days'} • grouped by {groupBy}
+            </span>
+            <Button variant="ghost" size="xs" onClick={() => { setRange('last_7d'); setGroupBy('factory') }}>
+              Reset filters
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }

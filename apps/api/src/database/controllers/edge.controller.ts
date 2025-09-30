@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Post,
+  Get,
   Headers,
   UnauthorizedException,
   BadRequestException,
@@ -66,6 +67,53 @@ export class EdgeController {
     await this.edgeDeviceService.updateLastSeen(device.id);
 
     return device;
+  }
+
+  @Get("session/current")
+  @ApiOperation({ summary: "Get current active session for this device" })
+  @ApiHeader({ name: "X-Device-Secret", required: true })
+  async getCurrentSession(@Headers("x-device-secret") secretKey: string) {
+    const device = await this.validateDeviceSecret(secretKey);
+
+    // Find active session for this device
+    const sessions = await this.inspectionSessionService.findActiveByTenantId(
+      device.tenantId,
+    );
+    const activeSession = sessions.find(
+      (s) => s.deviceId === device.id && !s.endedAt,
+    );
+
+    if (!activeSession) {
+      return {
+        active: false,
+        session: null,
+        currentPiece: null,
+      };
+    }
+
+    // Get current piece (if any in-progress piece exists)
+    const pieces = await this.apparelPieceService.findBySessionId(
+      activeSession.id,
+    );
+    const currentPiece = pieces.find((p) => !p.inspectionCompletedAt);
+
+    return {
+      active: true,
+      session: {
+        id: activeSession.id,
+        lotId: activeSession.lotId,
+        startedAt: activeSession.startedAt,
+        pausedAt: activeSession.pausedAt,
+        piecesInspected: activeSession.piecesInspected,
+      },
+      currentPiece: currentPiece
+        ? {
+            id: currentPiece.id,
+            pieceNumber: currentPiece.pieceNumber,
+            status: currentPiece.status,
+          }
+        : null,
+    };
   }
 
   @Post("photo/upload")

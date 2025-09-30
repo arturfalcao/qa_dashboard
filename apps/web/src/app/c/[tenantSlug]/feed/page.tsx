@@ -1,17 +1,31 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
-import { useState, useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState, useEffect, useMemo } from 'react'
 import { apiClient } from '@/lib/api'
 import { EnhancedInspectionCard } from '@/components/inspections/enhanced-inspection-card'
 import { EventBanner } from '@/components/events/event-banner'
-import { formatRelativeTime } from '@/lib/utils'
+import { cn, formatRelativeTime } from '@/lib/utils'
 import { Inspection, Event } from '@qa-dashboard/shared'
-import Link from 'next/link'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Modal, ModalFooter } from '@/components/ui/modal'
+import { useToast } from '@/components/ui/toast'
+import { PageHeader } from '@/components/ui/page-header'
+import { TextArea } from '@/components/ui/input'
+import { useParams, useRouter } from 'next/navigation'
+import { ActivityIcon, AlertTriangleIcon } from 'lucide-react'
 
 export default function LiveFeedPage() {
   const [lastUpdateTime, setLastUpdateTime] = useState<string>()
   const [selectedDefect, setSelectedDefect] = useState<any>(null)
+  const queryClient = useQueryClient()
+  const { publish } = useToast()
+  const params = useParams()
+  const router = useRouter()
+  const tenantSlug = params?.tenantSlug as string
+  const workspaceBasePath = `/c/${tenantSlug}`
 
   // Poll for inspections every 5 seconds
   const { data: inspections = [], isLoading: inspectionsLoading } = useQuery({
@@ -45,173 +59,293 @@ export default function LiveFeedPage() {
   }, [inspections, lastUpdateTime])
 
   // Filter events to show only defect detection and batch approval events
-  const recentEvents = events.filter(
-    (event) => event.type === 'DEFECT_DETECTED' || event.type === 'LOT_AWAITING_APPROVAL',
+  const recentEvents = useMemo(
+    () =>
+      events.filter(
+        (event) => event.type === 'DEFECT_DETECTED' || event.type === 'LOT_AWAITING_APPROVAL',
+      ),
+    [events],
+  )
+
+  const activeSessions = liveFeed?.activeSessions ?? []
+  const pendingDefects = liveFeed?.pendingDefects ?? []
+
+  const summaryCards = useMemo(
+    () => [
+      {
+        label: 'Active sessions',
+        value: activeSessions.length.toString(),
+        helper: activeSessions.length ? 'Operators reporting live' : 'No sessions in progress',
+      },
+      {
+        label: 'Pending defects',
+        value: pendingDefects.length.toString(),
+        helper: pendingDefects.length ? 'Need review' : 'All clear',
+      },
+      {
+        label: 'Recent inspections',
+        value: inspections.length.toString(),
+        helper: 'Last 50 records streamed',
+      },
+      {
+        label: 'Live alerts',
+        value: recentEvents.length.toString(),
+        helper: recentEvents.length ? 'Action required' : 'No new alerts',
+      },
+    ],
+    [activeSessions.length, pendingDefects.length, inspections.length, recentEvents.length],
+  )
+
+  const statusMeta = (
+    <div className="flex flex-wrap items-center gap-3 text-xs text-neutral-500">
+      <span
+        className={cn(
+          'flex items-center gap-2 font-medium',
+          activeSessions.length ? 'text-emerald-600' : 'text-neutral-400',
+        )}
+      >
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-current opacity-75" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-current" />
+        </span>
+        {activeSessions.length ? 'Live' : 'Idle'}
+      </span>
+      {lastUpdateTime && <span>Updated {formatRelativeTime(lastUpdateTime)}</span>}
+    </div>
+  )
+
+  const headerActions = (
+    <div className="flex items-center gap-2">
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() => router.push(`${workspaceBasePath}/analytics`)}
+      >
+        Analytics
+      </Button>
+      <Button size="sm" onClick={() => router.push(`${workspaceBasePath}/exports`)}>
+        Exports
+      </Button>
+    </div>
   )
 
   if (inspectionsLoading && !inspections.length) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Live Feed</h1>
-        </div>
-        
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-        </div>
+      <div className="space-y-8">
+        <PageHeader
+          title="Live Feed"
+          description="Real-time garment inspection updates."
+          meta={statusMeta}
+          actions={headerActions}
+        />
+        <Card>
+          <CardContent className="flex h-48 items-center justify-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-200 border-t-primary-600" />
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Live Feed</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Real-time garment inspection updates
-            {lastUpdateTime && (
-              <span className="ml-2">
-                • Last updated {formatRelativeTime(lastUpdateTime)}
-              </span>
-            )}
-          </p>
+    <div className="space-y-8">
+      <PageHeader
+        title="Live Feed"
+        description="Monitor live inspections, alerts, and defect reviews across the production floor."
+        meta={statusMeta}
+        actions={headerActions}
+      />
+
+      {recentEvents.length > 0 && (
+        <div className="space-y-3">
+          {recentEvents.map((event) => (
+            <EventBanner key={event.id} event={event} />
+          ))}
         </div>
-        
-        <div className="flex items-center space-x-2">
-          <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-            <span className="text-sm text-gray-500">Live</span>
-          </div>
-        </div>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {summaryCards.map((card) => (
+          <Card key={card.label}>
+            <CardHeader className="space-y-1">
+              <CardDescription>{card.label}</CardDescription>
+              <CardTitle className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
+                {card.value}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">{card.helper}</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {/* Event banners */}
-      {recentEvents.map((event) => (
-        <EventBanner key={event.id} event={event} />
-      ))}
-
-      {/* Active Edge Inspection Sessions */}
-      {liveFeed?.activeSessions && liveFeed.activeSessions.length > 0 && (
-        <div className="bg-gradient-to-r from-primary-50 to-blue-50 rounded-2xl border border-primary-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-              <h2 className="text-lg font-semibold text-slate-900">Active Inspections</h2>
-            </div>
-            <span className="px-3 py-1 bg-primary-600 text-white rounded-full text-xs font-semibold">
-              {liveFeed.activeSessions.length} active
+      <Card>
+        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle>Active inspections</CardTitle>
+            <CardDescription>Operators streaming edge data in real time.</CardDescription>
+          </div>
+          {activeSessions.length > 0 && (
+            <span className="rounded-full bg-primary-100 px-3 py-1 text-xs font-semibold text-primary-700">
+              {activeSessions.length} active
             </span>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            {liveFeed.activeSessions.map((session: any) => (
-              <div key={session.id} className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h3 className="font-semibold text-slate-900">{session.lot?.styleRef || 'Unknown Lot'}</h3>
-                    <p className="text-sm text-slate-500">Started {new Date(session.startedAt).toLocaleTimeString()}</p>
-                  </div>
-                  <Link
-                    href={`/operator/inspection/${session.id}`}
-                    className="text-xs text-primary-600 hover:text-primary-800 font-medium"
-                  >
-                    View →
-                  </Link>
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div>
-                    <div className="text-xl font-bold text-slate-900">{session.piecesInspected}</div>
-                    <div className="text-xs text-slate-500">Inspected</div>
-                  </div>
-                  <div>
-                    <div className="text-xl font-bold text-red-600">{session.piecesDefect}</div>
-                    <div className="text-xs text-slate-500">Defects</div>
-                  </div>
-                  <div>
-                    <div className="text-xl font-bold text-amber-600">{session.piecesPotentialDefect}</div>
-                    <div className="text-xs text-slate-500">Potential</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Pending Defects for Review */}
-      {liveFeed?.pendingDefects && liveFeed.pendingDefects.length > 0 && (
-        <div className="bg-amber-50 rounded-2xl border border-amber-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">⚠️</span>
-              <h2 className="text-lg font-semibold text-slate-900">Pending Defect Review</h2>
+          )}
+        </CardHeader>
+        <CardContent>
+          {activeSessions.length === 0 ? (
+            <EmptyState
+              icon={<ActivityIcon className="h-5 w-5" />}
+              title="No sessions online"
+              description="When operators start an inspection, it will appear here."
+            />
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {activeSessions.map((session: any) => (
+                <Card key={session.id} className="border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900/60">
+                  <CardHeader className="flex flex-col gap-1">
+                    <CardTitle className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
+                      {session.lot?.styleRef || 'Unknown lot'}
+                    </CardTitle>
+                    <CardDescription>
+                      Started {new Date(session.startedAt).toLocaleTimeString()}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-3 gap-2 text-center text-sm">
+                      <div>
+                        <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                          {session.piecesInspected}
+                        </p>
+                        <p className="text-xs text-neutral-500">Inspected</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-danger-600">
+                          {session.piecesDefect}
+                        </p>
+                        <p className="text-xs text-neutral-500">Defects</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-amber-600">
+                          {session.piecesPotentialDefect}
+                        </p>
+                        <p className="text-xs text-neutral-500">Potential</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="px-0"
+                      onClick={() => router.push(`/operator/inspection/${session.id}`)}
+                    >
+                      Open operator view
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
-            <span className="px-3 py-1 bg-amber-600 text-white rounded-full text-xs font-semibold">
-              {liveFeed.pendingDefects.length} pending
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle>Pending defect review</CardTitle>
+            <CardDescription>Confirm or dismiss AI-detected anomalies before shipment.</CardDescription>
+          </div>
+          {pendingDefects.length > 0 && (
+            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+              {pendingDefects.length} pending
             </span>
-          </div>
-          <div className="space-y-3">
-            {liveFeed.pendingDefects.slice(0, 5).map((defect: any) => (
-              <button
-                key={defect.id}
-                onClick={() => setSelectedDefect(defect)}
-                className="w-full bg-white rounded-xl p-4 shadow-sm border border-amber-200 hover:border-amber-400 transition text-left"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-semibold text-slate-900">Piece #{defect.pieceNumber}</div>
-                    <p className="text-sm text-slate-600 mt-1">{defect.audioTranscript || 'No description'}</p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Flagged {new Date(defect.flaggedAt).toLocaleString()}
-                    </p>
+          )}
+        </CardHeader>
+        <CardContent>
+          {pendingDefects.length === 0 ? (
+            <EmptyState
+              icon={<AlertTriangleIcon className="h-5 w-5" />}
+              title="No defects awaiting review"
+              description="We’ll notify you here when operators flag issues."
+            />
+          ) : (
+            <div className="space-y-3">
+              {pendingDefects.slice(0, 5).map((defect: any) => (
+                <button
+                  key={defect.id}
+                  onClick={() => setSelectedDefect(defect)}
+                  className="w-full rounded-xl border border-neutral-200 bg-white p-4 text-left transition hover:border-primary-200 hover:shadow-sm dark:border-neutral-700 dark:bg-neutral-900"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                        Piece #{defect.pieceNumber}
+                      </p>
+                      <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
+                        {defect.audioTranscript || 'No operator notes provided.'}
+                      </p>
+                      <p className="mt-1 text-xs text-neutral-500">
+                        Flagged {new Date(defect.flaggedAt).toLocaleString()}
+                      </p>
+                    </div>
+                    <span className="text-sm font-medium text-primary-600">Review</span>
                   </div>
-                  <span className="text-primary-600 font-medium text-sm">Review →</span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Inspections feed */}
-      <div className="space-y-4">
-        {inspections.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-gray-400 mb-4">
-              <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012-2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-              </svg>
+                </button>
+              ))}
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No inspections yet</h3>
-            <p className="text-gray-500">
-            Seed data to see live inspection updates
-            </p>
-          </div>
-        ) : (
-          inspections.map((inspection) => (
-            <EnhancedInspectionCard key={inspection.id} inspection={inspection} />
-          ))
-        )}
-      </div>
+          )}
+        </CardContent>
+      </Card>
 
-      {/* Load more placeholder for infinite scroll */}
-      {inspections.length >= 50 && (
-        <div className="text-center py-4">
-          <button className="text-primary-600 hover:text-primary-700 font-medium">
-            Load more inspections
-          </button>
-        </div>
-      )}
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent inspections</CardTitle>
+          <CardDescription>Latest edge events streamed from the production floor.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {inspections.length === 0 ? (
+            <EmptyState
+              icon={<ActivityIcon className="h-5 w-5" />}
+              title="No inspections yet"
+              description="Seed the environment to start streaming live inspections."
+            />
+          ) : (
+            inspections.map((inspection) => (
+              <EnhancedInspectionCard key={inspection.id} inspection={inspection} />
+            ))
+          )}
 
-      {/* Defect Review Modal */}
+          {inspections.length >= 50 && (
+            <div className="flex justify-center pt-2">
+              <Button variant="link" size="sm">
+                Load more inspections
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {selectedDefect && (
         <DefectReviewModal
           defect={selectedDefect}
           onClose={() => setSelectedDefect(null)}
-          onReviewed={() => {
+          onSuccess={(status) => {
+            queryClient.invalidateQueries({ queryKey: ['live-feed'] })
+            queryClient.invalidateQueries({ queryKey: ['events'] })
+            queryClient.invalidateQueries({ queryKey: ['inspections'] })
+            publish({
+              variant: status === 'confirmed' ? 'danger' : 'success',
+              title: status === 'confirmed' ? 'Defect confirmed' : 'Marked as false positive',
+              description: 'The review outcome has been recorded.',
+            })
             setSelectedDefect(null)
-            // Trigger refetch of live feed
           }}
+          onError={(message) =>
+            publish({
+              variant: 'danger',
+              title: 'Review failed',
+              description: message,
+            })
+          }
         />
       )}
     </div>
@@ -222,145 +356,138 @@ export default function LiveFeedPage() {
 function DefectReviewModal({
   defect,
   onClose,
-  onReviewed,
+  onSuccess,
+  onError,
 }: {
   defect: any
   onClose: () => void
-  onReviewed: () => void
+  onSuccess: (status: 'confirmed' | 'rejected') => void
+  onError: (message: string) => void
 }) {
   const [status, setStatus] = useState<'confirmed' | 'rejected'>('confirmed')
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
+  const photos = defect.photos ?? []
+
   const handleSubmit = async () => {
     try {
       setSubmitting(true)
       await apiClient.reviewDefect(defect.id, { status, notes })
-      alert('Defect reviewed successfully!')
-      onReviewed()
+      onSuccess(status)
     } catch (err: any) {
-      alert(err.message || 'Failed to review defect')
+      onError(err?.message || 'Failed to save review. Please try again.')
     } finally {
       setSubmitting(false)
     }
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 rounded-t-3xl">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-semibold text-slate-900">Review Defect</h2>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-slate-100 rounded-full transition"
-            >
-              <span className="text-2xl">×</span>
-            </button>
-          </div>
+    <Modal
+      open
+      onClose={onClose}
+      title="Review defect"
+      description={`Piece #${defect.pieceNumber}`}
+    >
+      <div className="space-y-6">
+        <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm dark:border-neutral-800 dark:bg-neutral-900/40">
+          <dl className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <dt className="text-xs uppercase tracking-wide text-neutral-500">Piece number</dt>
+              <dd className="text-sm font-medium text-neutral-900 dark:text-neutral-100">#{defect.pieceNumber}</dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase tracking-wide text-neutral-500">Flagged</dt>
+              <dd className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                {new Date(defect.flaggedAt).toLocaleString()}
+              </dd>
+            </div>
+          </dl>
+          {defect.audioTranscript && (
+            <p className="mt-3 text-sm text-neutral-700 dark:text-neutral-300">
+              <span className="font-medium text-neutral-900 dark:text-neutral-100">Operator notes:</span>{' '}
+              {defect.audioTranscript}
+            </p>
+          )}
         </div>
 
-        <div className="p-6 space-y-6">
-          {/* Defect Info */}
-          <div className="bg-slate-50 rounded-xl p-4">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-slate-500">Piece Number:</span>
-                <span className="ml-2 font-semibold text-slate-900">#{defect.pieceNumber}</span>
-              </div>
-              <div>
-                <span className="text-slate-500">Flagged:</span>
-                <span className="ml-2 font-semibold text-slate-900">
-                  {new Date(defect.flaggedAt).toLocaleString()}
-                </span>
-              </div>
+        {photos.length > 0 && (
+          <div>
+            <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Photos</h3>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+              {photos.map((photo: any) => (
+                <figure
+                  key={photo.id}
+                  className="overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800"
+                >
+                  <img
+                    src={`/api/photos/${photo.filePath}`}
+                    alt="Defect"
+                    className="h-40 w-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.src =
+                        'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23e2e8f0" width="200" height="200"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%2394a3b8" font-size="48"%3E📷%3C/text%3E%3C/svg%3E'
+                    }}
+                  />
+                  {photo.annotation?.comment && (
+                    <figcaption className="px-3 py-2 text-xs text-neutral-600 dark:text-neutral-300">
+                      {photo.annotation.comment}
+                    </figcaption>
+                  )}
+                </figure>
+              ))}
             </div>
-            {defect.audioTranscript && (
-              <div className="mt-3">
-                <span className="text-slate-500 text-sm">Operator Notes:</span>
-                <p className="mt-1 text-slate-900">{defect.audioTranscript}</p>
-              </div>
+          </div>
+        )}
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Button
+            type="button"
+            variant={status === 'confirmed' ? 'danger' : 'secondary'}
+            className={cn(
+              'justify-between text-sm',
+              status === 'confirmed' && 'ring-2 ring-danger-200',
             )}
-          </div>
+            onClick={() => setStatus('confirmed')}
+          >
+            <span>Confirm defect</span>
+            <span className="text-xs font-normal text-neutral-200">Shift owner notified</span>
+          </Button>
+          <Button
+            type="button"
+            variant={status === 'rejected' ? 'primary' : 'secondary'}
+            className={cn(
+              'justify-between text-sm',
+              status === 'rejected' && 'ring-2 ring-primary-200',
+            )}
+            onClick={() => setStatus('rejected')}
+          >
+            <span>Mark as false positive</span>
+            <span className="text-xs font-normal text-neutral-400">Reset piece counter</span>
+          </Button>
+        </div>
 
-          {/* Photos */}
-          {defect.photos && defect.photos.length > 0 && (
-            <div>
-              <h3 className="font-semibold text-slate-900 mb-3">Photos</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {defect.photos.map((photo: any) => (
-                  <div key={photo.id} className="aspect-square bg-slate-100 rounded-xl overflow-hidden">
-                    <img
-                      src={`/api/photos/${photo.filePath}`}
-                      alt="Defect"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23e2e8f0" width="200" height="200"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%2394a3b8" font-size="48"%3E📷%3C/text%3E%3C/svg%3E'
-                      }}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Review Decision */}
-          <div>
-            <h3 className="font-semibold text-slate-900 mb-3">Review Decision</h3>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setStatus('confirmed')}
-                className={`flex-1 py-3 px-4 rounded-xl font-semibold transition ${
-                  status === 'confirmed'
-                    ? 'bg-red-600 text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                ✓ Confirm Defect
-              </button>
-              <button
-                onClick={() => setStatus('rejected')}
-                className={`flex-1 py-3 px-4 rounded-xl font-semibold transition ${
-                  status === 'rejected'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                × Reject (False Positive)
-              </button>
-            </div>
-          </div>
-
-          {/* Notes */}
-          <div>
-            <label className="block font-semibold text-slate-900 mb-2">Review Notes (Optional)</label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
-              rows={3}
-              placeholder="Add any additional notes about this review..."
-            />
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="flex-1 py-3 px-4 border border-slate-300 rounded-xl font-semibold hover:bg-slate-50 transition"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="flex-1 py-3 px-4 bg-primary-600 text-white rounded-xl font-semibold hover:bg-primary-700 disabled:opacity-50 transition"
-            >
-              {submitting ? 'Submitting...' : 'Submit Review'}
-            </button>
-          </div>
+        <div className="space-y-2">
+          <label htmlFor="defect-notes" className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+            Reviewer notes (optional)
+          </label>
+          <TextArea
+            id="defect-notes"
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            rows={4}
+            placeholder="Add context for the factory or attach follow-up actions."
+          />
         </div>
       </div>
-    </div>
+      <ModalFooter>
+        <Button variant="secondary" onClick={onClose} disabled={submitting}>
+          Cancel
+        </Button>
+        <Button onClick={handleSubmit} loading={submitting}>
+          Submit review
+        </Button>
+      </ModalFooter>
+    </Modal>
   )
 }

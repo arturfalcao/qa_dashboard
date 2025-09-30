@@ -64,6 +64,7 @@ import { EdgeController } from "./controllers/edge.controller";
 import { OperatorController } from "./controllers/operator.controller";
 import { DashboardController } from "./controllers/dashboard.controller";
 import { SuperAdminController } from "./controllers/super-admin.controller";
+import { ESGReportsController } from "./controllers/esg-reports.controller";
 import { StorageModule } from "../storage/storage.module";
 import { DppModule } from "../dpp/dpp.module";
 import { DppService } from "../dpp/dpp.service";
@@ -140,6 +141,7 @@ import { DppService } from "../dpp/dpp.service";
     OperatorController,
     DashboardController,
     SuperAdminController,
+    ESGReportsController,
   ],
   exports: [
     InspectionService,

@@ -1,31 +1,42 @@
 'use client'
 
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { UserRole, type ClientUser, type Lot } from '@qa-dashboard/shared'
 import { useAuth } from '@/components/providers/auth-provider'
 import { apiClient } from '@/lib/api'
+import { PageHeader } from '@/components/ui/page-header'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Select, SelectOption } from '@/components/ui/select'
+import { EmptyState } from '@/components/ui/empty-state'
+import { BadgeCheckIcon, UsersIcon } from 'lucide-react'
+import { useToast } from '@/components/ui/toast'
+import { cn } from '@/lib/utils'
 
 export default function ClientUsersPage() {
   const { user } = useAuth()
+  const { publish } = useToast()
+
   const [users, setUsers] = useState<ClientUser[]>([])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.CLIENT_VIEWER)
   const [selectedTenantId, setSelectedTenantId] = useState<string>('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null)
   const [selectedLotIds, setSelectedLotIds] = useState<string[]>([])
-  const [assignmentError, setAssignmentError] = useState<string | null>(null)
-  const [assignmentSuccess, setAssignmentSuccess] = useState<string | null>(null)
   const [isSavingAssignments, setIsSavingAssignments] = useState(false)
 
   const isAdmin = useMemo(() => user?.roles?.includes(UserRole.ADMIN), [user?.roles])
 
-  const availableRoles = useMemo(
-    () => [UserRole.CLIENT_VIEWER, UserRole.OPS_MANAGER, UserRole.ADMIN],
+  const availableRoles = useMemo<SelectOption<UserRole>[]>(
+    () => [
+      { value: UserRole.CLIENT_VIEWER, label: 'Viewer' },
+      { value: UserRole.OPS_MANAGER, label: 'Operations Manager' },
+      { value: UserRole.ADMIN, label: 'Administrator' },
+    ],
     [],
   )
 
@@ -35,31 +46,36 @@ export default function ClientUsersPage() {
     enabled: isAdmin,
   })
 
+  const tenantOptions = useMemo<SelectOption<string>[]>(
+    () => clients.map((client) => ({ value: client.id, label: client.name })),
+    [clients],
+  )
+
   const { data: lots = [], isLoading: lotsLoading } = useQuery<Lot[]>({
     queryKey: ['client-lots'],
     queryFn: () => apiClient.getLots(),
     enabled: Boolean(user?.tenantId),
   })
 
-  const lotNameMap = useMemo(() => new Map(lots.map((lot) => [lot.id, lot.styleRef])), [lots])
-
   useEffect(() => {
     const fetchUsers = async () => {
       if (!user?.tenantId) {
         return
       }
-
       try {
         const response = await apiClient.listTenantUsers(user.tenantId)
         setUsers(response)
       } catch (fetchError: any) {
-        console.error('Failed to load client users', fetchError)
-        setError(fetchError?.message || 'Failed to load users')
+        publish({
+          variant: 'danger',
+          title: 'Failed to load users',
+          description: fetchError?.message || 'Unable to fetch client users.',
+        })
       }
     }
 
     fetchUsers()
-  }, [user?.tenantId])
+  }, [publish, user?.tenantId])
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -67,12 +83,16 @@ export default function ClientUsersPage() {
     const targetClientId = isAdmin && selectedTenantId ? selectedTenantId : user?.tenantId
 
     if (!targetClientId) {
-      setError(isAdmin ? 'Please select a client' : 'You must be associated with a client to invite users')
+      publish({
+        variant: 'danger',
+        title: isAdmin ? 'Select a tenant' : 'Tenant required',
+        description: isAdmin
+          ? 'Choose which client should receive the new login.'
+          : 'You must be associated with a client to invite users.',
+      })
       return
     }
 
-    setError(null)
-    setSuccess(null)
     setIsSubmitting(true)
 
     try {
@@ -87,10 +107,13 @@ export default function ClientUsersPage() {
       setPassword('')
       setSelectedRole(UserRole.CLIENT_VIEWER)
       setSelectedTenantId('')
-      setSuccess('New login created successfully')
+      publish({ variant: 'success', title: 'Access granted', description: 'New login created successfully.' })
     } catch (submitError: any) {
-      console.error('Failed to create client user', submitError)
-      setError(submitError?.message || 'Unable to create login')
+      publish({
+        variant: 'danger',
+        title: 'Unable to create login',
+        description: submitError?.message || 'Please try again later.',
+      })
     } finally {
       setIsSubmitting(false)
     }
@@ -99,24 +122,16 @@ export default function ClientUsersPage() {
   const openAssignmentPanel = (clientUser: ClientUser) => {
     if (expandedUserId === clientUser.id) {
       setExpandedUserId(null)
-      setSelectedLotIds(clientUser.assignedLotIds)
-      setAssignmentError(null)
-      setAssignmentSuccess(null)
+      setSelectedLotIds([])
       return
     }
 
     setExpandedUserId(clientUser.id)
     setSelectedLotIds(clientUser.assignedLotIds)
-    setAssignmentError(null)
-    setAssignmentSuccess(null)
   }
 
   const toggleLotSelection = (lotId: string) => {
-    setSelectedLotIds((current) =>
-      current.includes(lotId)
-        ? current.filter((id) => id !== lotId)
-        : [...current, lotId],
-    )
+    setSelectedLotIds((current) => (current.includes(lotId) ? current.filter((id) => id !== lotId) : [...current, lotId]))
   }
 
   const handleAssignmentSubmit = async (
@@ -126,14 +141,11 @@ export default function ClientUsersPage() {
     event.preventDefault()
 
     if (!user?.tenantId) {
-      setAssignmentError('You must be associated with a client to update access')
+      publish({ variant: 'danger', title: 'Tenant required', description: 'Cannot update access without a tenant context.' })
       return
     }
 
-    setAssignmentError(null)
-    setAssignmentSuccess(null)
     setIsSavingAssignments(true)
-
     try {
       const updated = await apiClient.updateTenantUserLots(user.tenantId, clientUser.id, {
         lotIds: selectedLotIds,
@@ -141,10 +153,13 @@ export default function ClientUsersPage() {
 
       setUsers((prev) => prev.map((entry) => (entry.id === updated.id ? updated : entry)))
       setSelectedLotIds(updated.assignedLotIds)
-      setAssignmentSuccess('Lot visibility updated')
+      publish({ variant: 'success', title: 'Visibility updated' })
     } catch (assignmentErr: any) {
-      console.error('Failed to update lot access', assignmentErr)
-      setAssignmentError(assignmentErr?.message || 'Unable to update lot access')
+      publish({
+        variant: 'danger',
+        title: 'Unable to update access',
+        description: assignmentErr?.message || 'Try again shortly.',
+      })
     } finally {
       setIsSavingAssignments(false)
     }
@@ -156,280 +171,196 @@ export default function ClientUsersPage() {
       .map((role) => role.charAt(0).toUpperCase() + role.slice(1))
       .join(', ')
 
+  const activeUsers = users.length
+
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Client Access</h1>
-        <p className="mt-2 text-sm text-gray-600">
-          Create logins for partners and clients so they can sign in and review their lot status.
-        </p>
+      <PageHeader
+        title="User access"
+        description="Invite stakeholders and control lot-level visibility."
+        actions={
+          <Button onClick={() => document.getElementById('invite-user-name')?.scrollIntoView({ behavior: 'smooth' })}>
+            Invite user
+          </Button>
+        }
+      />
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Card>
+          <CardHeader>
+            <CardDescription>Total users</CardDescription>
+            <CardTitle>{activeUsers}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardDescription>Administrators</CardDescription>
+            <CardTitle>{users.filter((entry) => entry.roles.includes(UserRole.ADMIN)).length}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardDescription>Lot reviewers</CardDescription>
+            <CardTitle>{users.filter((entry) => entry.roles.includes(UserRole.OPS_MANAGER)).length}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardDescription>Viewer licences</CardDescription>
+            <CardTitle>{users.filter((entry) => entry.roles.includes(UserRole.CLIENT_VIEWER)).length}</CardTitle>
+          </CardHeader>
+        </Card>
       </div>
 
-      <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
-        <h2 className="text-lg font-medium text-gray-900">Create a new user</h2>
-        <p className="mt-1 text-sm text-gray-500">
-          {isAdmin
-            ? 'Select a client and create login credentials. Set a password that the user can use to log in immediately. No emails are sent.'
-            : 'Create login credentials with a password. The user can log in immediately. No emails are sent.'}
-        </p>
-
-        <form className="mt-4 space-y-4" onSubmit={handleSubmit}>
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded">
-              {error}
-            </div>
-          )}
-
-          {success && (
-            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-2 rounded">
-              {success}
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {isAdmin && (
-              <div className="md:col-span-3">
-                <label htmlFor="client" className="block text-sm font-medium text-gray-700">
-                  Client
-                </label>
-                <select
-                  id="client"
-                  required
-                  value={selectedTenantId}
-                  onChange={(event) => setSelectedTenantId(event.target.value)}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
-                >
-                  <option value="">Select a client...</option>
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>
-                      {client.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div className="md:col-span-2">
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+      <Card>
+        <CardHeader>
+          <CardTitle>Invite a new user</CardTitle>
+          <CardDescription>Create credentials and assign a default role.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2" id="invite-user-name">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-neutral-700" htmlFor="invite-email">
                 Email address
               </label>
-              <input
-                id="email"
+              <Input
+                id="invite-email"
                 type="email"
-                required
+                name="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
-                placeholder="client@example.com"
+                required
+                placeholder="jessica@brand.com"
               />
             </div>
-
-            <div>
-              <label htmlFor="role" className="block text-sm font-medium text-gray-700">
-                Role
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-neutral-700" htmlFor="invite-password">
+                Temporary password
               </label>
-              <select
-                id="role"
-                value={selectedRole}
-                onChange={(event) => setSelectedRole(event.target.value as UserRole)}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
-              >
-                {availableRoles.map((role) => (
-                  <option key={role} value={role}>
-                    {role.replace(/_/g, ' ').toLowerCase().replace(/(^|\s)\S/g, (match) => match.toUpperCase())}
-                  </option>
-                ))}
-              </select>
+              <Input
+                id="invite-password"
+                type="text"
+                name="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+                placeholder="Provide a secure starter password"
+              />
             </div>
-          </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-neutral-700">Role</label>
+              <Select
+                value={selectedRole}
+                onChange={(value) => setSelectedRole(value as UserRole)}
+                options={availableRoles}
+              />
+            </div>
+            {isAdmin && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-neutral-700">Assign to tenant</label>
+                <Select
+                  value={selectedTenantId}
+                  onChange={(value) => setSelectedTenantId(value as string)}
+                  options={tenantOptions}
+                />
+              </div>
+            )}
+            <div className="md:col-span-2 flex justify-end">
+              <Button type="submit" loading={isSubmitting}>
+                Create login
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
 
-          <div className="md:w-1/2">
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              required
-              minLength={8}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
-              placeholder="At least 8 characters"
+      <Card>
+        <CardHeader className="flex items-center justify-between">
+          <div>
+            <CardTitle>Existing users</CardTitle>
+            <CardDescription>Manage credentials and lot access for each user.</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {users.length === 0 ? (
+            <EmptyState
+              icon={<UsersIcon className="h-5 w-5" />}
+              title="No users enrolled"
+              description="Invite your team to collaborate on inspections and approvals."
+              action={{ label: 'Invite user', onClick: () => document.getElementById('invite-user-name')?.scrollIntoView({ behavior: 'smooth' }) }}
             />
-            <p className="mt-1 text-xs text-gray-500">
-              Set the login password. Share it securely with the user.
-            </p>
-          </div>
+          ) : (
+            users.map((clientUser) => (
+              <Card key={clientUser.id} className="border-neutral-200">
+                <CardContent className="space-y-4 p-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                        {clientUser.email}
+                      </p>
+                      <p className="text-xs text-neutral-500">Roles: {formatRoles(clientUser.roles)}</p>
+                      <p className="text-xs text-neutral-500">
+                        Lots assigned: {clientUser.assignedLotIds.length}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => openAssignmentPanel(clientUser)}
+                      >
+                        Manage access
+                      </Button>
+                    </div>
+                  </div>
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-          >
-            {isSubmitting ? 'Creating...' : 'Create login'}
-          </button>
-        </form>
-      </div>
-
-      <div className="bg-white shadow-sm rounded-lg border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-medium text-gray-900">Active users</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Email
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Roles
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Assigned lots
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {users.map((clientUser) => {
-                const assignedNames = clientUser.assignedLotIds
-                  .map((lotId) => lotNameMap.get(lotId))
-                  .filter(Boolean) as string[]
-                const isExpanded = expandedUserId === clientUser.id
-
-                return (
-                  <Fragment key={clientUser.id}>
-                    <tr>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{clientUser.email}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatRoles(clientUser.roles)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {lotsLoading
-                          ? 'Loading lots...'
-                          : assignedNames.length > 0
-                          ? assignedNames.join(', ')
-                          : 'No lots assigned'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium ${
-                            clientUser.isActive
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-gray-100 text-gray-600'
-                          }`}
-                        >
-                          {clientUser.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <button
-                          type="button"
-                          onClick={() => openAssignmentPanel(clientUser)}
-                          className="text-primary-600 hover:text-primary-800"
-                        >
-                          {expandedUserId === clientUser.id ? 'Close' : 'Manage access'}
-                        </button>
-                      </td>
-                    </tr>
-                    {isExpanded && (
-                      <tr>
-                        <td colSpan={5} className="px-6 py-4 bg-gray-50">
-                          <form className="space-y-4" onSubmit={(event) => handleAssignmentSubmit(event, clientUser)}>
-                            {assignmentError && (
-                              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded">
-                                {assignmentError}
-                              </div>
-                            )}
-
-                            {assignmentSuccess && (
-                              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-2 rounded">
-                                {assignmentSuccess}
-                              </div>
-                            )}
-
-                            <p className="text-sm text-gray-600">
-                              Select which lots this user can see when they sign in.
-                            </p>
-
-                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                              {lotsLoading ? (
-                                <div className="sm:col-span-2 lg:col-span-3 text-sm text-gray-500">
-                                  Loading lots...
-                                </div>
-                              ) : lots.length === 0 ? (
-                                <div className="sm:col-span-2 lg:col-span-3 text-sm text-gray-500">
-                                  No lots available yet.
-                                </div>
-                              ) : (
-                                lots
-                                  .slice()
-                                  .sort((a, b) => a.styleRef.localeCompare(b.styleRef))
-                                  .map((lot) => (
-                                    <label key={lot.id} className="flex items-start space-x-2 text-sm text-gray-700">
-                                      <input
-                                        type="checkbox"
-                                        checked={selectedLotIds.includes(lot.id)}
-                                        onChange={() => toggleLotSelection(lot.id)}
-                                        className="mt-1 h-4 w-4 text-primary-600 border-gray-300 rounded"
-                                      />
-                                      <span>
-                                        <span className="font-medium text-gray-900">{lot.styleRef}</span>
-                                        {lot.factory?.name && (
-                                          <span className="block text-xs text-gray-500">
-                                            {lot.factory.name}
-                                          </span>
-                                        )}
-                                      </span>
-                                    </label>
-                                  ))
+                  {expandedUserId === clientUser.id && (
+                    <form onSubmit={(event) => handleAssignmentSubmit(event, clientUser)} className="space-y-3 rounded-lg border border-neutral-200 bg-neutral-50 p-4">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
+                        <BadgeCheckIcon className="h-4 w-4 text-primary-500" />
+                        Assign lot visibility
+                      </div>
+                      {lotsLoading ? (
+                        <p className="text-xs text-neutral-500">Loading lots…</p>
+                      ) : (
+                        <div className="grid gap-2 md:grid-cols-2">
+                          {lots.map((lot) => (
+                            <label
+                              key={lot.id}
+                              className={cn(
+                                'flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-sm',
+                                selectedLotIds.includes(lot.id)
+                                  ? 'border-primary-300 bg-primary-50 text-primary-700'
+                                  : 'border-neutral-200 bg-white text-neutral-700',
                               )}
-                            </div>
-
-                            <div className="flex items-center justify-between">
-                              <button
-                                type="button"
-                                className="text-sm text-gray-500 hover:text-gray-700"
-                                onClick={() => setSelectedLotIds([])}
-                                disabled={isSavingAssignments}
-                              >
-                                Clear selection
-                              </button>
-
-                              <button
-                                type="submit"
-                                disabled={isSavingAssignments}
-                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-                              >
-                                {isSavingAssignments ? 'Saving...' : 'Save access'}
-                              </button>
-                            </div>
-                          </form>
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
-                )
-              })}
-
-              {users.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-6 py-6 text-center text-sm text-gray-500">
-                    No users yet. Invite your first client contact above.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                            >
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4"
+                                checked={selectedLotIds.includes(lot.id)}
+                                onChange={() => toggleLotSelection(lot.id)}
+                              />
+                              <span className="truncate">{lot.styleRef}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex items-center justify-end gap-2">
+                        <Button variant="secondary" size="sm" type="button" onClick={() => setExpandedUserId(null)}>
+                          Close
+                        </Button>
+                        <Button size="sm" type="submit" loading={isSavingAssignments}>
+                          Save assignments
+                        </Button>
+                      </div>
+                    </form>
+                  )}
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

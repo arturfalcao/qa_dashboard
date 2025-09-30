@@ -204,4 +204,8 @@ export class FactoryService {
 
     await this.factoryRepository.remove(factory);
   }
+
+  async findAll(): Promise<Factory[]> {
+    return this.listByTenant(null);
+  }
 }

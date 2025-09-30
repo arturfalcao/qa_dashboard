@@ -938,4 +938,12 @@ export class LotService {
   async updateStatus(id: string, status: LotStatus): Promise<void> {
     await this.lotRepository.update(id, { status });
   }
+
+  async findByTenantId(tenantId: string): Promise<Lot[]> {
+    return this.lotRepository.find({
+      where: { tenantId },
+      relations: ["factory", "client", "suppliers", "suppliers.factory"],
+      order: { createdAt: "DESC" },
+    });
+  }
 }

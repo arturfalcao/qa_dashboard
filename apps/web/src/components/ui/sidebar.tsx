@@ -1,98 +1,88 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo } from 'react'
-import { useParams, usePathname } from 'next/navigation'
-import {
-  ActivityIcon,
-  PackageIcon,
-  BarChart3Icon,
-  DownloadIcon,
-  Factory as FactoryIcon,
-  Users as UsersIcon,
-  Building2 as ClientsIcon,
-} from 'lucide-react'
+import { usePathname } from 'next/navigation'
+import * as React from 'react'
 import { cn } from '@/lib/utils'
-import { useAuth } from '@/components/providers/auth-provider'
-import { UserRole } from '@qa-dashboard/shared'
 
-export function Sidebar() {
-  const params = useParams()
+export interface SidebarItem {
+  label: string
+  href: string
+  icon?: React.ComponentType<{ className?: string }>
+  badge?: React.ReactNode
+  description?: string
+}
+
+export interface SidebarProps {
+  items: SidebarItem[]
+  onNavigate?: () => void
+  className?: string
+  activePath?: string
+  footer?: React.ReactNode
+}
+
+export function Sidebar({ items, onNavigate, className, activePath, footer }: SidebarProps) {
   const pathname = usePathname()
-  const { user } = useAuth()
-  const tenantSlug = params.tenantSlug as string
-  const resolvedSlug = user?.tenantSlug || tenantSlug
-  const basePath = `/c/${resolvedSlug}`
-
-  const navigation = useMemo(() => {
-    const roles = user?.roles || []
-    const canManageFactories = roles.some((role) =>
-      [UserRole.ADMIN, UserRole.OPS_MANAGER].includes(role),
-    )
-    const canManageUsers = canManageFactories
-    const canManageClients = canManageFactories
-
-    const items = [
-      { name: 'Live Feed', href: '/feed', icon: ActivityIcon },
-      { name: 'Lots', href: '/lots', icon: PackageIcon },
-      { name: 'Analytics', href: '/analytics', icon: BarChart3Icon },
-      { name: 'Exports', href: '/exports', icon: DownloadIcon },
-    ]
-
-    if (canManageClients) {
-      items.splice(2, 0, { name: 'Clients', href: '/clients', icon: ClientsIcon })
-    }
-
-    if (canManageFactories) {
-      items.splice(canManageClients ? 3 : 2, 0, { name: 'Factories', href: '/factories', icon: FactoryIcon })
-    }
-
-    if (canManageUsers) {
-      items.push({ name: 'User Access', href: '/users', icon: UsersIcon })
-    }
-
-    return items
-  }, [user?.roles])
+  const currentPath = activePath ?? pathname
 
   return (
-    <div className="fixed inset-y-0 left-0 w-64 bg-white shadow-sm border-r border-gray-200 pt-16">
-      <div className="flex flex-col h-full">
-        <div className="flex-1 px-4 py-6">
-          <nav className="space-y-1">
-            {navigation.map((item) => {
-              const href = `${basePath}${item.href}`
-              const isActive = pathname === href
-              
-              return (
-                <Link
-                  key={item.name}
-                  href={href}
+    <nav
+      className={cn(
+        'flex h-full flex-col border-r border-neutral-200 bg-white px-3 py-6 dark:border-neutral-800 dark:bg-neutral-950',
+        className,
+      )}
+      aria-label="Primary"
+    >
+      <ul className="flex-1 space-y-1">
+        {items.map((item) => {
+          const isActive =
+            currentPath === item.href ||
+            (item.href !== '/' && currentPath.startsWith(`${item.href}/`))
+
+          const Icon = item.icon
+
+          return (
+            <li key={item.href}>
+              <Link
+                href={item.href}
+                onClick={onNavigate}
+                className={cn(
+                  'group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
+                  isActive
+                    ? 'bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-200'
+                    : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800/60',
+                )}
+                aria-current={isActive ? 'page' : undefined}
+              >
+                <span
                   className={cn(
-                    'group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors',
-                    isActive
-                      ? 'bg-primary-100 text-primary-700'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    'h-6 w-1 rounded-full transition-all group-hover:bg-primary-300',
+                    isActive ? 'bg-primary-500 group-hover:bg-primary-500' : 'bg-transparent',
                   )}
-                >
-                  <item.icon
+                  aria-hidden
+                />
+                {Icon && (
+                  <Icon
                     className={cn(
-                      'mr-3 h-5 w-5 transition-colors',
-                      isActive
-                        ? 'text-primary-500'
-                        : 'text-gray-400 group-hover:text-gray-500'
+                      'h-5 w-5 shrink-0 text-current transition-opacity',
+                      !isActive && 'opacity-70 group-hover:opacity-100',
                     )}
                   />
-                  {item.name}
-                </Link>
-              )
-            })}
-          </nav>
-        </div>
+                )}
+                <div className="flex flex-1 items-center justify-between gap-2">
+                  <span className="truncate">{item.label}</span>
+                  {item.badge && <span className="text-xs font-semibold text-primary-600">{item.badge}</span>}
+                </div>
+              </Link>
+              {item.description && (
+                <p className="ml-6 mt-1 text-xs text-neutral-500 dark:text-neutral-400">{item.description}</p>
+              )}
+            </li>
+          )
+        })}
+      </ul>
 
-        <div className="px-4 py-4 border-t border-gray-200 text-xs text-gray-500">
-          Observability endpoint available at <code className="font-mono">/metrics</code>
-        </div>
-      </div>
-    </div>
+      {footer && <div className="mt-6 border-t border-neutral-200 pt-4 text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">{footer}</div>}
+    </nav>
   )
 }

@@ -58,4 +58,14 @@ export class DefectService {
     }
     return defect;
   }
+
+  async countByTenantId(tenantId: string): Promise<number> {
+    const count = await this.defectRepository
+      .createQueryBuilder("defect")
+      .innerJoin("defect.inspection", "inspection")
+      .innerJoin("inspection.lot", "lot")
+      .where("lot.clientId IN (SELECT id FROM clients WHERE tenantId = :tenantId)", { tenantId })
+      .getCount();
+    return count;
+  }
 }

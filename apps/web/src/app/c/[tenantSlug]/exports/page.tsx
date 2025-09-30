@@ -1,200 +1,146 @@
 'use client'
 
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { apiClient } from '@/lib/api'
 import { DownloadIcon, FileTextIcon, TableIcon } from 'lucide-react'
+import { PageHeader } from '@/components/ui/page-header'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Select, SelectOption } from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
+import { useToast } from '@/components/ui/toast'
 
 export default function ExportsPage() {
   const [pdfRange, setPdfRange] = useState<'last_7d' | 'last_30d'>('last_7d')
   const [csvRange, setCsvRange] = useState<'last_7d' | 'last_30d'>('last_7d')
   const [selectedLot, setSelectedLot] = useState<string>('')
+  const { publish } = useToast()
 
   const { data: lots = [] } = useQuery({
     queryKey: ['lots'],
     queryFn: () => apiClient.getLots(),
   })
 
+  const lotOptions = useMemo<SelectOption<string>[]>(
+    () => [
+      { value: '', label: 'All lots' },
+      ...lots.map((lot: any) => ({ value: lot.id, label: `${lot.styleRef} • ${lot.factory?.name ?? 'Unassigned'}` })),
+    ],
+    [lots],
+  )
+
+  const rangeOptions: SelectOption<'last_7d' | 'last_30d'>[] = [
+    { value: 'last_7d', label: 'Last 7 days' },
+    { value: 'last_30d', label: 'Last 30 days' },
+  ]
+
   const pdfMutation = useMutation({
-    mutationFn: (payload: { lotId?: string; range?: 'last_7d' | 'last_30d' }) =>
-      apiClient.generatePDF(payload),
+    mutationFn: (payload: { lotId?: string; range?: 'last_7d' | 'last_30d' }) => apiClient.generatePDF(payload),
+    onSuccess: (data) => {
+      window.open(data.downloadUrl, '_blank')
+      publish({ variant: 'success', title: 'PDF report queued', description: 'Download will open in a new tab.' })
+    },
+    onError: (error: any) => {
+      publish({ variant: 'danger', title: 'Unable to generate PDF', description: error?.message })
+    },
   })
 
   const csvMutation = useMutation({
-    mutationFn: (payload: { range?: 'last_7d' | 'last_30d' }) =>
-      apiClient.generateCSV(payload),
+    mutationFn: (payload: { range?: 'last_7d' | 'last_30d' }) => apiClient.generateCSV(payload),
+    onSuccess: (data) => {
+      window.open(data.downloadUrl, '_blank')
+      publish({ variant: 'success', title: 'CSV export ready', description: 'Download will open in a new tab.' })
+    },
+    onError: (error: any) => {
+      publish({ variant: 'danger', title: 'Unable to export CSV', description: error?.message })
+    },
   })
 
-  const handlePdfExport = () => {
-    pdfMutation.mutate(
-      {
-        lotId: selectedLot || undefined,
-        range: pdfRange,
-      },
-      {
-        onSuccess: (data) => {
-          window.open(data.downloadUrl, '_blank')
-        },
-      },
-    )
-  }
-
-  const handleCsvExport = () => {
-    csvMutation.mutate(
-      {
-        range: csvRange,
-      },
-      {
-        onSuccess: (data) => {
-          window.open(data.downloadUrl, '_blank')
-        },
-      },
-    )
-  }
-
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Exports</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Generate reports and export inspection data
-          </p>
-        </div>
-      </div>
+    <div className="space-y-8">
+      <PageHeader
+        title="Exports"
+        description="Generate presentation-ready PDFs or detailed CSV datasets."
+      />
 
       <div className="grid gap-6 md:grid-cols-2">
-        {/* PDF Report Export */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center mb-4">
-            <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-              <FileTextIcon className="w-5 h-5 text-red-600" />
-            </div>
-            <div className="ml-4">
-              <h3 className="text-lg font-medium text-gray-900">PDF Report</h3>
-              <p className="text-sm text-gray-500">Generate a comprehensive QA report</p>
-            </div>
-          </div>
-
-          <div className="space-y-4">
+        <Card>
+          <CardHeader className="flex items-start gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-danger-100 text-danger-600">
+              <FileTextIcon className="h-5 w-5" />
+            </span>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Time Range
-              </label>
-              <select
-                value={pdfRange}
-                onChange={(e) => setPdfRange(e.target.value as 'last_7d' | 'last_30d')}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-              >
-                <option value="last_7d">Last 7 Days</option>
-                <option value="last_30d">Last 30 Days</option>
-              </select>
+              <CardTitle>PDF report</CardTitle>
+              <CardDescription>Executive-ready summary with KPIs, charts, and ESG metrics.</CardDescription>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Specific Lot (Optional)
-              </label>
-              <select
-                value={selectedLot}
-                onChange={(e) => setSelectedLot(e.target.value)}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-              >
-                <option value="">All Lots</option>
-                {lots.map((lot: any) => (
-                  <option key={lot.id} value={lot.id}>
-                    {lot.styleRef} - {lot.factory?.name}
-                  </option>
-                ))}
-              </select>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Time range</p>
+              <Select value={pdfRange} onChange={(value) => setPdfRange(value as 'last_7d' | 'last_30d')} options={rangeOptions} />
             </div>
-
-            <button
-              onClick={handlePdfExport}
-              disabled={pdfMutation.isPending}
-              className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors disabled:opacity-50"
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Specific lot</p>
+              <Select value={selectedLot} onChange={(value) => setSelectedLot(value as string)} options={lotOptions} />
+            </div>
+            <Button
+              className="w-full"
+              onClick={() => pdfMutation.mutate({ lotId: selectedLot || undefined, range: pdfRange })}
+              loading={pdfMutation.isPending}
             >
-              {pdfMutation.isPending ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Generating PDF...
-                </>
-              ) : (
-                <>
-                  <DownloadIcon className="w-4 h-4 mr-2" />
-                  Generate PDF Report
-                </>
-              )}
-            </button>
-          </div>
-        </div>
+              <DownloadIcon className="mr-2 h-4 w-4" /> Generate PDF report
+            </Button>
+          </CardContent>
+        </Card>
 
-        {/* CSV Export */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center mb-4">
-            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-              <TableIcon className="w-5 h-5 text-green-600" />
-            </div>
-            <div className="ml-4">
-              <h3 className="text-lg font-medium text-gray-900">CSV Export</h3>
-              <p className="text-sm text-gray-500">Export inspection data as CSV</p>
-            </div>
-          </div>
-
-          <div className="space-y-4">
+        <Card>
+          <CardHeader className="flex items-start gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-success-100 text-success-600">
+              <TableIcon className="h-5 w-5" />
+            </span>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Time Range
-              </label>
-              <select
-                value={csvRange}
-                onChange={(e) => setCsvRange(e.target.value as 'last_7d' | 'last_30d')}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-              >
-                <option value="last_7d">Last 7 Days</option>
-                <option value="last_30d">Last 30 Days</option>
-              </select>
+              <CardTitle>CSV export</CardTitle>
+              <CardDescription>Raw inspection data with garment, lot, and defect attributes.</CardDescription>
             </div>
-
-            <button
-              onClick={handleCsvExport}
-              disabled={csvMutation.isPending}
-              className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-md transition-colors disabled:opacity-50"
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Time range</p>
+              <Select value={csvRange} onChange={(value) => setCsvRange(value as 'last_7d' | 'last_30d')} options={rangeOptions} />
+            </div>
+            <Button
+              className="w-full"
+              variant="secondary"
+              onClick={() => csvMutation.mutate({ range: csvRange })}
+              loading={csvMutation.isPending}
             >
-              {csvMutation.isPending ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Generating CSV...
-                </>
-              ) : (
-                <>
-                  <DownloadIcon className="w-4 h-4 mr-2" />
-                  Export CSV Data
-                </>
-              )}
-            </button>
-          </div>
-        </div>
+              <DownloadIcon className="mr-2 h-4 w-4" /> Export CSV data
+            </Button>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Export History/Status */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Export Information</h3>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between py-2 border-b border-gray-100">
-            <span className="text-sm text-gray-600">PDF includes:</span>
-            <span className="text-sm font-medium text-gray-900">KPIs, charts, defect breakdown, recent inspections</span>
+      <Card>
+        <CardHeader>
+          <CardTitle>What’s included</CardTitle>
+          <CardDescription>Understand the content and lifecycle of each export.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-neutral-600">
+          <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
+            <span>PDF bundle</span>
+            <span className="font-medium text-neutral-900">KPIs, anomaly charts, defect breakdown, and approval timeline.</span>
           </div>
-          <div className="flex items-center justify-between py-2 border-b border-gray-100">
-            <span className="text-sm text-gray-600">CSV includes:</span>
-            <span className="text-sm font-medium text-gray-900">All inspection records with garment, batch, and defect details</span>
+          <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
+            <span>CSV dataset</span>
+            <span className="font-medium text-neutral-900">Every inspection with garment, operator, defect status, and timestamps.</span>
           </div>
-          <div className="flex items-center justify-between py-2">
-            <span className="text-sm text-gray-600">File expiration:</span>
-            <span className="text-sm font-medium text-gray-900">Links expire after 10 minutes</span>
+          <div className="flex items-center justify-between">
+            <span>Link policy</span>
+            <span className="font-medium text-neutral-900">Downloads remain active for 10 minutes for security.</span>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

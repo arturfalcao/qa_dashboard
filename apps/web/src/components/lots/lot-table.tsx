@@ -1,8 +1,7 @@
 'use client'
 
-import Link from 'next/link'
 import { useMemo } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import {
   Lot,
   SupplyChainStageStatus,
@@ -17,6 +16,9 @@ import {
   formatPercentage,
   getLotStatusColor,
 } from '@/lib/utils'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 
 interface LotTableProps {
   lots: Lot[]
@@ -154,6 +156,7 @@ function buildSnapshot(lot: Lot): SupplyChainSnapshot {
 export function LotTable({ lots }: LotTableProps) {
   const params = useParams()
   const tenantSlug = params.tenantSlug as string
+  const router = useRouter()
 
   const rows = useMemo(
     () =>
@@ -179,113 +182,173 @@ export function LotTable({ lots }: LotTableProps) {
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Lot
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Status
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Supply Chain
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Current Stage
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Inspection Progress
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Defect Rate
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Updated
-              </th>
-              <th scope="col" className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
+    <div className="space-y-6">
+      <div className="hidden xl:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[220px]">Lot</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Supply chain</TableHead>
+              <TableHead>Current stage</TableHead>
+              <TableHead>Inspection progress</TableHead>
+              <TableHead>Defect rate</TableHead>
+              <TableHead>Updated</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {rows.map(({ lot, snapshot }) => {
               const statusBadge = getLotStatusColor(lot.status)
               const stageMeta = stageStatusMeta[snapshot.currentStageStatus]
+              const progress = Math.min(lot.inspectedProgress ?? 0, 100)
 
               return (
-                <tr key={lot.id} className="hover:bg-gray-50">
-                  <td className="whitespace-nowrap px-6 py-4">
-                    <div className="text-sm font-semibold text-gray-900">{lot.styleRef}</div>
-                    <div className="text-xs text-gray-500">#{lot.id.slice(0, 8)}</div>
-                    <div className="mt-1 text-xs text-gray-500">
+                <TableRow key={lot.id} className="align-top">
+                  <TableCell className="align-top">
+                    <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">
+                      {lot.styleRef}
+                    </div>
+                    <div className="text-xs text-neutral-500">#{lot.id.slice(0, 8)}</div>
+                    <div className="mt-1 text-xs text-neutral-500">
                       {formatNumber(lot.quantityTotal)} units · {snapshot.primaryFactory}
                     </div>
-                  </td>
-                  <td className="whitespace-nowrap px-6 py-4">
-                    <span className={cn('inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium', statusBadge)}>
+                  </TableCell>
+                  <TableCell className="align-top">
+                    <span className={cn('inline-flex items-center rounded-full px-3 py-1 text-xs font-medium', statusBadge)}>
                       {formatLotStatus(lot.status)}
                     </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-700">
+                  </TableCell>
+                  <TableCell className="align-top text-sm text-neutral-700 dark:text-neutral-300">
                     <div>
                       {snapshot.supplierCount} supplier{snapshot.supplierCount === 1 ? '' : 's'} · {snapshot.totalStages}{' '}
                       stage{snapshot.totalStages === 1 ? '' : 's'}
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">
+                    <div className="mt-1 text-xs text-neutral-500">
                       CO₂ footprint · {snapshot.totalCo2Kg.toFixed(2)} kg
                     </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-700">
+                  </TableCell>
+                  <TableCell className="align-top text-sm text-neutral-700 dark:text-neutral-300">
                     <div className="flex flex-col gap-1">
-                      <span className="font-medium text-gray-900">{snapshot.currentStageLabel}</span>
-                      <span className={cn('w-fit rounded-full px-2 py-0.5 text-[11px] font-medium', stageMeta.badge)}>
+                      <span className="font-medium text-neutral-900 dark:text-neutral-100">
+                        {snapshot.currentStageLabel}
+                      </span>
+                      <span className={cn('w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold', stageMeta.badge)}>
                         {stageMeta.label}
                       </span>
                       {snapshot.nextStageLabel && (
-                        <span className="text-xs text-gray-500">
-                          Next: {snapshot.nextStageLabel}
-                        </span>
+                        <span className="text-xs text-neutral-500">Next: {snapshot.nextStageLabel}</span>
                       )}
                     </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center justify-between text-xs text-gray-500">
-                      <span>{formatPercentage(lot.inspectedProgress)}</span>
+                  </TableCell>
+                  <TableCell className="align-top">
+                    <div className="flex items-center justify-between text-xs text-neutral-500">
+                      <span>{formatPercentage(progress)}</span>
                       <span>
                         {snapshot.completedStages}/{snapshot.totalStages}
                       </span>
                     </div>
-                    <div className="mt-1 h-2 w-full rounded-full bg-gray-200">
-                      <div
-                        className="h-2 rounded-full bg-primary-600"
-                        style={{ width: `${Math.min(lot.inspectedProgress, 100)}%` }}
-                      />
+                    <div className="mt-1 h-2 w-full rounded-full bg-neutral-200 dark:bg-neutral-800">
+                      <div className="h-2 rounded-full bg-primary-600" style={{ width: `${progress}%` }} />
                     </div>
-                  </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm font-medium">
-                    <span className={cn(lot.defectRate > 5 ? 'text-red-600' : 'text-green-600')}>
+                  </TableCell>
+                  <TableCell className="align-top text-sm font-medium">
+                    <span className={cn(lot.defectRate > 5 ? 'text-danger-600' : 'text-success-600')}>
                       {formatPercentage(lot.defectRate)}
                     </span>
-                  </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                  </TableCell>
+                  <TableCell className="align-top text-sm text-neutral-500">
                     {formatDate(lot.updatedAt)}
-                  </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
-                    <Link
-                      href={`/c/${tenantSlug}/lots/${lot.id}`}
-                      className="inline-flex items-center rounded-md border border-primary-200 px-3 py-1.5 text-sm font-medium text-primary-600 hover:bg-primary-50"
+                  </TableCell>
+                  <TableCell className="align-top text-right">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => router.push(`/c/${tenantSlug}/lots/${lot.id}`)}
                     >
-                      View
-                    </Link>
-                  </td>
-                </tr>
+                      View lot
+                    </Button>
+                  </TableCell>
+                </TableRow>
               )
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
+      </div>
+
+      <div className="space-y-4 xl:hidden">
+        {rows.map(({ lot, snapshot }) => {
+          const statusBadge = getLotStatusColor(lot.status)
+          const stageMeta = stageStatusMeta[snapshot.currentStageStatus]
+          const progress = Math.min(lot.inspectedProgress ?? 0, 100)
+
+          return (
+            <Card key={lot.id}>
+              <CardHeader className="space-y-1">
+                <CardTitle className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+                  {lot.styleRef}
+                </CardTitle>
+                <CardDescription>#{lot.id.slice(0, 8)} · {formatNumber(lot.quantityTotal)} units</CardDescription>
+                <span className={cn('w-fit rounded-full px-3 py-1 text-xs font-semibold', statusBadge)}>
+                  {formatLotStatus(lot.status)}
+                </span>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm text-neutral-700 dark:text-neutral-300">
+                <div>
+                  <p className="font-medium text-neutral-900 dark:text-neutral-100">Primary factory</p>
+                  <p className="text-xs text-neutral-500">{snapshot.primaryFactory}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="rounded-lg bg-neutral-100 p-3 dark:bg-neutral-900/50">
+                    <p className="text-[11px] uppercase tracking-wide text-neutral-500">Supply chain</p>
+                    <p className="mt-1 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                      {snapshot.supplierCount} supplier{snapshot.supplierCount === 1 ? '' : 's'}
+                    </p>
+                    <p className="text-xs text-neutral-500">{snapshot.totalStages} stages</p>
+                  </div>
+                  <div className="rounded-lg bg-neutral-100 p-3 dark:bg-neutral-900/50">
+                    <p className="text-[11px] uppercase tracking-wide text-neutral-500">Current stage</p>
+                    <p className="mt-1 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                      {snapshot.currentStageLabel}
+                    </p>
+                    <p className={cn('mt-1 inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold', stageMeta.badge)}>
+                      {stageMeta.label}
+                    </p>
+                    {snapshot.nextStageLabel && (
+                      <p className="text-xs text-neutral-500">Next: {snapshot.nextStageLabel}</p>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between text-xs text-neutral-500">
+                    <span>{formatPercentage(progress)}</span>
+                    <span>
+                      {snapshot.completedStages}/{snapshot.totalStages}
+                    </span>
+                  </div>
+                  <div className="mt-1 h-2 w-full rounded-full bg-neutral-200 dark:bg-neutral-800">
+                    <div className="h-2 rounded-full bg-primary-600" style={{ width: `${progress}%` }} />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <div>
+                    <p className="text-xs text-neutral-500">Defect rate</p>
+                    <p className={cn('text-sm font-semibold', lot.defectRate > 5 ? 'text-danger-600' : 'text-success-600')}>
+                      {formatPercentage(lot.defectRate)}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => router.push(`/c/${tenantSlug}/lots/${lot.id}`)}
+                  >
+                    View lot
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
     </div>
   )

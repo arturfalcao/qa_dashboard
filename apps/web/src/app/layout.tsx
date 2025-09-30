@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { QueryProvider } from '@/components/providers/query-provider'
 import { AuthProvider } from '@/components/providers/auth-provider'
+import { ToastProvider } from '@/components/ui/toast'
 
 export const metadata: Metadata = {
   title: 'Pack and Polish QC Dashboard',
@@ -18,7 +19,7 @@ export default function RootLayout({
       <body className="font-sans">
         <QueryProvider>
           <AuthProvider>
-            {children}
+            <ToastProvider>{children}</ToastProvider>
           </AuthProvider>
         </QueryProvider>
       </body>

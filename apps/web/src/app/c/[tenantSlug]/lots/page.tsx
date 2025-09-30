@@ -1,13 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api'
-import { Lot, UserRole } from '@qa-dashboard/shared'
+import { Lot, LotStatus, UserRole } from '@qa-dashboard/shared'
 import { LotFilters } from '@/components/lots/lot-filters'
 import { LotFormModal } from '@/components/lots/lot-form-modal'
 import { useAuth } from '@/components/providers/auth-provider'
 import { LotTable } from '@/components/lots/lot-table'
+import { PageHeader } from '@/components/ui/page-header'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/empty-state'
+import { ActivityIcon } from 'lucide-react'
 
 export default function LotsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -33,34 +38,87 @@ export default function LotsPage() {
     new Set(lots.map((lot: Lot) => lot.factory?.name).filter(Boolean)),
   ) as string[]
 
+  const summary = useMemo(() => {
+    const totalLots = lots.length
+    const awaitingApproval = lots.filter((lot) => lot.status === LotStatus.PENDING_APPROVAL).length
+    const inInspection = lots.filter((lot) => lot.status === LotStatus.INSPECTION).length
+    const averageProgress = totalLots
+      ? Math.round(
+          lots.reduce((sum, lot) => sum + (lot.inspectedProgress ?? 0), 0) / totalLots,
+        )
+      : 0
+    const averageDefectRate = totalLots
+      ? (lots.reduce((sum, lot) => sum + (lot.defectRate ?? 0), 0) / totalLots).toFixed(1)
+      : '0.0'
+
+    return {
+      totalLots,
+      awaitingApproval,
+      inInspection,
+      averageProgress,
+      averageDefectRate,
+    }
+  }, [lots])
+
+  const pageActions = canManageLots ? (
+    <Button onClick={() => setIsLotModalOpen(true)}>New lot</Button>
+  ) : undefined
+
   if (isLoading) {
     return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">Lots</h1>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-        </div>
+      <div className="space-y-8">
+        <PageHeader
+          title="Lots"
+          description="Monitor inspection readiness, approvals, and supplier performance."
+          actions={pageActions}
+        />
+        <Card>
+          <CardContent className="flex h-48 items-center justify-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-200 border-t-primary-600" />
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Lots</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Monitor inspection readiness, approvals, and supplier performance.
-          </p>
-        </div>
-        {canManageLots && (
-          <button
-            onClick={() => setIsLotModalOpen(true)}
-            className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-700"
-          >
-            New Lot
-          </button>
-        )}
+    <div className="space-y-8">
+      <PageHeader
+        title="Lots"
+        description="Monitor inspection readiness, approvals, and supplier performance."
+        actions={pageActions}
+      />
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Card>
+          <CardHeader>
+            <CardDescription>Total lots</CardDescription>
+            <CardTitle>{summary.totalLots}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardDescription>In inspection</CardDescription>
+            <CardTitle>{summary.inInspection}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardDescription>Awaiting approval</CardDescription>
+            <CardTitle>{summary.awaitingApproval}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardDescription>Average defect rate</CardDescription>
+            <CardTitle>{summary.averageDefectRate}%</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-neutral-500">
+              {summary.averageProgress}% average inspection progress across active lots.
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       <LotFilters
@@ -72,19 +130,23 @@ export default function LotsPage() {
       />
 
       {filteredLots.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="text-gray-400 mb-4">
-            <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No lots match your filters</h3>
-          <p className="text-gray-500">
-            {statusFilter !== 'all' || factoryFilter !== 'all'
-              ? 'Try adjusting the filters to broaden your search.'
-              : 'Seed the database to explore sample production lots.'}
-          </p>
-        </div>
+        <EmptyState
+          icon={<ActivityIcon className="h-5 w-5" />}
+          title="No lots match your filters"
+          description={
+            statusFilter !== 'all' || factoryFilter !== 'all'
+              ? 'Adjust the filters to broaden your search.'
+              : 'Seed the database to explore sample production lots.'
+          }
+          action={
+            canManageLots
+              ? {
+                  label: 'Create lot',
+                  onClick: () => setIsLotModalOpen(true),
+                }
+              : undefined
+          }
+        />
       ) : (
         <LotTable lots={filteredLots} />
       )}

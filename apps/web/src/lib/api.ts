@@ -672,6 +672,31 @@ class ApiClient {
   async getLiveFeed(): Promise<any> {
     return this.request('/dashboard/feed/live')
   }
+
+  // ESG Reports
+  async getESGImpactDashboard(startDate?: string, endDate?: string): Promise<any> {
+    const params = new URLSearchParams()
+    if (startDate) params.append('startDate', startDate)
+    if (endDate) params.append('endDate', endDate)
+    const query = params.toString() ? `?${params.toString()}` : ''
+    return this.request(`/esg-reports/impact-dashboard${query}`)
+  }
+
+  async getFactoryESGScorecard(): Promise<any> {
+    return this.request('/esg-reports/factory-scorecard')
+  }
+
+  async getComplianceSummary(): Promise<any> {
+    return this.request('/esg-reports/compliance-summary')
+  }
+
+  async getMaterialEfficiency(): Promise<any> {
+    return this.request('/esg-reports/material-efficiency')
+  }
+
+  async getCarbonFootprint(): Promise<any> {
+    return this.request('/esg-reports/carbon-footprint')
+  }
 }
 
 export const apiClient = new ApiClient()
