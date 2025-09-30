@@ -26,7 +26,6 @@ from queue_manager import QueueManager
 from status_leds import StatusLEDs
 from storage_manager import StorageManager, StorageStatus
 from upload_worker import UploadWorker
-from voice_recorder import VoiceRecorder, VoiceRecordingUnavailable
 
 log = logging.getLogger(__name__)
 
@@ -74,8 +73,6 @@ class EdgeDeviceApp:
         self._api_client = ApiClient(config.api_base_url, config.device_secret)
         self._stop_event = threading.Event()
         self._leds = StatusLEDs()
-        self._voice: Optional[VoiceRecorder] = None
-        self._voice_lock = threading.Lock()
         self._camera = CameraController(
             resolution=tuple(config.camera_resolution),
             fps=30,
@@ -126,8 +123,6 @@ class EdgeDeviceApp:
             self._camera.stop()
         except Exception as exc:
             log.warning("Camera stop failed: %s", exc)
-        if self._voice:
-            self._voice.close()
         self._leds.close()
 
     # --- Setup helpers ---
@@ -211,14 +206,10 @@ class EdgeDeviceApp:
         if not session.session_id:
             log.warning("Cannot flag defect without active session")
             return
-        transcript = self._collect_transcript(status, session.session_id)
-        if not transcript:
-            log.warning("Skipping %s; no transcript available", status)
-            return
         with self._lock:
-            self._pending_defects.append({"status": status, "transcript": transcript})
+            self._pending_defects.append({"status": status, "transcript": ""})
             self._current_piece_status = status
-        log.info("Defect %s recorded locally with transcript", status)
+        log.info("Defect %s recorded locally", status)
 
     def complete_piece(self) -> None:
         session = self._session_snapshot()
@@ -308,36 +299,6 @@ class EdgeDeviceApp:
                 log.info("No active session")
         elif piece_changed:
             log.info("Piece advanced to %s", piece_id)
-
-    def _collect_transcript(self, label: str, session_id: str) -> Optional[str]:
-        recorder = self._ensure_voice_recorder()
-        if not recorder:
-            return None
-        timestamp = time.strftime("%Y%m%d_%H%M%S")
-        audio_path = self._storage.build_audio_path(session_id, timestamp)
-        try:
-            log.info("Recording audio for %s", label)
-            recorder.record(duration=5, output_path=audio_path)
-        except VoiceRecordingUnavailable as exc:
-            log.error("Voice recording failed: %s", exc)
-            return None
-        transcript = recorder.transcribe(audio_path)
-        if transcript:
-            log.info("Transcript captured (%s characters)", len(transcript))
-        else:
-            log.warning("Transcript unavailable for %s", label)
-        return transcript or None
-
-    def _ensure_voice_recorder(self) -> Optional[VoiceRecorder]:
-        with self._voice_lock:
-            if self._voice:
-                return self._voice
-            try:
-                self._voice = VoiceRecorder()
-                return self._voice
-            except VoiceRecordingUnavailable as exc:
-                log.error("Voice recorder unavailable: %s", exc)
-                return None
 
     def _check_storage_levels(self) -> StorageStatus:
         status = self._storage.enforce_capacity()
