@@ -84,6 +84,8 @@ class EdgeDeviceApp:
         )
         self._upload_worker = UploadWorker(self._queue, self._api_client, self._stop_event, self._leds)
         self._current_piece_status = "ok"
+        self._pending_photos: list[str] = []
+        self._pending_defects: list[Dict[str, str]] = []
         self._health_server: Optional[HealthServer] = None
         try:
             self._health_server = HealthServer("0.0.0.0", 8080, self._health_status)
@@ -180,30 +182,20 @@ class EdgeDeviceApp:
         if session.status != "active":
             log.warning("Cannot capture photo; session status is %s", session.status)
             return
-        piece_id = session.current_piece_id
-        if not piece_id:
-            log.warning("Cannot capture photo; no active piece assigned")
-            return
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         photo_path = self._storage.build_photo_path(session.session_id, timestamp)
         overlay = self._camera.timestamp_overlay()
         try:
             self._leds.set_processing()
             self._camera.capture(photo_path, overlay)
-            self._queue.enqueue(
-                "photo",
-                {
-                    "path": str(photo_path),
-                    "session_id": session.session_id,
-                    "piece_id": piece_id,
-                },
-            )
+            with self._lock:
+                self._pending_photos.append(str(photo_path))
             self._storage.cleanup_old_files()
             status = self._check_storage_levels()
             if status.usage_ratio > 0.8:
                 log.warning("Storage above 80%% (%.2f%%)", status.usage_ratio * 100)
             self._leds.set_success()
-            log.info("Photo captured: %s", photo_path)
+            log.info("Photo captured and stored locally: %s", photo_path)
         except Exception as exc:
             self._leds.set_error()
             log.exception("Failed to capture photo: %s", exc)
@@ -219,43 +211,45 @@ class EdgeDeviceApp:
         if not session.session_id:
             log.warning("Cannot flag defect without active session")
             return
-        piece_id = session.current_piece_id
-        if not piece_id:
-            log.warning("Cannot flag defect; no active piece assigned")
-            return
         transcript = self._collect_transcript(status, session.session_id)
         if not transcript:
             log.warning("Skipping %s; no transcript available", status)
             return
-        self._queue.enqueue(
-            "flag_defect" if status == "defect" else "flag_potential",
-            {"piece_id": piece_id, "transcript": transcript},
-        )
         with self._lock:
+            self._pending_defects.append({"status": status, "transcript": transcript})
             self._current_piece_status = status
-        log.info("Queued %s for piece %s", status, piece_id)
+        log.info("Defect %s recorded locally with transcript", status)
 
     def complete_piece(self) -> None:
         session = self._session_snapshot()
         if not session.session_id:
             log.warning("Cannot complete piece without active session")
             return
-        piece_id = session.current_piece_id
-        if not piece_id:
-            log.warning("Cannot complete piece; no active piece assigned")
-            return
+
         with self._lock:
+            photos = list(self._pending_photos)
+            defects = list(self._pending_defects)
             status = self._current_piece_status
+            self._pending_photos.clear()
+            self._pending_defects.clear()
             self._current_piece_status = "ok"
+
+        if not photos:
+            log.warning("No photos captured for this piece, skipping")
+            return
+
+        # Queue piece creation with all photos and defects
         self._queue.enqueue(
-            "complete_piece",
+            "create_piece",
             {
                 "session_id": session.session_id,
-                "piece_id": piece_id,
+                "photos": photos,
+                "defects": defects,
                 "status": status,
             },
         )
-        log.info("Completed piece %s with status %s", piece_id, status)
+        log.info("Piece queued for creation with %d photos and %d defects (status: %s)",
+                 len(photos), len(defects), status)
         self._leds.set_idle()
 
     # --- Support helpers ---
