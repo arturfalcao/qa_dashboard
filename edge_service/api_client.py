@@ -23,7 +23,7 @@ class ApiClient:
 
     def ping(self) -> bool:
         try:
-            self._request("GET", "/api/edge/ping")
+            self._request("GET", "/edge/ping")
             return True
         except Exception as exc:
             log.error("Ping failed: %s", exc)
@@ -31,7 +31,7 @@ class ApiClient:
 
     def get_current_session(self) -> Optional[Dict[str, Any]]:
         try:
-            response = self._request_raw("GET", "/api/edge/session/current")
+            response = self._request_raw("GET", "/edge/session/current")
         except ApiError:
             raise
         except Exception as exc:
@@ -53,21 +53,21 @@ class ApiClient:
         files = {"photo": open(photo_path, "rb")}
         data = {"sessionId": session_id, "pieceId": piece_id}
         try:
-            return self._request("POST", "/api/edge/photo/upload", files=files, data=data)
+            return self._request("POST", "/edge/photo/upload", files=files, data=data)
         finally:
             files["photo"].close()
 
     def flag_defect(self, piece_id: str, transcript: str) -> Dict[str, Any]:
         body = {"pieceId": piece_id, "audioTranscript": transcript}
-        return self._request("POST", "/api/edge/defect/flag", json=body)
+        return self._request("POST", "/edge/defect/flag", json=body)
 
     def flag_potential(self, piece_id: str, transcript: str) -> Dict[str, Any]:
         body = {"pieceId": piece_id, "audioTranscript": transcript}
-        return self._request("POST", "/api/edge/defect/potential", json=body)
+        return self._request("POST", "/edge/defect/potential", json=body)
 
     def complete_piece(self, session_id: str, piece_id: str, status: str) -> Dict[str, Any]:
         body = {"sessionId": session_id, "pieceId": piece_id, "status": status}
-        return self._request("POST", "/api/edge/piece/complete", json=body)
+        return self._request("POST", "/edge/piece/complete", json=body)
 
     def _request(self, method: str, path: str, **kwargs: Any) -> Dict[str, Any]:
         url = f"{self._base_url}{path}"

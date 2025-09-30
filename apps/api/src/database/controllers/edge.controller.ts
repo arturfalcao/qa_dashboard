@@ -11,6 +11,7 @@ import {
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiHeader } from "@nestjs/swagger";
 import { FileInterceptor } from "@nestjs/platform-express";
+import { Public } from "../../auth/public.decorator";
 import { EdgeDeviceService } from "../services/edge-device.service";
 import { ApparelPieceService } from "../services/apparel-piece.service";
 import { PiecePhotoService } from "../services/piece-photo.service";
@@ -43,6 +44,7 @@ const pieceCompleteSchema = z.object({
 });
 
 @ApiTags("edge")
+@Public()
 @Controller("edge")
 export class EdgeController {
   constructor(
