@@ -49,6 +49,7 @@ import { InspectionSessionService } from "./services/inspection-session.service"
 import { ApparelPieceService } from "./services/apparel-piece.service";
 import { PiecePhotoService } from "./services/piece-photo.service";
 import { PieceDefectService } from "./services/piece-defect.service";
+import { MigratePhotosService } from "./services/migrate-photos.service";
 
 import { InspectionController } from "./controllers/inspection.controller";
 import { LotController } from "./controllers/lot.controller";
@@ -126,6 +127,7 @@ import { DppService } from "../dpp/dpp.service";
     ApparelPieceService,
     PiecePhotoService,
     PieceDefectService,
+    MigratePhotosService,
   ],
   controllers: [
     InspectionController,

@@ -15,6 +15,7 @@ import { UserService } from "../services/user.service";
 import { TenantService } from "../services/tenant.service";
 import { LotService } from "../services/lot.service";
 import { InspectionSessionService } from "../services/inspection-session.service";
+import { MigratePhotosService } from "../services/migrate-photos.service";
 import { CurrentUser } from "../../common/decorators";
 import { ZodValidationPipe } from "../../common/zod-validation.pipe";
 import { z } from "zod";
@@ -54,6 +55,7 @@ export class SuperAdminController {
     private readonly tenantService: TenantService,
     private readonly lotService: LotService,
     private readonly inspectionSessionService: InspectionSessionService,
+    private readonly migratePhotosService: MigratePhotosService,
   ) {}
 
   private ensureSuperAdminAccess(user?: { email?: string }) {
@@ -356,6 +358,20 @@ export class SuperAdminController {
         name: device.name,
         workbenchNumber: device.workbenchNumber,
       },
+    };
+  }
+
+  @Post("migrate-photos")
+  @ApiOperation({ summary: "Migrate old photos to new organized structure" })
+  async migratePhotos(@CurrentUser() user?: { email?: string }) {
+    this.ensureSuperAdminAccess(user);
+
+    const result = await this.migratePhotosService.migratePhotos();
+
+    return {
+      success: true,
+      message: `Migration complete: ${result.migrated} migrated, ${result.failed} failed`,
+      ...result,
     };
   }
 }
