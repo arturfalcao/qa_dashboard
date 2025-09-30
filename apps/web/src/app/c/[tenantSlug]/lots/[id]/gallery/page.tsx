@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { apiClient } from '@/lib/api'
 import Link from 'next/link'
+import Image from 'next/image'
 
 export default function LotGalleryPage() {
   const params = useParams()
@@ -123,10 +124,13 @@ export default function LotGalleryPage() {
               onClick={() => setSelectedPhoto(photo)}
               className="group relative aspect-square bg-slate-100 rounded-xl overflow-hidden shadow-md hover:shadow-xl transition"
             >
-              <img
+              <Image
                 src={`/api/photos/${photo.filePath}`}
                 alt={`Piece #${photo.pieceNumber}`}
                 className="w-full h-full object-cover"
+                width={400}
+                height={400}
+                sizes="(min-width: 1536px) 15vw, (min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, 50vw"
                 onError={(e) => {
                   e.currentTarget.src =
                     'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23e2e8f0" width="200" height="200"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%2394a3b8" font-size="48"%3E📷%3C/text%3E%3C/svg%3E'
@@ -180,10 +184,13 @@ export default function LotGalleryPage() {
             </div>
 
             <div className="bg-white rounded-xl overflow-hidden">
-              <img
+              <Image
                 src={`/api/photos/${selectedPhoto.filePath}`}
                 alt={`Piece #${selectedPhoto.pieceNumber}`}
                 className="w-full h-auto max-h-[70vh] object-contain"
+                width={1200}
+                height={900}
+                sizes="90vw"
                 onError={(e) => {
                   e.currentTarget.src =
                     'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="800" height="600"%3E%3Crect fill="%23e2e8f0" width="800" height="600"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%2394a3b8" font-size="64"%3E📷%3C/text%3E%3C/svg%3E'

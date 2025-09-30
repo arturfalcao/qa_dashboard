@@ -15,6 +15,7 @@ import { useToast } from '@/components/ui/toast'
 import { PageHeader } from '@/components/ui/page-header'
 import { TextArea } from '@/components/ui/input'
 import { useParams, useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { ActivityIcon, AlertTriangleIcon } from 'lucide-react'
 
 export default function LiveFeedPage() {
@@ -420,10 +421,13 @@ function DefectReviewModal({
                   key={photo.id}
                   className="overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800"
                 >
-                  <img
+                  <Image
                     src={`/api/photos/${photo.filePath}`}
-                    alt="Defect"
+                    alt="Defect photo"
                     className="h-40 w-full object-cover"
+                    width={400}
+                    height={160}
+                    sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
                     onError={(e) => {
                       e.currentTarget.src =
                         'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23e2e8f0" width="200" height="200"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%2394a3b8" font-size="48"%3E📷%3C/text%3E%3C/svg%3E'

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import Image from 'next/image'
 import { apiClient } from '@/lib/api'
 
 interface SessionData {
@@ -229,10 +230,13 @@ export default function LiveInspectionPage() {
                   key={photo.id}
                   className="relative aspect-square bg-slate-100 rounded-xl overflow-hidden shadow-md hover:shadow-xl transition group"
                 >
-                  <img
+                  <Image
                     src={`/api/photos/${photo.filePath}`}
                     alt="Inspection photo"
                     className="w-full h-full object-cover"
+                    width={400}
+                    height={400}
+                    sizes="(min-width: 1024px) 20vw, (min-width: 768px) 25vw, 45vw"
                     onError={(e) => {
                       e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23e2e8f0" width="200" height="200"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%2394a3b8" font-size="48"%3E📷%3C/text%3E%3C/svg%3E'
                     }}

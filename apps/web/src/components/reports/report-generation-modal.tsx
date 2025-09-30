@@ -11,7 +11,7 @@ import { ReportType, ReportLanguage } from '@qa-dashboard/shared'
 interface ReportGenerationModalProps {
   isOpen: boolean
   onClose: () => void
-  onComplete: () => void
+  onSuccess: () => void
   initialType?: ReportType
   initialLotId?: string
 }
@@ -71,7 +71,7 @@ const REPORT_TYPES = [
 export function ReportGenerationModal({
   isOpen,
   onClose,
-  onComplete,
+  onSuccess: onSuccessCallback,
   initialType,
   initialLotId
 }: ReportGenerationModalProps) {
@@ -107,7 +107,7 @@ export function ReportGenerationModal({
       }
     },
     onSuccess: () => {
-      onComplete()
+      onSuccessCallback()
     },
   })
 

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Inspection } from '@qa-dashboard/shared'
+import Image from 'next/image'
 import { formatRelativeTime, cn } from '@/lib/utils'
 import { CameraIcon, ChevronDownIcon, ChevronUpIcon, Factory as FactoryIcon, CheckCircle, XCircle } from 'lucide-react'
 import { apiClient } from '@/lib/api'
@@ -138,10 +139,13 @@ export function EnhancedInspectionCard({ inspection }: EnhancedInspectionCardPro
                 <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
                   {defect.photos?.map((photo) => (
                     <figure key={photo.id} className="border border-gray-200 rounded-md overflow-hidden bg-gray-100">
-                      <img
+                      <Image
                         src={photo.url}
                         alt="Inspection evidence"
                         className="w-full h-40 object-cover"
+                        width={400}
+                        height={160}
+                        sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
                       />
                       {photo.annotation?.comment && (
                         <figcaption className="px-3 py-2 text-xs text-gray-600 flex items-center">

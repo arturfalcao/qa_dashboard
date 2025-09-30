@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import Image from 'next/image'
 import { apiClient } from '@/lib/api'
 import { useAuth } from '@/components/providers/auth-provider'
 import { LotHeader } from '@/components/lots/lot-header'
@@ -327,7 +328,14 @@ export default function LotDetailPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {(defect.photos || []).map((photo) => (
                         <figure key={photo.id} className="bg-white rounded border border-gray-200 overflow-hidden">
-                          <img src={photo.url} alt="Inspection evidence" className="w-full h-40 object-cover" />
+                          <Image
+                            src={photo.url}
+                            alt="Inspection evidence"
+                            className="w-full h-40 object-cover"
+                            width={400}
+                            height={160}
+                            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                          />
                           {photo.annotation && (
                             <figcaption className="px-3 py-2 text-xs text-gray-600">
                               {photo.annotation.comment}
@@ -576,7 +584,7 @@ export default function LotDetailPage() {
       <ReportGenerationModal
         isOpen={showReportModal}
         onClose={() => setShowReportModal(false)}
-        onComplete={handleReportGenerated}
+        onSuccess={handleReportGenerated}
         initialType={ReportType.LOT_INSPECTION_REPORT}
         initialLotId={lotId}
       />

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import { apiClient } from '@/lib/api'
 
 interface Tenant {
@@ -87,7 +88,13 @@ export default function TenantsPage() {
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-10 w-10">
                         {tenant.logoUrl ? (
-                          <img className="h-10 w-10 rounded-full" src={tenant.logoUrl} alt="" />
+                          <Image
+                            className="h-10 w-10 rounded-full object-cover"
+                            src={tenant.logoUrl}
+                            alt={`${tenant.name} logo`}
+                            width={40}
+                            height={40}
+                          />
                         ) : (
                           <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-semibold">
                             {tenant.name.charAt(0)}
