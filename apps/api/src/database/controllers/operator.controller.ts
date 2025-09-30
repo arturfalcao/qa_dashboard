@@ -10,6 +10,8 @@ import {
 import { ApiTags, ApiOperation } from "@nestjs/swagger";
 import { InspectionSessionService } from "../services/inspection-session.service";
 import { LotService } from "../services/lot.service";
+import { PiecePhotoService } from "../services/piece-photo.service";
+import { ApparelPieceService } from "../services/apparel-piece.service";
 import { CurrentUser } from "../../common/decorators";
 import { ZodValidationPipe } from "../../common/zod-validation.pipe";
 import { z } from "zod";
@@ -30,6 +32,8 @@ export class OperatorController {
   constructor(
     private readonly inspectionSessionService: InspectionSessionService,
     private readonly lotService: LotService,
+    private readonly piecePhotoService: PiecePhotoService,
+    private readonly apparelPieceService: ApparelPieceService,
   ) {}
 
   private ensureOperatorAccess(user?: { roles?: UserRole[] }) {
@@ -191,6 +195,52 @@ export class OperatorController {
           filePath: photo.filePath,
           capturedAt: photo.capturedAt,
         })),
+    };
+  }
+
+  @Get("session/:sessionId/photos")
+  @ApiOperation({ summary: "Get all photos for a session with presigned URLs" })
+  async getSessionPhotos(
+    @CurrentUser() user: any,
+    @Param("sessionId") sessionId: string,
+  ) {
+    this.ensureOperatorAccess(user);
+
+    const photosWithUrls = await this.piecePhotoService.findBySessionIdWithUrls(sessionId);
+
+    return {
+      success: true,
+      photos: photosWithUrls.map(photo => ({
+        id: photo.id,
+        pieceId: photo.pieceId,
+        url: photo.presignedUrl,
+        capturedAt: photo.capturedAt,
+        piece: photo.piece ? {
+          id: photo.piece.id,
+          pieceNumber: photo.piece.pieceNumber,
+          status: photo.piece.status,
+        } : null,
+      })),
+    };
+  }
+
+  @Get("piece/:pieceId/photos")
+  @ApiOperation({ summary: "Get all photos for a piece with presigned URLs" })
+  async getPiecePhotos(
+    @CurrentUser() user: any,
+    @Param("pieceId") pieceId: string,
+  ) {
+    this.ensureOperatorAccess(user);
+
+    const photosWithUrls = await this.piecePhotoService.findByPieceIdWithUrls(pieceId);
+
+    return {
+      success: true,
+      photos: photosWithUrls.map(photo => ({
+        id: photo.id,
+        url: photo.presignedUrl,
+        capturedAt: photo.capturedAt,
+      })),
     };
   }
 }

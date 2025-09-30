@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { PiecePhoto } from "../entities/piece-photo.entity";
+import { StorageService } from "../../storage/storage.service";
 
 interface CreatePhotoInput {
   pieceId: string;
@@ -15,6 +16,7 @@ export class PiecePhotoService {
   constructor(
     @InjectRepository(PiecePhoto)
     private readonly photoRepository: Repository<PiecePhoto>,
+    private readonly storageService: StorageService,
   ) {}
 
   async findById(id: string): Promise<PiecePhoto | null> {
@@ -51,5 +53,43 @@ export class PiecePhotoService {
 
   async updateS3Url(id: string, s3Url: string): Promise<void> {
     await this.photoRepository.update(id, { s3Url });
+  }
+
+  async findBySessionIdWithUrls(sessionId: string, status?: string): Promise<Array<PiecePhoto & { presignedUrl: string }>> {
+    const photos = await this.findBySessionId(sessionId, status);
+
+    const photosWithUrls = await Promise.all(
+      photos.map(async (photo) => {
+        const presignedUrl = await this.storageService.getPresignedDownloadUrl(
+          photo.filePath,
+          "photos"
+        );
+        return {
+          ...photo,
+          presignedUrl,
+        };
+      })
+    );
+
+    return photosWithUrls;
+  }
+
+  async findByPieceIdWithUrls(pieceId: string): Promise<Array<PiecePhoto & { presignedUrl: string }>> {
+    const photos = await this.findByPieceId(pieceId);
+
+    const photosWithUrls = await Promise.all(
+      photos.map(async (photo) => {
+        const presignedUrl = await this.storageService.getPresignedDownloadUrl(
+          photo.filePath,
+          "photos"
+        );
+        return {
+          ...photo,
+          presignedUrl,
+        };
+      })
+    );
+
+    return photosWithUrls;
   }
 }
