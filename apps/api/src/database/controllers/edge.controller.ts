@@ -159,14 +159,15 @@ export class EdgeController {
       throw new BadRequestException("Photo file required");
     }
 
+    // Get session with lot relation to access tenantId
+    const session = await this.inspectionSessionService.findById(body.sessionId, ["lot"]);
+    if (!session) {
+      throw new BadRequestException("Session not found");
+    }
+
     // Get or create current piece
     let pieceId = body.pieceId;
     if (!pieceId) {
-      const session = await this.inspectionSessionService.findById(body.sessionId);
-      if (!session) {
-        throw new BadRequestException("Session not found");
-      }
-
       // Create new piece
       const piece = await this.apparelPieceService.create({
         inspectionSessionId: body.sessionId,
@@ -177,13 +178,19 @@ export class EdgeController {
       pieceId = piece.id;
     }
 
+    // Generate organized S3 key: clients/{tenantId}/lots/{lotId}/pieces/{pieceId}/{uuid}-{filename}
+    const fileKey = this.storageService.generateKeyForPiece(
+      session.lot.tenantId,
+      session.lotId,
+      pieceId,
+      file.originalname
+    );
+
     // Upload to S3/Spaces bucket
-    const filename = `edge-${device.id}-${Date.now()}-${file.originalname}`;
-    const fileKey = await this.storageService.uploadFile(
+    await this.storageService.uploadFileWithKey(
+      fileKey,
       file.buffer,
-      filename,
       file.mimetype || "image/jpeg",
-      "edge-devices",
       "photos"
     );
 
@@ -198,6 +205,7 @@ export class EdgeController {
       success: true,
       photoId: photo.id,
       pieceId,
+      filePath: fileKey,
     };
   }
 

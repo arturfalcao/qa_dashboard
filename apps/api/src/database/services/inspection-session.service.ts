@@ -17,9 +17,10 @@ export class InspectionSessionService {
     private readonly sessionRepository: Repository<InspectionSession>,
   ) {}
 
-  async findById(id: string): Promise<InspectionSession | null> {
+  async findById(id: string, relations?: string[]): Promise<InspectionSession | null> {
     return this.sessionRepository.findOne({
       where: { id },
+      relations,
     });
   }
 

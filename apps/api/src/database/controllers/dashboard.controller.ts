@@ -12,6 +12,7 @@ import { LotService } from "../services/lot.service";
 import { PiecePhotoService } from "../services/piece-photo.service";
 import { PieceDefectService } from "../services/piece-defect.service";
 import { InspectionSessionService } from "../services/inspection-session.service";
+import { StorageService } from "../../storage/storage.service";
 import { CurrentUser, ClientId } from "../../common/decorators";
 import { ZodValidationPipe } from "../../common/zod-validation.pipe";
 import { z } from "zod";
@@ -30,6 +31,7 @@ export class DashboardController {
     private readonly piecePhotoService: PiecePhotoService,
     private readonly pieceDefectService: PieceDefectService,
     private readonly inspectionSessionService: InspectionSessionService,
+    private readonly storageService: StorageService,
   ) {}
 
   private ensureReviewAccess(user?: { roles?: UserRole[] }) {
@@ -63,18 +65,23 @@ export class DashboardController {
       allPhotos.push(...photos);
     }
 
-    return {
-      lotId,
-      totalPhotos: allPhotos.length,
-      photos: allPhotos.map((photo) => ({
+    // Generate presigned URLs for all photos
+    const photosWithUrls = await Promise.all(
+      allPhotos.map(async (photo) => ({
         id: photo.id,
         pieceId: photo.pieceId,
         filePath: photo.filePath,
-        s3Url: photo.s3Url,
+        url: await this.storageService.getPresignedDownloadUrl(photo.filePath, "photos"),
         capturedAt: photo.capturedAt,
         pieceNumber: photo.piece?.pieceNumber,
         pieceStatus: photo.piece?.status,
-      })),
+      }))
+    );
+
+    return {
+      lotId,
+      totalPhotos: photosWithUrls.length,
+      photos: photosWithUrls,
     };
   }
 

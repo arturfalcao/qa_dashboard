@@ -125,7 +125,7 @@ export default function LotGalleryPage() {
               className="group relative aspect-square bg-slate-100 rounded-xl overflow-hidden shadow-md hover:shadow-xl transition"
             >
               <Image
-                src={`/api/photos/${photo.filePath}`}
+                src={photo.url || '/placeholder-image.jpg'}
                 alt={`Piece #${photo.pieceNumber}`}
                 className="w-full h-full object-cover"
                 width={400}
@@ -185,7 +185,7 @@ export default function LotGalleryPage() {
 
             <div className="bg-white rounded-xl overflow-hidden">
               <Image
-                src={`/api/photos/${selectedPhoto.filePath}`}
+                src={selectedPhoto.url || '/placeholder-image.jpg'}
                 alt={`Piece #${selectedPhoto.pieceNumber}`}
                 className="w-full h-auto max-h-[70vh] object-contain"
                 width={1200}
