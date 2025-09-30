@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
+import Image from 'next/image'
 import { ArrowLeftIcon, FlagIcon } from 'lucide-react'
 
 import { EventFeed } from '@/components/operator/event-feed'
@@ -145,7 +146,14 @@ export default function OperatorLotDetailPage() {
                 <div className="mt-3 grid grid-cols-2 gap-3">
                   {photoEvents.map((event) => (
                     <figure key={event.id} className="overflow-hidden rounded-xl border border-slate-200">
-                      <img src={event.thumbnailUrl!} alt={event.transcript ?? 'Inspection photo'} className="h-32 w-full object-cover" />
+                      <Image
+                        src={event.thumbnailUrl!}
+                        alt={event.transcript ?? 'Inspection photo'}
+                        className="h-32 w-full object-cover"
+                        width={320}
+                        height={128}
+                        sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+                      />
                       <figcaption className="px-3 py-2 text-xs text-slate-600">
                         {formatRelativeTime(event.timestamp)}
                       </figcaption>
