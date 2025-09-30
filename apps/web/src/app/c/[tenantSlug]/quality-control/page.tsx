@@ -191,25 +191,25 @@ export default function QualityControlPage() {
                       <p className="text-xs text-slate-500">{lot.quantityTotal} pieces</p>
                     </div>
                     <Button
-                      variant="outline"
+                      variant="secondary"
                       size="sm"
                       onClick={(e) => {
                         e.preventDefault()
                         openApprovalModal(lot, 'approve')
                       }}
-                      className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100 hover:border-green-300"
+                      className="bg-green-50 text-green-700 hover:bg-green-100"
                     >
                       <CheckCircleIcon className="h-4 w-4 mr-1" />
                       Approve
                     </Button>
                     <Button
-                      variant="outline"
+                      variant="secondary"
                       size="sm"
                       onClick={(e) => {
                         e.preventDefault()
                         openApprovalModal(lot, 'reject')
                       }}
-                      className="bg-red-50 text-red-700 border-red-200 hover:bg-red-100 hover:border-red-300"
+                      className="bg-red-50 text-red-700 hover:bg-red-100"
                     >
                       <AlertTriangleIcon className="h-4 w-4 mr-1" />
                       Reject
