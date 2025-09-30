@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { apiClient } from '@/lib/api'
 import Link from 'next/link'
@@ -17,11 +17,7 @@ export default function LotGalleryPage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [selectedPhoto, setSelectedPhoto] = useState<any>(null)
 
-  useEffect(() => {
-    loadGallery()
-  }, [lotId, statusFilter])
-
-  const loadGallery = async () => {
+  const loadGallery = useCallback(async () => {
     if (!lotId) return
 
     try {
@@ -33,7 +29,11 @@ export default function LotGalleryPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [lotId, statusFilter])
+
+  useEffect(() => {
+    loadGallery()
+  }, [loadGallery])
 
   if (loading) {
     return (

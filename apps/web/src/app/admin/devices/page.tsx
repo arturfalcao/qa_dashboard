@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { apiClient } from '@/lib/api'
 
 interface Device {
@@ -48,11 +48,7 @@ export default function DevicesPage() {
     workbenchNumber: 1,
   })
 
-  useEffect(() => {
-    loadData()
-  }, [selectedTenantFilter])
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true)
       const [devicesRes, tenantsRes, operatorsRes] = await Promise.all([
@@ -68,7 +64,11 @@ export default function DevicesPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedTenantFilter])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   const handleCreateDevice = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -347,7 +347,7 @@ export default function DevicesPage() {
           <div className="bg-white rounded-lg p-6 max-w-lg w-full">
             <h3 className="text-lg font-semibold mb-4 text-green-600">✓ Device Created Successfully</h3>
             <p className="text-sm text-slate-600 mb-4">
-              Save this device secret securely. You won't be able to see it again!
+              Save this device secret securely. You won’t be able to see it again!
             </p>
             <div className="bg-slate-100 p-4 rounded-lg mb-4">
               <code className="text-sm font-mono break-all">{newDeviceSecret}</code>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { apiClient } from '@/lib/api'
 
 interface Operator {
@@ -32,11 +32,7 @@ export default function OperatorsPage() {
     password: '',
   })
 
-  useEffect(() => {
-    loadData()
-  }, [selectedTenantFilter])
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true)
       const [operatorsRes, tenantsRes] = await Promise.all([
@@ -50,7 +46,11 @@ export default function OperatorsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedTenantFilter])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   const handleCreateOperator = async (e: React.FormEvent) => {
     e.preventDefault()
