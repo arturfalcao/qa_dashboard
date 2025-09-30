@@ -4,7 +4,7 @@ import * as React from 'react'
 import { CalendarIcon } from 'lucide-react'
 import { Input, InputProps } from './input'
 
-export interface DateInputProps extends Omit<InputProps, 'type'> {
+export interface DateInputProps extends Omit<InputProps, 'type' | 'value' | 'onChange'> {
   value?: string
   onChange?: (value: string) => void
   min?: string
