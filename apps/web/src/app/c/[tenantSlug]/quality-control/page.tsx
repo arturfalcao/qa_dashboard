@@ -1,18 +1,27 @@
 'use client'
 
-import { useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 import { apiClient } from '@/lib/api'
 import { Lot, LotStatus } from '@qa-dashboard/shared'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { AlertTriangleIcon, CheckCircleIcon, ClockIcon, TrendingUpIcon, ActivityIcon } from 'lucide-react'
 import Link from 'next/link'
+import { DefectTrendChart } from '@/components/quality/defect-trend-chart'
+import { FactoryComparisonChart } from '@/components/quality/factory-comparison-chart'
+import { ApprovalModal } from '@/components/quality/approval-modal'
 
 export default function QualityControlPage() {
   const params = useParams()
   const tenantSlug = params.tenantSlug as string
+  const queryClient = useQueryClient()
+
+  const [selectedLot, setSelectedLot] = useState<Lot | null>(null)
+  const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
   const { data: lots = [], isLoading } = useQuery({
     queryKey: ['lots'],
     queryFn: () => apiClient.getLots(),
@@ -51,6 +60,23 @@ export default function QualityControlPage() {
       pendingApprovalLots: pendingApproval,
     }
   }, [lots])
+
+  const handleApprovalAction = async (lotId: string, action: 'approve' | 'reject', note: string) => {
+    if (action === 'approve') {
+      await apiClient.approveLot(lotId, note)
+    } else {
+      await apiClient.rejectLot(lotId, note)
+    }
+
+    // Refresh lots
+    await queryClient.invalidateQueries({ queryKey: ['lots'] })
+  }
+
+  const openApprovalModal = (lot: Lot, action: 'approve' | 'reject') => {
+    setSelectedLot(lot)
+    setApprovalAction(action)
+    setIsModalOpen(true)
+  }
 
   if (isLoading) {
     return (
@@ -124,6 +150,12 @@ export default function QualityControlPage() {
         </Card>
       </div>
 
+      {/* Quality Charts */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <DefectTrendChart lots={lots} />
+        <FactoryComparisonChart lots={lots} />
+      </div>
+
       {/* Pending Approvals */}
       {qualityMetrics.pendingApprovalLots.length > 0 && (
         <Card>
@@ -136,24 +168,54 @@ export default function QualityControlPage() {
           <CardContent>
             <div className="space-y-4">
               {qualityMetrics.pendingApprovalLots.map((lot: Lot) => (
-                <Link
+                <div
                   key={lot.id}
-                  href={`/c/${tenantSlug}/lots/${lot.id}`}
                   className="flex items-center justify-between rounded-lg border border-slate-200 p-4 transition hover:border-primary-300 hover:bg-slate-50"
                 >
-                  <div>
-                    <p className="font-medium text-slate-900">{lot.styleRef}</p>
-                    <p className="text-sm text-slate-500">
-                      Factory: {lot.factory?.name || 'N/A'} • Defect Rate: {((lot.defectRate ?? 0) * 100).toFixed(2)}%
-                    </p>
+                  <Link
+                    href={`/c/${tenantSlug}/lots/${lot.id}`}
+                    className="flex-1"
+                  >
+                    <div>
+                      <p className="font-medium text-slate-900">{lot.styleRef}</p>
+                      <p className="text-sm text-slate-500">
+                        Factory: {lot.factory?.name || 'N/A'} • Defect Rate: {((lot.defectRate ?? 0) * 100).toFixed(2)}%
+                      </p>
+                    </div>
+                  </Link>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right mr-4">
+                      <p className="text-sm font-medium text-slate-900">
+                        {lot.inspectedProgress}% Inspected
+                      </p>
+                      <p className="text-xs text-slate-500">{lot.quantityTotal} pieces</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        openApprovalModal(lot, 'approve')
+                      }}
+                      className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100 hover:border-green-300"
+                    >
+                      <CheckCircleIcon className="h-4 w-4 mr-1" />
+                      Approve
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        openApprovalModal(lot, 'reject')
+                      }}
+                      className="bg-red-50 text-red-700 border-red-200 hover:bg-red-100 hover:border-red-300"
+                    >
+                      <AlertTriangleIcon className="h-4 w-4 mr-1" />
+                      Reject
+                    </Button>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-slate-900">
-                      {lot.inspectedProgress}% Inspected
-                    </p>
-                    <p className="text-xs text-slate-500">{lot.quantityTotal} pieces</p>
-                  </div>
-                </Link>
+                </div>
               ))}
             </div>
           </CardContent>
@@ -248,6 +310,15 @@ export default function QualityControlPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Approval Modal */}
+      <ApprovalModal
+        lot={selectedLot}
+        action={approvalAction}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onConfirm={handleApprovalAction}
+      />
     </div>
   )
 }
