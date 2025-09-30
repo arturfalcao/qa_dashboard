@@ -69,6 +69,37 @@ export class EdgeController {
     return device;
   }
 
+  @Get("ping")
+  @ApiOperation({ summary: "Health check endpoint for edge devices" })
+  @ApiHeader({ name: "X-Device-Secret", required: false })
+  async ping(@Headers("x-device-secret") secretKey?: string) {
+    if (secretKey) {
+      try {
+        const device = await this.validateDeviceSecret(secretKey);
+        return {
+          status: "ok",
+          authenticated: true,
+          deviceId: device.id,
+          deviceName: device.name,
+          timestamp: new Date().toISOString(),
+        };
+      } catch (error) {
+        return {
+          status: "ok",
+          authenticated: false,
+          error: "Invalid device secret",
+          timestamp: new Date().toISOString(),
+        };
+      }
+    }
+
+    return {
+      status: "ok",
+      authenticated: false,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   @Get("session/current")
   @ApiOperation({ summary: "Get current active session for this device" })
   @ApiHeader({ name: "X-Device-Secret", required: true })
@@ -123,7 +154,7 @@ export class EdgeController {
     FileInterceptor("photo", {
       storage: diskStorage({
         destination: "./uploads/edge-photos",
-        filename: (req, file, cb) => {
+        filename: (_req, file, cb) => {
           const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
           cb(null, `photo-${uniqueSuffix}${extname(file.originalname)}`);
         },
