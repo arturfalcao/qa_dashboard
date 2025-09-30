@@ -180,6 +180,25 @@ export class RefactorToMultiTenant1759000000000 implements MigrationInterface {
     `);
 
     // Drop the old_clients table
+    // First drop any remaining foreign key constraints that might reference it
+    await queryRunner.query(`
+      ALTER TABLE factories DROP CONSTRAINT IF EXISTS FK_39fa445253769a08081a8b9485c;
+    `);
+    await queryRunner.query(`
+      ALTER TABLE lots DROP CONSTRAINT IF EXISTS FK_52222ad1e6660451b31ea7e5780;
+    `);
+    await queryRunner.query(`
+      ALTER TABLE users DROP CONSTRAINT IF EXISTS FK_0d1e90d75674c54f8660c4ed446;
+    `);
+    await queryRunner.query(`
+      ALTER TABLE events DROP CONSTRAINT IF EXISTS FK_b4ea5a78d656e3c29835bf644e6;
+    `);
+    await queryRunner.query(`
+      ALTER TABLE reports DROP CONSTRAINT IF EXISTS FK_bda44e16992191ff11ad8da01e2;
+    `);
+    await queryRunner.query(`
+      ALTER TABLE dpps DROP CONSTRAINT IF EXISTS FK_8b619ab36496e04c1d67bfbc643;
+    `);
     await queryRunner.query(`
       DROP TABLE old_clients;
     `);
