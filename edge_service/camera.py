@@ -62,27 +62,40 @@ class CameraController:
         if not self._camera or not self._started:
             raise CameraUnavailable("Camera not initialized")
         path.parent.mkdir(parents=True, exist_ok=True)
-        self._camera.capture_file(str(path), format='jpeg')
-        if overlay_text and Image:
-            self._add_overlay(path, overlay_text)
-        return path
 
-    def _add_overlay(self, path: Path, text: str) -> None:
-        try:
-            with Image.open(path) as img:
-                draw = ImageDraw.Draw(img)
-                width, height = img.size
-                font = None
-                if ImageFont:
-                    try:
-                        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 42)
-                    except OSError:
-                        font = ImageFont.load_default()
-                draw.rectangle([(0, height - 70), (width, height)], fill=(0, 0, 0, 160))
-                draw.text((10, height - 65), text, fill="white", font=font)
-                img.save(path, format="JPEG", quality=self._quality)
-        except Exception as exc:  # pragma: no cover - best effort overlay
-            log.warning("Failed to apply overlay: %s", exc)
+        # Capture to temporary path first
+        temp_path = path.with_suffix('.tmp.jpg')
+        self._camera.capture_file(str(temp_path), format='jpeg')
+
+        # Recompress with quality setting and add overlay
+        if Image:
+            try:
+                with Image.open(temp_path) as img:
+                    # Add overlay if requested
+                    if overlay_text:
+                        draw = ImageDraw.Draw(img)
+                        width, height = img.size
+                        font = None
+                        if ImageFont:
+                            try:
+                                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 42)
+                            except OSError:
+                                font = ImageFont.load_default()
+                        draw.rectangle([(0, height - 70), (width, height)], fill=(0, 0, 0, 160))
+                        draw.text((10, height - 65), overlay_text, fill="white", font=font)
+
+                    # Save with quality setting
+                    img.save(path, format="JPEG", quality=self._quality, optimize=True)
+                temp_path.unlink()  # Remove temp file
+            except Exception as exc:
+                log.warning("Failed to process image: %s", exc)
+                # Fallback: just rename temp file
+                temp_path.rename(path)
+        else:
+            # No PIL available, just rename
+            temp_path.rename(path)
+
+        return path
 
     @staticmethod
     def timestamp_overlay() -> str:
