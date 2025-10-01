@@ -1,0 +1,29 @@
+{
+  "timestamp": "2025-10-01T07:33:09.629122",
+  "reference_image": "/home/celso/projects/qa_dashboard/test_images_mesurements/semburaco.jpg",
+  "defective_image": "/home/celso/projects/qa_dashboard/test_images_mesurements/buraco.jpg",
+  "holes_detected": 1,
+  "holes": [
+    {
+      "bbox": [
+        0,
+        0,
+        4056,
+        3040
+      ],
+      "center": [
+        2027,
+        1519
+      ],
+      "area": 12323145.0,
+      "perimeter": 14188.0,
+      "circularity": 0.7692881860781781,
+      "confidence": 1.0
+    }
+  ],
+  "image_size": [
+    3040,
+    4056
+  ],
+  "total_defect_area": 12323145.0
+}

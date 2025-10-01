@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from typing import Dict, Tuple, List
-from garment_classifier import GarmentType
+from garment_classifier_clip import GarmentType
 from PIL import Image
 
 
@@ -130,6 +130,9 @@ class CleanMeasurementVisualizer:
                                  x: int, y: int, w: int, h: int,
                                  pixels_per_cm: float) -> np.ndarray:
         """Annotate trouser measurements on clean garment using PROPER industry standards"""
+
+        # Extract points from contour
+        points = contour.reshape(-1, 2)
 
         # OUTSEAM (Length) - Vertical line on left side
         if 'outseam_points' in measurements:

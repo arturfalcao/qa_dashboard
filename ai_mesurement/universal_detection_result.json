@@ -1,0 +1,12 @@
+{
+  "timestamp": "2025-10-01T07:45:29.770752",
+  "golden_image": "/home/celso/projects/qa_dashboard/test_images_mesurements/semburaco.jpg",
+  "test_image": "/home/celso/projects/qa_dashboard/test_images_mesurements/buraco.jpg",
+  "defects_found": 0,
+  "defects": [],
+  "sensitivity": 0.5,
+  "processing_size": [
+    1499,
+    2000
+  ]
+}

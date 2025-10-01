@@ -7,7 +7,8 @@ Implements industry-standard measurement methods following ISO standards and POM
 import cv2
 import numpy as np
 from typing import Dict, Tuple, Optional, List
-from garment_classifier_improved import GarmentType
+# Use CLIP classifier's GarmentType for consistency
+from garment_classifier_clip import GarmentType
 
 
 class ProperGarmentMeasurer:
@@ -124,41 +125,64 @@ class ProperGarmentMeasurer:
                 'bottom': (center_x, bottom_y)
             }
 
-        # 2. CHEST WIDTH - 1 inch below armhole (approximately 20-25% from top)
-        chest_y = y + int(h * 0.25)  # Approximate armhole position
+        # 2. CHEST WIDTH - Find the widest point in upper half of the garment
+        # This is typically around 20-40% from top for a laid-flat shirt
+        chest_start = y + int(h * 0.20)
+        chest_end = y + int(h * 0.45)
+        max_chest_width = 0
+        chest_measure_y = chest_start
 
-        # Move 1 inch (2.54 cm) below
-        one_inch_px = int(2.54 * self.pixels_per_cm)
-        chest_measure_y = chest_y + one_inch_px
-
-        if chest_measure_y < y + h:
-            chest_width = self._measure_width_at_height(mask, chest_measure_y, x, w)
-            if chest_width:
-                measurements['chest_width_cm'] = chest_width / self.pixels_per_cm
-                measurements['chest_circumference_cm'] = (chest_width / self.pixels_per_cm) * 2
-                measurements['chest_y'] = chest_measure_y
-
-        # 3. WAIST WIDTH - At narrowest point (scan middle third)
-        waist_start = y + int(h * 0.35)
-        waist_end = y + int(h * 0.65)
-        min_width = float('inf')
-        waist_y = waist_start
-
-        for scan_y in range(waist_start, waist_end, 5):
+        # Scan for the widest point in the chest region
+        for scan_y in range(chest_start, chest_end, 5):
             width = self._measure_width_at_height(mask, scan_y, x, w)
-            if width and width < min_width:
-                min_width = width
-                waist_y = scan_y
+            if width and width > max_chest_width:
+                max_chest_width = width
+                chest_measure_y = scan_y
 
-        if min_width < float('inf'):
-            measurements['waist_width_cm'] = min_width / self.pixels_per_cm
+        if max_chest_width > 0:
+            measurements['chest_width_cm'] = max_chest_width / self.pixels_per_cm
+            measurements['chest_circumference_cm'] = (max_chest_width / self.pixels_per_cm) * 2
+            measurements['chest_y'] = chest_measure_y
+
+        # 3. WAIST WIDTH - Look for the narrowest point or a moderate width in the middle
+        waist_start = y + int(h * 0.40)
+        waist_end = y + int(h * 0.60)
+
+        # Collect all widths in the waist region
+        waist_widths = []
+        for scan_y in range(waist_start, waist_end, 3):
+            width = self._measure_width_at_height(mask, scan_y, x, w)
+            if width and width > 0:
+                waist_widths.append((width, scan_y))
+
+        if waist_widths:
+            # Sort by width to find narrowest
+            waist_widths.sort(key=lambda x: x[0])
+
+            # For shirts, the waist isn't always the narrowest point
+            # Take a point that's narrow but not the absolute minimum (which might be noise)
+            # Use the 25th percentile for more stable measurement
+            percentile_idx = max(0, min(len(waist_widths) // 4, len(waist_widths) - 1))
+            waist_width, waist_y = waist_widths[percentile_idx]
+
+            measurements['waist_width_cm'] = waist_width / self.pixels_per_cm
             measurements['waist_y'] = waist_y
 
-        # 4. BOTTOM SWEEP (HEM) - Bottom edge width
-        hem_y = y + int(h * 0.95)
-        hem_width = self._measure_width_at_height(mask, hem_y, x, w)
-        if hem_width:
-            measurements['hem_width_cm'] = hem_width / self.pixels_per_cm
+        # 4. BOTTOM SWEEP (HEM) - Find the widest point at the bottom
+        hem_start = y + int(h * 0.93)
+        hem_end = y + h
+        max_hem_width = 0
+        hem_y = hem_start
+
+        # Scan for widest point in hem region (the hem often flares out)
+        for scan_y in range(hem_start, min(hem_end, mask.shape[0]), 2):
+            width = self._measure_width_at_height(mask, scan_y, x, w)
+            if width and width > max_hem_width:
+                max_hem_width = width
+                hem_y = scan_y
+
+        if max_hem_width > 0:
+            measurements['hem_width_cm'] = max_hem_width / self.pixels_per_cm
             measurements['hem_y'] = hem_y
 
         # 5. SHOULDER WIDTH - If detectable

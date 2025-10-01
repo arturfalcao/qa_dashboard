@@ -17,7 +17,8 @@ warnings.filterwarnings('ignore')
 # Import modules
 from ruler_detection_smart import SmartRulerDetector
 from garment_segmentation_fast import FastGarmentSegmenter
-from garment_classifier_improved import ImprovedGarmentClassifier as GarmentClassifier, GarmentType, MeasurementStrategy
+# Use CLIP-based classifier for better accuracy
+from garment_classifier_clip import CLIPGarmentClassifier as GarmentClassifier, GarmentType, MeasurementStrategy
 from measurement_visualizer_clean import CleanMeasurementVisualizer
 from garment_measurement_proper import ProperGarmentMeasurer
 
@@ -40,15 +41,20 @@ class IntelligentGarmentMeasurement:
     Intelligent measurement system that adapts to garment type
     """
 
-    def __init__(self, ruler_length_cm: float = 31.0, debug: bool = False):
+    def __init__(self, ruler_length_cm: float = 31.0, manual_scale: Optional[float] = None,
+                 correction_factor: Optional[float] = None, debug: bool = False):
         """
         Initialize intelligent measurement system
 
         Args:
             ruler_length_cm: Known ruler length
+            manual_scale: Manual pixels/cm (overrides auto-detection)
+            correction_factor: Manual correction factor for auto-detected scale
             debug: Enable debug output
         """
         self.ruler_length_cm = ruler_length_cm
+        self.manual_scale = manual_scale
+        self.manual_correction = correction_factor
         self.debug = debug
 
         # Initialize components
@@ -97,16 +103,46 @@ class IntelligentGarmentMeasurement:
         print(f"✅ Camera type: {camera_type}")
         print(f"✅ Distortion corrected: {correction_info['edge_correction']:.1%} at edges\n")
 
-        # Step 2: Detect ruler for calibration
+        # Step 2: Ruler calibration
         print("📏 STEP 2: RULER CALIBRATION")
         print("-" * 40)
-        ruler_info = self.ruler_detector.detect_ruler(image)
-        pixels_per_cm = ruler_info['pixels_per_cm']
-        ruler_bbox = ruler_info['bbox']
-        ruler_confidence = ruler_info.get('confidence', 0.5)
 
-        print(f"✅ Scale: {pixels_per_cm:.2f} pixels/cm")
-        print(f"   Confidence: {ruler_confidence:.1%}\n")
+        if self.manual_scale:
+            # Use manual scale if provided
+            pixels_per_cm = self.manual_scale
+            ruler_bbox = None
+            ruler_confidence = 1.0
+            print(f"✅ Using manual scale: {pixels_per_cm:.2f} pixels/cm\n")
+        else:
+            # Auto-detect ruler
+            ruler_info = self.ruler_detector.detect_ruler(image)
+            detected_scale = ruler_info['pixels_per_cm']
+            ruler_bbox = ruler_info['bbox']
+            ruler_confidence = ruler_info.get('confidence', 0.5)
+
+            # Apply correction factor
+            if self.manual_correction:
+                correction_factor = self.manual_correction
+            else:
+                # Auto-calibration based on confidence and detected scale
+                # For wooden rulers, the detection often finds wrong edges
+                # Typical wooden ruler should be around 30-40 pixels/cm
+                if detected_scale > 40:
+                    # Likely detecting something wrong
+                    correction_factor = 0.8  # Adjust down
+                elif detected_scale < 25:
+                    # Scale too low
+                    correction_factor = 1.2  # Adjust up
+                else:
+                    # Reasonable range
+                    correction_factor = 1.0
+
+            pixels_per_cm = detected_scale * correction_factor
+
+            print(f"✅ Detected scale: {detected_scale:.2f} pixels/cm")
+            print(f"✅ Corrected scale: {pixels_per_cm:.2f} pixels/cm")
+            print(f"   Correction factor: {correction_factor:.2f}")
+            print(f"   Confidence: {ruler_confidence:.1%}\n")
 
         # Step 3: Segment garment
         print("✂️ STEP 3: GARMENT SEGMENTATION")
@@ -133,7 +169,7 @@ class IntelligentGarmentMeasurement:
             mask, image, pixels_per_cm, garment_type, features
         )
 
-        # Step 5: Estimate size
+        # Step 6: Estimate size
         size_estimate = self._estimate_size(garment_type, measurements)
 
         # Calculate overall confidence
@@ -255,26 +291,31 @@ class IntelligentGarmentMeasurement:
         # Total length
         measurements['length_cm'] = h / pixels_per_cm
 
-        # Chest width (upper third)
-        chest_region = mask[y+int(h*0.25):y+int(h*0.35), x:x+w]
+        # Chest width - find widest point in upper half
+        chest_region = mask[y+int(h*0.20):y+int(h*0.45), x:x+w]
         chest_widths = [np.sum(row > 0) for row in chest_region]
         if chest_widths:
             chest_width_px = np.max(chest_widths)
             measurements['chest_width_cm'] = chest_width_px / pixels_per_cm
             measurements['chest_circumference_cm'] = measurements['chest_width_cm'] * 2
 
-        # Waist width (middle)
-        waist_region = mask[y+int(h*0.45):y+int(h*0.55), x:x+w]
+        # Waist width - find narrowest point in middle third
+        waist_region = mask[y+int(h*0.40):y+int(h*0.60), x:x+w]
         waist_widths = [np.sum(row > 0) for row in waist_region]
         if waist_widths:
-            waist_width_px = np.median(waist_widths)
-            measurements['waist_width_cm'] = waist_width_px / pixels_per_cm
+            # Find the narrowest width that's not zero
+            valid_widths = [w for w in waist_widths if w > 0]
+            if valid_widths:
+                waist_width_px = np.min(valid_widths)
+                measurements['waist_width_cm'] = waist_width_px / pixels_per_cm
 
-        # Hem width (bottom)
-        hem_region = mask[y+int(h*0.90):y+h, x:x+w]
+        # Hem width - measure at actual bottom
+        hem_region = mask[y+int(h*0.95):y+h, x:x+w]
         hem_widths = [np.sum(row > 0) for row in hem_region]
-        if hem_widths:
-            hem_width_px = np.median(hem_widths)
+        # Filter out zero widths
+        valid_hem_widths = [w for w in hem_widths if w > 0]
+        if valid_hem_widths:
+            hem_width_px = np.max(valid_hem_widths)  # Use max for hem width
             measurements['hem_width_cm'] = hem_width_px / pixels_per_cm
 
         # Shoulder width (if detectable at top)
@@ -601,6 +642,10 @@ Examples:
                        help='Path to garment image')
     parser.add_argument('-r', '--ruler', type=float, default=31.0,
                        help='Ruler length in cm (default: 31.0)')
+    parser.add_argument('-s', '--scale', type=float, default=None,
+                       help='Manual scale in pixels/cm (overrides auto-detection)')
+    parser.add_argument('-c', '--correction', type=float, default=None,
+                       help='Correction factor for auto-detected scale (default: auto)')
     parser.add_argument('-d', '--debug', action='store_true',
                        help='Enable debug mode with visualization')
 
@@ -610,6 +655,8 @@ Examples:
         # Initialize system
         system = IntelligentGarmentMeasurement(
             ruler_length_cm=args.ruler,
+            manual_scale=args.scale,
+            correction_factor=args.correction,
             debug=args.debug
         )
 

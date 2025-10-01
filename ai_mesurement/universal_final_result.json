@@ -1,0 +1,308 @@
+{
+  "timestamp": "2025-10-01T07:50:43.309276",
+  "golden_image": "/home/celso/projects/qa_dashboard/test_images_mesurements/semburaco.jpg",
+  "test_image": "/home/celso/projects/qa_dashboard/test_images_mesurements/buraco.jpg",
+  "total_defects": 7454,
+  "defects": [
+    {
+      "method": "pixel_diff",
+      "bbox": [
+        3983,
+        2919,
+        73,
+        121
+      ],
+      "center": [
+        4019,
+        2979
+      ],
+      "area": 2524.5,
+      "confidence": 1.0
+    },
+    {
+      "method": "pixel_diff",
+      "bbox": [
+        0,
+        2433,
+        931,
+        607
+      ],
+      "center": [
+        465,
+        2736
+      ],
+      "area": 295278.5,
+      "confidence": 1.0
+    },
+    {
+      "method": "pixel_diff",
+      "bbox": [
+        2692,
+        620,
+        164,
+        154
+      ],
+      "center": [
+        2774,
+        697
+      ],
+      "area": 13865.0,
+      "confidence": 1.0
+    },
+    {
+      "method": "pixel_diff",
+      "bbox": [
+        2605,
+        460,
+        223,
+        138
+      ],
+      "center": [
+        2716,
+        529
+      ],
+      "area": 12465.0,
+      "confidence": 1.0
+    },
+    {
+      "method": "pixel_diff",
+      "bbox": [
+        1738,
+        460,
+        188,
+        221
+      ],
+      "center": [
+        1832,
+        570
+      ],
+      "area": 14674.5,
+      "confidence": 1.0
+    },
+    {
+      "method": "pixel_diff",
+      "bbox": [
+        1772,
+        247,
+        241,
+        286
+      ],
+      "center": [
+        1892,
+        390
+      ],
+      "area": 33481.5,
+      "confidence": 1.0
+    },
+    {
+      "method": "pixel_diff",
+      "bbox": [
+        120,
+        0,
+        3172,
+        3040
+      ],
+      "center": [
+        1706,
+        1520
+      ],
+      "area": 3251846.0,
+      "confidence": 1.0
+    },
+    {
+      "method": "pixel_diff",
+      "bbox": [
+        800,
+        0,
+        232,
+        87
+      ],
+      "center": [
+        916,
+        43
+      ],
+      "area": 10030.5,
+      "confidence": 1.0
+    },
+    {
+      "method": "pixel_diff",
+      "bbox": [
+        0,
+        0,
+        390,
+        247
+      ],
+      "center": [
+        195,
+        123
+      ],
+      "area": 71622.5,
+      "confidence": 1.0
+    },
+    {
+      "method": "texture",
+      "bbox": [
+        0,
+        0,
+        50,
+        50
+      ],
+      "center": [
+        25,
+        25
+      ],
+      "area": 2500.0,
+      "confidence": 1.0
+    },
+    {
+      "method": "texture",
+      "bbox": [
+        50,
+        0,
+        50,
+        50
+      ],
+      "center": [
+        75,
+        25
+      ],
+      "area": 2500.0,
+      "confidence": 1.0
+    },
+    {
+      "method": "texture",
+      "bbox": [
+        100,
+        0,
+        50,
+        50
+      ],
+      "center": [
+        125,
+        25
+      ],
+      "area": 2500.0,
+      "confidence": 1.0
+    },
+    {
+      "method": "texture",
+      "bbox": [
+        150,
+        0,
+        50,
+        50
+      ],
+      "center": [
+        175,
+        25
+      ],
+      "area": 2500.0,
+      "confidence": 1.0
+    },
+    {
+      "method": "texture",
+      "bbox": [
+        200,
+        0,
+        50,
+        50
+      ],
+      "center": [
+        225,
+        25
+      ],
+      "area": 2500.0,
+      "confidence": 1.0
+    },
+    {
+      "method": "texture",
+      "bbox": [
+        250,
+        0,
+        50,
+        50
+      ],
+      "center": [
+        275,
+        25
+      ],
+      "area": 2500.0,
+      "confidence": 1.0
+    },
+    {
+      "method": "texture",
+      "bbox": [
+        300,
+        0,
+        50,
+        50
+      ],
+      "center": [
+        325,
+        25
+      ],
+      "area": 2500.0,
+      "confidence": 1.0
+    },
+    {
+      "method": "texture",
+      "bbox": [
+        450,
+        0,
+        50,
+        50
+      ],
+      "center": [
+        475,
+        25
+      ],
+      "area": 2500.0,
+      "confidence": 1.0
+    },
+    {
+      "method": "texture",
+      "bbox": [
+        500,
+        0,
+        50,
+        50
+      ],
+      "center": [
+        525,
+        25
+      ],
+      "area": 2500.0,
+      "confidence": 1.0
+    },
+    {
+      "method": "texture",
+      "bbox": [
+        550,
+        0,
+        50,
+        50
+      ],
+      "center": [
+        575,
+        25
+      ],
+      "area": 2500.0,
+      "confidence": 1.0
+    },
+    {
+      "method": "texture",
+      "bbox": [
+        600,
+        0,
+        50,
+        50
+      ],
+      "center": [
+        625,
+        25
+      ],
+      "area": 2500.0,
+      "confidence": 1.0
+    }
+  ]
+}
