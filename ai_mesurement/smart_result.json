@@ -1,0 +1,25 @@
+{
+  "timestamp": "2025-10-01T07:59:12.964461",
+  "golden_image": "/home/celso/projects/qa_dashboard/test_images_mesurements/semburaco.jpg",
+  "test_image": "/home/celso/projects/qa_dashboard/test_images_mesurements/buraco.jpg",
+  "defects_found": 1,
+  "defects": [
+    {
+      "type": "hole",
+      "bbox": [
+        1093,
+        1849,
+        11,
+        18
+      ],
+      "center": [
+        1097,
+        1858
+      ],
+      "area": 149.5,
+      "brightness_diff": 16.01010101010101,
+      "circularity": 0.754499162318253,
+      "confidence": 0.3202020202020202
+    }
+  ]
+}

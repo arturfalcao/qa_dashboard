@@ -1,0 +1,28 @@
+{
+  "garment_type": "trousers",
+  "measurements": {
+    "outseam_cm": 45.062982449707896,
+    "outseam_points": {
+      "top": [
+        1865,
+        479
+      ],
+      "bottom": [
+        2570,
+        2751
+      ]
+    },
+    "waist_width_cm": 21.678626680251202,
+    "waist_circumference_cm": 43.357253360502405,
+    "hip_width_cm": 30.584119250638015,
+    "knee_width_cm": 29.92959529780335,
+    "leg_opening_cm": 19.75472294010082
+  },
+  "size_estimate": "24-26 (XS)",
+  "confidence": 0.8975936019818704,
+  "ruler_confidence": 0.781484004954676,
+  "classification_confidence": 0.95,
+  "timestamp": "2025-10-01T04:53:32.383919",
+  "image_path": "../test_images_mesurements/ant.jpg",
+  "system": "IntelligentGarmentMeasurement v1.0"
+}

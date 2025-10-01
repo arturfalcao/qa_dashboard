@@ -1,0 +1,47 @@
+{
+  "garment_type": "trousers",
+  "measurements": {
+    "outseam_cm": 63.34179899460369,
+    "outseam_points": {
+      "top": [
+        1736,
+        0
+      ],
+      "bottom": [
+        2586,
+        2870
+      ]
+    },
+    "waist_width_cm": 27.433399355502573,
+    "waist_circumference_cm": 54.866798711005146,
+    "hip_width_cm": 38.46855597477151,
+    "rise_cm": 30.743946341283255,
+    "inseam_cm": 32.619922966558974,
+    "crotch_point": [
+      1988,
+      1393
+    ],
+    "thigh_width_cm": 41.955665466460495,
+    "knee_width_cm": 42.90468893571762,
+    "leg_opening_cm": 10.06406283677327
+  },
+  "size_estimate": "24-26 (XS)",
+  "confidence": 0.8664495050814489,
+  "ruler_confidence": 0.7023008614546902,
+  "classification_confidence": 0.9517638683319092,
+  "timestamp": "2025-10-01T06:33:02.807023",
+  "image_path": "../test_images_mesurements/ant.jpg",
+  "holes_detected": 0,
+  "hole_report": {
+    "total_defects": 0,
+    "total_damage_area_cm2": 0,
+    "defects_by_type": {},
+    "defects_by_severity": {},
+    "critical_defects": [],
+    "defect_details": [],
+    "quality_score": 100.0,
+    "recommendation": "Excellent condition - no repair needed"
+  },
+  "quality_score": 100.0,
+  "system": "IntelligentGarmentMeasurement v1.0"
+}

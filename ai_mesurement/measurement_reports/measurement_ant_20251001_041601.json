@@ -1,0 +1,33 @@
+{
+  "height_cm": 52.32,
+  "width_cm": 42.49,
+  "chest_estimate_cm": 85.0,
+  "area_cm2": 1361.0,
+  "size": "XS",
+  "size_category": "Extra Small",
+  "confidence": 0.89,
+  "timestamp": "2025-10-01T04:16:00.332471",
+  "calibration_used": 0.969,
+  "ruler_confidence": 0.779,
+  "measurement_points": {
+    "top": [
+      1719,
+      82
+    ],
+    "bottom": [
+      2857,
+      2796
+    ],
+    "left": [
+      1102,
+      2302
+    ],
+    "right": [
+      3238,
+      2749
+    ]
+  },
+  "warnings": [],
+  "image_path": "../test_images_mesurements/ant.jpg",
+  "system_version": "1.0.0"
+}

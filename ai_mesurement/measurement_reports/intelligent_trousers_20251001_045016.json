@@ -1,0 +1,15 @@
+{
+  "garment_type": "trousers",
+  "measurements": {
+    "height_cm": 45.082816508884704,
+    "width_cm": 41.51268585705925,
+    "area_cm2": 1314.0214117089372
+  },
+  "size_estimate": "Unable to estimate",
+  "confidence": 0.8975936019818704,
+  "ruler_confidence": 0.781484004954676,
+  "classification_confidence": 0.95,
+  "timestamp": "2025-10-01T04:50:16.216689",
+  "image_path": "../test_images_mesurements/ant.jpg",
+  "system": "IntelligentGarmentMeasurement v1.0"
+}
