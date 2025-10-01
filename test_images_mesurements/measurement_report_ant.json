@@ -1,0 +1,37 @@
+{
+  "height_cm": 47.05329884211664,
+  "width_cm": 41.596557102310136,
+  "chest_circumference_estimate_cm": 83.19311420462027,
+  "area_cm2": 1310.684875243003,
+  "diagonal_cm": 47.05329884211664,
+  "aspect_ratio": 0.8840306232700892,
+  "pixels_per_cm": 50.418322900301675,
+  "confidence_score": 0.9125936019818703,
+  "estimated_size": "XS",
+  "size_category": "Youth/Adult Small",
+  "measurement_points": {
+    "top": [
+      "1864",
+      "479"
+    ],
+    "bottom": [
+      "2550",
+      "2750"
+    ],
+    "left": [
+      "1066",
+      "1082"
+    ],
+    "right": [
+      "3158",
+      "1230"
+    ]
+  },
+  "quality_metrics": {
+    "ruler_confidence": 0.781484004954676,
+    "measurement_validity": true,
+    "overall_confidence": 0.9125936019818703,
+    "warnings": []
+  },
+  "image_path": "../test_images_mesurements/ant.jpg"
+}

@@ -15,7 +15,7 @@ import { useToast } from '@/components/ui/toast'
 import { PageHeader } from '@/components/ui/page-header'
 import { TextArea } from '@/components/ui/input'
 import { useParams, useRouter } from 'next/navigation'
-import { ActivityIcon, AlertTriangleIcon } from 'lucide-react'
+import { ActivityIcon, AlertTriangleIcon, ZoomInIcon, XIcon } from 'lucide-react'
 
 export default function LiveFeedPage() {
   const [lastUpdateTime, setLastUpdateTime] = useState<string>()
@@ -42,7 +42,7 @@ export default function LiveFeedPage() {
   })
 
   // Poll for live feed data (edge inspections) every 10 seconds
-  const { data: liveFeed } = useQuery({
+  const { data: liveFeed, refetch: refetchLiveFeed } = useQuery({
     queryKey: ['live-feed'],
     queryFn: () => apiClient.getLiveFeed(),
     refetchInterval: 10000,
@@ -330,8 +330,9 @@ export default function LiveFeedPage() {
         <DefectReviewModal
           defect={selectedDefect}
           onClose={() => setSelectedDefect(null)}
-          onSuccess={(status) => {
-            queryClient.invalidateQueries({ queryKey: ['live-feed'] })
+          onSuccess={async (status) => {
+            // Immediately refetch live feed to update the defects list
+            await refetchLiveFeed()
             queryClient.invalidateQueries({ queryKey: ['events'] })
             queryClient.invalidateQueries({ queryKey: ['inspections'] })
             publish({
@@ -369,6 +370,7 @@ function DefectReviewModal({
   const [status, setStatus] = useState<'confirmed' | 'rejected'>('confirmed')
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [selectedPhoto, setSelectedPhoto] = useState<any>(null)
 
   const photos = defect.photos ?? []
 
@@ -415,6 +417,7 @@ function DefectReviewModal({
 
         <div>
           <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Defect Photos</h3>
+          <p className="mt-1 text-xs text-neutral-500">Click on any photo to zoom and inspect the defect</p>
           {photos.length === 0 ? (
             <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-center">
               <p className="text-sm text-amber-800">No photos available for this defect</p>
@@ -423,26 +426,31 @@ function DefectReviewModal({
           ) : (
             <div className="mt-3 grid gap-3 sm:grid-cols-2 md:grid-cols-3">
               {photos.map((photo: any) => (
-                <figure
+                <button
                   key={photo.id}
-                  className="overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800"
+                  type="button"
+                  onClick={() => setSelectedPhoto(photo)}
+                  className="group relative overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100 transition hover:border-primary-300 hover:shadow-md dark:border-neutral-700 dark:bg-neutral-800"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={photo.url || '/placeholder-image.jpg'}
                     alt="Defect photo"
-                    className="h-40 w-full object-cover"
+                    className="h-40 w-full object-cover transition group-hover:scale-105"
                     onError={(e) => {
                       e.currentTarget.src =
                         'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23e2e8f0" width="200" height="200"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%2394a3b8" font-size="48"%3E📷%3C/text%3E%3C/svg%3E'
                     }}
                   />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition group-hover:bg-black/20">
+                    <ZoomInIcon className="h-6 w-6 text-white opacity-0 transition group-hover:opacity-100" />
+                  </div>
                   {photo.annotation?.comment && (
-                    <figcaption className="px-3 py-2 text-xs text-neutral-600 dark:text-neutral-300">
+                    <div className="px-3 py-2 text-xs text-neutral-600 dark:text-neutral-300">
                       {photo.annotation.comment}
-                    </figcaption>
+                    </div>
                   )}
-                </figure>
+                </button>
               ))}
             </div>
           )}
@@ -496,6 +504,42 @@ function DefectReviewModal({
           Submit review
         </Button>
       </ModalFooter>
+
+      {/* Photo Lightbox */}
+      {selectedPhoto && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4"
+          onClick={() => setSelectedPhoto(null)}
+        >
+          <button
+            onClick={() => setSelectedPhoto(null)}
+            className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white transition hover:bg-white/20"
+          >
+            <XIcon className="h-6 w-6" />
+          </button>
+          <div
+            className="relative max-h-[90vh] max-w-[90vw] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={selectedPhoto.url || '/placeholder-image.jpg'}
+              alt="Defect photo - full size"
+              className="h-auto w-full"
+              style={{ maxWidth: '100%', maxHeight: '90vh', objectFit: 'contain' }}
+              onError={(e) => {
+                e.currentTarget.src =
+                  'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="800" height="600"%3E%3Crect fill="%23e2e8f0" width="800" height="600"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%2394a3b8" font-size="48"%3E📷%3C/text%3E%3C/svg%3E'
+              }}
+            />
+            {selectedPhoto.annotation?.comment && (
+              <div className="mt-2 rounded-lg bg-white/10 px-4 py-2 text-sm text-white backdrop-blur">
+                {selectedPhoto.annotation.comment}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </Modal>
   )
 }
