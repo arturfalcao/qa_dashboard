@@ -196,20 +196,41 @@ class EdgeDeviceApp:
             log.exception("Failed to capture photo: %s", exc)
 
     def flag_defect(self) -> None:
-        self._handle_defect(status="defect")
+        self._capture_defect_photo(status="defect")
 
     def flag_potential_defect(self) -> None:
-        self._handle_defect(status="potential_defect")
+        self._capture_defect_photo(status="potential_defect")
 
-    def _handle_defect(self, status: str) -> None:
+    def _capture_defect_photo(self, status: str) -> None:
+        """Capture photo and mark as defect or potential defect."""
         session = self._session_snapshot()
         if not session.session_id:
-            log.warning("Cannot flag defect without active session")
+            log.warning("Cannot capture defect photo without active session")
             return
-        with self._lock:
-            self._pending_defects.append({"status": status, "transcript": ""})
-            self._current_piece_status = status
-        log.info("Defect %s recorded locally", status)
+        if session.status != "active":
+            log.warning("Cannot capture defect photo; session status is %s", session.status)
+            return
+
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        photo_path = self._storage.build_photo_path(session.session_id, timestamp)
+        overlay = self._camera.timestamp_overlay()
+
+        try:
+            self._leds.set_processing()
+            self._camera.capture(photo_path, overlay)
+            with self._lock:
+                self._pending_photos.append(str(photo_path))
+                self._pending_defects.append({"status": status, "transcript": ""})
+                self._current_piece_status = status
+            self._storage.cleanup_old_files()
+            status_check = self._check_storage_levels()
+            if status_check.usage_ratio > 0.8:
+                log.warning("Storage above 80%% (%.2f%%)", status_check.usage_ratio * 100)
+            self._leds.set_success()
+            log.info("%s photo captured and stored locally: %s", status.replace("_", " ").title(), photo_path)
+        except Exception as exc:
+            self._leds.set_error()
+            log.exception("Failed to capture %s photo: %s", status, exc)
 
     def complete_piece(self) -> None:
         session = self._session_snapshot()
