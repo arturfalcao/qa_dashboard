@@ -2,5 +2,9 @@
   "device_secret": "EDGE-PACO-001-5bd59a83deb47df8",
   "api_base_url": "https://api.packpolish.com",
   "camera_resolution": [4056, 3040],
-  "photo_quality": 85
+  "photo_quality": 85,
+  "camera_shutter_speed": 10000,
+  "camera_gain": 1.0,
+  "camera_awb_gains": [2.0, 1.5],
+  "camera_denoise": false
 }

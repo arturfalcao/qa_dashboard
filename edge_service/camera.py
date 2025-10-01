@@ -27,13 +27,27 @@ class CameraUnavailable(RuntimeError):
 
 
 class CameraController:
-    def __init__(self, resolution: Tuple[int, int], fps: int, exposure: str = "auto", quality: int = 90) -> None:
+    def __init__(
+        self,
+        resolution: Tuple[int, int],
+        fps: int,
+        exposure: str = "auto",
+        quality: int = 90,
+        shutter_speed: int = 10000,
+        gain: float = 1.0,
+        awb_gains: Tuple[float, float] = (1.0, 1.0),
+        denoise: bool = False,
+    ) -> None:
         self._resolution = resolution
         self._fps = fps
         self._exposure = exposure
         self._camera: Optional[Picamera2] = None
         self._started = False
         self._quality = quality
+        self._shutter_speed = shutter_speed
+        self._gain = gain
+        self._awb_gains = awb_gains
+        self._denoise = denoise
 
     def start(self) -> None:
         if Picamera2 is None:
@@ -43,12 +57,27 @@ class CameraController:
         picam = Picamera2()
         config = picam.create_still_configuration(main={"size": self._resolution})
         picam.configure(config)
-        if self._exposure != "auto":
-            picam.set_controls({"AeEnable": False})
+
+        # Apply camera controls
+        controls = {
+            "ExposureTime": self._shutter_speed,  # Shutter speed in microseconds
+            "AnalogueGain": self._gain,
+            "AeEnable": False,  # Disable auto exposure
+            "AwbEnable": False,  # Disable auto white balance
+            "ColourGains": self._awb_gains,
+        }
+
+        if self._denoise:
+            controls["NoiseReductionMode"] = 1  # Fast denoise
+        else:
+            controls["NoiseReductionMode"] = 0  # Off
+
+        picam.set_controls(controls)
         picam.start()
         self._camera = picam
         self._started = True
-        log.info("Camera started with resolution=%s fps=%s", self._resolution, self._fps)
+        log.info("Camera started: resolution=%s, shutter=%dus, gain=%.1f, awb=%s, denoise=%s",
+                 self._resolution, self._shutter_speed, self._gain, self._awb_gains, self._denoise)
 
     def stop(self) -> None:
         if self._camera:

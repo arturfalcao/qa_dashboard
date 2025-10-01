@@ -76,8 +76,12 @@ class EdgeDeviceApp:
         self._camera = CameraController(
             resolution=tuple(config.camera_resolution),
             fps=30,
-            exposure="auto",
+            exposure="manual",
             quality=config.photo_quality,
+            shutter_speed=config.camera_shutter_speed,
+            gain=config.camera_gain,
+            awb_gains=config.camera_awb_gains,
+            denoise=config.camera_denoise,
         )
         self._upload_worker = UploadWorker(self._queue, self._api_client, self._stop_event, self._leds)
         self._current_piece_status = "ok"

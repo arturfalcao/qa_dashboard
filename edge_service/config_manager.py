@@ -13,6 +13,10 @@ class DeviceConfig:
     api_base_url: str
     camera_resolution: tuple[int, int]
     photo_quality: int
+    camera_shutter_speed: int
+    camera_gain: float
+    camera_awb_gains: tuple[float, float]
+    camera_denoise: bool
     raw: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -20,11 +24,20 @@ class DeviceConfig:
         resolution = data.get("camera_resolution", [1920, 1080])
         if isinstance(resolution, list):
             resolution = tuple(int(x) for x in resolution)
+
+        awb_gains = data.get("camera_awb_gains", [1.0, 1.0])
+        if isinstance(awb_gains, list):
+            awb_gains = tuple(float(x) for x in awb_gains)
+
         return cls(
             device_secret=data["device_secret"],
             api_base_url=data["api_base_url"],
             camera_resolution=resolution,  # type: ignore[arg-type]
             photo_quality=int(data.get("photo_quality", 90)),
+            camera_shutter_speed=int(data.get("camera_shutter_speed", 10000)),
+            camera_gain=float(data.get("camera_gain", 1.0)),
+            camera_awb_gains=awb_gains,  # type: ignore[arg-type]
+            camera_denoise=bool(data.get("camera_denoise", False)),
             raw=data,
         )
 
