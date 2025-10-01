@@ -15,7 +15,6 @@ import { useToast } from '@/components/ui/toast'
 import { PageHeader } from '@/components/ui/page-header'
 import { TextArea } from '@/components/ui/input'
 import { useParams, useRouter } from 'next/navigation'
-import Image from 'next/image'
 import { ActivityIcon, AlertTriangleIcon } from 'lucide-react'
 
 export default function LiveFeedPage() {
@@ -252,12 +251,14 @@ export default function LiveFeedPage() {
       <Card>
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <CardTitle>Pending defect review</CardTitle>
-            <CardDescription>Confirm or dismiss AI-detected anomalies before shipment.</CardDescription>
+            <CardTitle>Potential Defect Review</CardTitle>
+            <CardDescription>
+              Review flagged pieces with visual evidence. Confirm real defects or mark as false positives to reduce noise.
+            </CardDescription>
           </div>
           {pendingDefects.length > 0 && (
             <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
-              {pendingDefects.length} pending
+              {pendingDefects.length} need review
             </span>
           )}
         </CardHeader>
@@ -412,22 +413,25 @@ function DefectReviewModal({
           )}
         </div>
 
-        {photos.length > 0 && (
-          <div>
-            <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Photos</h3>
+        <div>
+          <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Defect Photos</h3>
+          {photos.length === 0 ? (
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-center">
+              <p className="text-sm text-amber-800">No photos available for this defect</p>
+              <p className="mt-1 text-xs text-amber-600">Operator may not have captured visual evidence</p>
+            </div>
+          ) : (
             <div className="mt-3 grid gap-3 sm:grid-cols-2 md:grid-cols-3">
               {photos.map((photo: any) => (
                 <figure
                   key={photo.id}
                   className="overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800"
                 >
-                  <Image
-                    src={`/api/photos/${photo.filePath}`}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={photo.url || '/placeholder-image.jpg'}
                     alt="Defect photo"
                     className="h-40 w-full object-cover"
-                    width={400}
-                    height={160}
-                    sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
                     onError={(e) => {
                       e.currentTarget.src =
                         'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23e2e8f0" width="200" height="200"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%2394a3b8" font-size="48"%3E📷%3C/text%3E%3C/svg%3E'
@@ -441,8 +445,8 @@ function DefectReviewModal({
                 </figure>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
           <Button
