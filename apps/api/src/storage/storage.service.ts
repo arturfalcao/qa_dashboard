@@ -143,6 +143,21 @@ export class StorageService {
     return `clients/${tenantId}/${prefix}/${this.generateUUID()}.jpg`;
   }
 
+  generateKeyForPiece(
+    tenantId: string,
+    lotId: string,
+    pieceId: string,
+    filename?: string,
+  ): string {
+    const ext = filename ? path.extname(filename) : ".jpg";
+    const uuid = this.generateUUID();
+    const baseName = filename
+      ? path.basename(filename, ext).replace(/[^a-zA-Z0-9-_]/g, "_")
+      : "photo";
+
+    return `clients/${tenantId}/lots/${lotId}/pieces/${pieceId}/${uuid}-${baseName}${ext}`;
+  }
+
   private getBucket(type: "photos" | "reports"): string {
     return type === "reports" ? this.reportsBucket : this.photosBucket;
   }

@@ -49,6 +49,7 @@ import { InspectionSessionService } from "./services/inspection-session.service"
 import { ApparelPieceService } from "./services/apparel-piece.service";
 import { PiecePhotoService } from "./services/piece-photo.service";
 import { PieceDefectService } from "./services/piece-defect.service";
+import { MigratePhotosService } from "./services/migrate-photos.service";
 
 import { InspectionController } from "./controllers/inspection.controller";
 import { LotController } from "./controllers/lot.controller";
@@ -65,6 +66,7 @@ import { OperatorController } from "./controllers/operator.controller";
 import { DashboardController } from "./controllers/dashboard.controller";
 import { SuperAdminController } from "./controllers/super-admin.controller";
 import { ESGReportsController } from "./controllers/esg-reports.controller";
+import { InspectionSessionController } from "./controllers/inspection-session.controller";
 import { StorageModule } from "../storage/storage.module";
 import { DppModule } from "../dpp/dpp.module";
 import { DppService } from "../dpp/dpp.service";
@@ -125,6 +127,7 @@ import { DppService } from "../dpp/dpp.service";
     ApparelPieceService,
     PiecePhotoService,
     PieceDefectService,
+    MigratePhotosService,
   ],
   controllers: [
     InspectionController,
@@ -142,6 +145,7 @@ import { DppService } from "../dpp/dpp.service";
     DashboardController,
     SuperAdminController,
     ESGReportsController,
+    InspectionSessionController,
   ],
   exports: [
     InspectionService,

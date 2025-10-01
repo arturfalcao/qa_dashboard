@@ -12,7 +12,16 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'placehold.co',
       },
+      {
+        protocol: 'https',
+        hostname: '*.digitaloceanspaces.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lon1.digitaloceanspaces.com',
+      },
     ],
+    unoptimized: false,
   },
   webpack: (config, { isServer }) => {
     // Handle TypeScript files in workspace packages

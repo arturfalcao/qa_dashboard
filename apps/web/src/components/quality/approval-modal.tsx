@@ -117,7 +117,7 @@ export function ApprovalModal({ lot, action, isOpen, onClose, onConfirm }: Appro
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose} disabled={isSubmitting}>
+          <Button variant="secondary" onClick={handleClose} disabled={isSubmitting}>
             Cancel
           </Button>
           <Button

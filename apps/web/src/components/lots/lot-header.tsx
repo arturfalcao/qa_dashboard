@@ -2,7 +2,9 @@
 
 import { Lot, LotStatus } from '@qa-dashboard/shared'
 import { formatDate, getLotStatusColor, cn, formatPercentage, formatNumber } from '@/lib/utils'
-import { CheckIcon, XIcon } from 'lucide-react'
+import { CheckIcon, XIcon, ImageIcon } from 'lucide-react'
+import Link from 'next/link'
+import { useParams } from 'next/navigation'
 
 interface LotHeaderProps {
   lot: Lot
@@ -14,6 +16,8 @@ interface LotHeaderProps {
 }
 
 export function LotHeader({ lot, canApprove, onApprove, onReject, onEdit, canEdit }: LotHeaderProps) {
+  const params = useParams()
+  const tenantSlug = params.tenantSlug as string
   const suppliers = lot.suppliers?.slice().sort((a, b) => a.sequence - b.sequence) ?? []
   const primarySupplier = suppliers.find((supplier) => supplier.isPrimary)?.factory ?? lot.factory
   const dppUrl = lot.dppMetadata?.publicUrl
@@ -101,6 +105,13 @@ export function LotHeader({ lot, canApprove, onApprove, onReject, onEdit, canEdi
         </div>
 
         <div className="flex space-x-3 ml-6">
+          <Link
+            href={`/c/${tenantSlug}/lots/${lot.id}/gallery`}
+            className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+          >
+            <ImageIcon className="w-4 h-4 mr-2" />
+            View Gallery
+          </Link>
           {canEdit && onEdit && (
             <button
               onClick={onEdit}

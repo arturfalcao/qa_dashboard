@@ -12,6 +12,7 @@ import { LotService } from "../services/lot.service";
 import { PiecePhotoService } from "../services/piece-photo.service";
 import { PieceDefectService } from "../services/piece-defect.service";
 import { InspectionSessionService } from "../services/inspection-session.service";
+import { StorageService } from "../../storage/storage.service";
 import { CurrentUser, ClientId } from "../../common/decorators";
 import { ZodValidationPipe } from "../../common/zod-validation.pipe";
 import { z } from "zod";
@@ -30,6 +31,7 @@ export class DashboardController {
     private readonly piecePhotoService: PiecePhotoService,
     private readonly pieceDefectService: PieceDefectService,
     private readonly inspectionSessionService: InspectionSessionService,
+    private readonly storageService: StorageService,
   ) {}
 
   private ensureReviewAccess(user?: { roles?: UserRole[] }) {
@@ -63,18 +65,23 @@ export class DashboardController {
       allPhotos.push(...photos);
     }
 
-    return {
-      lotId,
-      totalPhotos: allPhotos.length,
-      photos: allPhotos.map((photo) => ({
+    // Generate presigned URLs for all photos
+    const photosWithUrls = await Promise.all(
+      allPhotos.map(async (photo) => ({
         id: photo.id,
         pieceId: photo.pieceId,
         filePath: photo.filePath,
-        s3Url: photo.s3Url,
+        url: await this.storageService.getPresignedDownloadUrl(photo.filePath, "photos"),
         capturedAt: photo.capturedAt,
         pieceNumber: photo.piece?.pieceNumber,
         pieceStatus: photo.piece?.status,
-      })),
+      }))
+    );
+
+    return {
+      lotId,
+      totalPhotos: photosWithUrls.length,
+      photos: photosWithUrls,
     };
   }
 
@@ -158,8 +165,34 @@ export class DashboardController {
     // Get active sessions for this tenant
     const activeSessions = await this.inspectionSessionService.findActiveByTenantId(tenantId);
 
-    // Get recent defects (last 50)
+    // Get recent defects (last 50) - focus on potential defects for review
     const recentDefects = await this.pieceDefectService.findRecentByTenantId(tenantId, 50);
+
+    // Filter for pending_review defects and add presigned URLs for photos
+    const pendingDefectsWithPhotos = await Promise.all(
+      recentDefects
+        .filter((d) => d.status === "pending_review")
+        .map(async (defect) => {
+          // Get photos with presigned URLs
+          const photosWithUrls = await Promise.all(
+            (defect.piece?.photos || []).map(async (photo) => ({
+              id: photo.id,
+              filePath: photo.filePath,
+              url: await this.storageService.getPresignedDownloadUrl(photo.filePath, "photos"),
+            }))
+          );
+
+          return {
+            id: defect.id,
+            pieceId: defect.pieceId,
+            audioTranscript: defect.audioTranscript,
+            flaggedAt: defect.flaggedAt,
+            pieceNumber: defect.piece?.pieceNumber,
+            sessionId: defect.piece?.inspectionSessionId,
+            photos: photosWithUrls,
+          };
+        })
+    );
 
     return {
       activeSessions: activeSessions.map((session) => ({
@@ -174,16 +207,7 @@ export class DashboardController {
           styleRef: session.lot?.styleRef,
         },
       })),
-      pendingDefects: recentDefects
-        .filter((d) => d.status === "pending_review")
-        .map((defect) => ({
-          id: defect.id,
-          pieceId: defect.pieceId,
-          audioTranscript: defect.audioTranscript,
-          flaggedAt: defect.flaggedAt,
-          pieceNumber: defect.piece?.pieceNumber,
-          sessionId: defect.piece?.inspectionSessionId,
-        })),
+      pendingDefects: pendingDefectsWithPhotos,
     };
   }
 }
