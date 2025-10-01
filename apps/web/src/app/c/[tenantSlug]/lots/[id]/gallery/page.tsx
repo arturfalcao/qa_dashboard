@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { apiClient } from '@/lib/api'
 import Link from 'next/link'
+import { ImageZoomViewer } from '@/components/ui/image-zoom-viewer'
 import {
   ArrowLeftIcon,
   CheckCircle2Icon,
@@ -538,99 +539,48 @@ export default function LotGalleryPage() {
           </div>
         )}
 
-        {/* Photo Lightbox Modal */}
+        {/* Enhanced Photo Zoom Viewer with Navigation */}
         {selectedPhoto && selectedPiece && (
-          <div
-            className="fixed inset-0 bg-black/95 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
-            onClick={() => {
-              setSelectedPhoto(null)
-              setSelectedPiece(null)
-            }}
-          >
-            <div className="max-w-7xl w-full" onClick={(e) => e.stopPropagation()}>
-              {/* Header */}
-              <div className="flex items-center justify-between mb-6">
-                <div className="text-white">
-                  <h2 className="text-3xl font-bold flex items-center gap-3">
-                    Piece #{selectedPhoto.pieceNumber} - Photo {currentPhotoIndex + 1}
-                    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-bold ${getStatusColor(selectedPhoto.pieceStatus)}`}>
-                      {getStatusIcon(selectedPhoto.pieceStatus)}
-                      {selectedPhoto.pieceStatus?.replace('_', ' ').toUpperCase()}
-                    </span>
-                  </h2>
-                  <p className="text-neutral-300 mt-2 text-sm">
-                    Captured {new Date(selectedPhoto.capturedAt).toLocaleString()}
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    setSelectedPhoto(null)
-                    setSelectedPiece(null)
-                  }}
-                  className="p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition"
-                >
-                  <XIcon className="h-6 w-6" />
-                </button>
-              </div>
+          <>
+            <ImageZoomViewer
+              src={selectedPhoto.url || '/placeholder-image.jpg'}
+              alt={`Piece #${selectedPhoto.pieceNumber} - Photo ${currentPhotoIndex + 1}`}
+              onClose={() => {
+                setSelectedPhoto(null)
+                setSelectedPiece(null)
+              }}
+              title={`Piece #${selectedPhoto.pieceNumber} - Photo ${currentPhotoIndex + 1} of ${pieceGroups.find(g => `piece-${g.pieceNumber}` === selectedPiece)?.photos.length || 1}`}
+              description={`${selectedPhoto.pieceStatus?.replace('_', ' ').toUpperCase()} • Captured ${new Date(selectedPhoto.capturedAt).toLocaleString()}`}
+              annotation={`Photo ID: ${selectedPhoto.id.substring(0, 8)}... • File: ${selectedPhoto.filePath?.split('/').pop() || 'N/A'}`}
+            />
 
-              {/* Main Image */}
-              <div className="relative bg-neutral-900 rounded-2xl overflow-hidden shadow-2xl">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={selectedPhoto.url || '/placeholder-image.jpg'}
-                  alt={`Piece #${selectedPhoto.pieceNumber}`}
-                  className="w-full h-auto max-h-[75vh] object-contain mx-auto"
-                  onError={(e) => {
-                    e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="1200" height="900"%3E%3Crect fill="%231f2937" width="1200" height="900"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%239ca3af" font-size="96"%3E📷%3C/text%3E%3C/svg%3E'
-                  }}
-                />
-
-                {/* Navigation Arrows */}
-                {(() => {
-                  const piece = pieceGroups.find(g => `piece-${g.pieceNumber}` === selectedPiece)
-                  return piece && piece.photos.length > 1 && (
-                    <>
-                      <button
-                        onClick={() => navigatePhoto('prev')}
-                        className="absolute left-4 top-1/2 -translate-y-1/2 p-4 rounded-full bg-black/50 hover:bg-black/70 text-white transition backdrop-blur-sm"
-                      >
-                        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => navigatePhoto('next')}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 p-4 rounded-full bg-black/50 hover:bg-black/70 text-white transition backdrop-blur-sm"
-                      >
-                        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      </button>
-                    </>
-                  )
-                })()}
-              </div>
-
-              {/* Footer Info */}
-              <div className="mt-4 bg-white/10 backdrop-blur-md rounded-xl p-4">
-                <div className="flex items-center justify-between text-sm text-white">
-                  <div className="flex items-center gap-6">
-                    <div>
-                      <span className="text-neutral-400">Photo ID:</span>
-                      <span className="ml-2 font-mono text-xs">{selectedPhoto.id.substring(0, 8)}...</span>
-                    </div>
-                    <div>
-                      <span className="text-neutral-400">File:</span>
-                      <span className="ml-2 font-mono text-xs">{selectedPhoto.filePath?.split('/').pop() || 'N/A'}</span>
-                    </div>
-                  </div>
-                  <div className="text-neutral-400 text-xs">
-                    Use ← → arrow keys to navigate
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+            {/* Photo Navigation Overlay */}
+            {(() => {
+              const piece = pieceGroups.find(g => `piece-${g.pieceNumber}` === selectedPiece)
+              return piece && piece.photos.length > 1 && (
+                <>
+                  <button
+                    onClick={() => navigatePhoto('prev')}
+                    className="fixed left-8 top-1/2 -translate-y-1/2 z-[101] p-4 rounded-full bg-black/50 hover:bg-black/70 text-white transition backdrop-blur-sm"
+                    aria-label="Previous photo"
+                  >
+                    <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => navigatePhoto('next')}
+                    className="fixed right-8 top-1/2 -translate-y-1/2 z-[101] p-4 rounded-full bg-black/50 hover:bg-black/70 text-white transition backdrop-blur-sm"
+                    aria-label="Next photo"
+                  >
+                    <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </>
+              )
+            })()}
+          </>
         )}
       </div>
     </div>

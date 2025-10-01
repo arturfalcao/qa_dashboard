@@ -16,6 +16,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { TextArea } from '@/components/ui/input'
 import { useParams, useRouter } from 'next/navigation'
 import { ActivityIcon, AlertTriangleIcon, ZoomInIcon, XIcon } from 'lucide-react'
+import { ImageZoomViewer } from '@/components/ui/image-zoom-viewer'
 
 export default function LiveFeedPage() {
   const [lastUpdateTime, setLastUpdateTime] = useState<string>()
@@ -505,40 +506,18 @@ function DefectReviewModal({
         </Button>
       </ModalFooter>
 
-      {/* Photo Lightbox */}
+      {/* Enhanced Photo Zoom Viewer */}
       {selectedPhoto && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4"
-          onClick={() => setSelectedPhoto(null)}
-        >
-          <button
-            onClick={() => setSelectedPhoto(null)}
-            className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white transition hover:bg-white/20"
-          >
-            <XIcon className="h-6 w-6" />
-          </button>
-          <div
-            className="relative max-h-[90vh] max-w-[90vw] overflow-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={selectedPhoto.url || '/placeholder-image.jpg'}
-              alt="Defect photo - full size"
-              className="h-auto w-full"
-              style={{ maxWidth: '100%', maxHeight: '90vh', objectFit: 'contain' }}
-              onError={(e) => {
-                e.currentTarget.src =
-                  'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="800" height="600"%3E%3Crect fill="%23e2e8f0" width="800" height="600"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%2394a3b8" font-size="48"%3E📷%3C/text%3E%3C/svg%3E'
-              }}
-            />
-            {selectedPhoto.annotation?.comment && (
-              <div className="mt-2 rounded-lg bg-white/10 px-4 py-2 text-sm text-white backdrop-blur">
-                {selectedPhoto.annotation.comment}
-              </div>
-            )}
-          </div>
-        </div>
+        <ImageZoomViewer
+          src={selectedPhoto.url || '/placeholder-image.jpg'}
+          alt="Defect photo - full resolution"
+          annotation={selectedPhoto.annotation?.comment}
+          onClose={() => setSelectedPhoto(null)}
+          title="Defect Photo Inspection"
+          description={`${defect.pieceNumber ? `Piece #${defect.pieceNumber}` : ''} - ${
+            defect.defect?.type || 'Potential defect'
+          }`}
+        />
       )}
     </Modal>
   )
