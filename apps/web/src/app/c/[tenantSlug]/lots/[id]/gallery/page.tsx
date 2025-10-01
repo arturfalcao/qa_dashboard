@@ -4,7 +4,32 @@ import { useCallback, useEffect, useState, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { apiClient } from '@/lib/api'
 import Link from 'next/link'
-import { ArrowLeftIcon, CheckCircle2Icon, XCircleIcon, AlertCircleIcon, ImageIcon, ZoomInIcon, XIcon } from 'lucide-react'
+import {
+  ArrowLeftIcon,
+  CheckCircle2Icon,
+  XCircleIcon,
+  AlertCircleIcon,
+  ImageIcon,
+  ZoomInIcon,
+  XIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  PackageIcon,
+  CameraIcon,
+  RulerIcon,
+  AlertTriangleIcon
+} from 'lucide-react'
+
+interface PieceGroup {
+  pieceId: string
+  pieceNumber: number
+  status: string
+  photos: any[]
+  measurements?: any
+  defectCount: number
+  firstPhotoTime: string
+  lastPhotoTime: string
+}
 
 export default function LotGalleryPage() {
   const params = useParams()
@@ -18,6 +43,8 @@ export default function LotGalleryPage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [selectedPhoto, setSelectedPhoto] = useState<any>(null)
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0)
+  const [expandedPieces, setExpandedPieces] = useState<Set<string>>(new Set())
+  const [selectedPiece, setSelectedPiece] = useState<string | null>(null)
 
   const loadGallery = useCallback(async () => {
     if (!lotId) return
@@ -37,32 +64,93 @@ export default function LotGalleryPage() {
     loadGallery()
   }, [loadGallery])
 
-  // Calculate statistics
-  const stats = useMemo(() => {
-    if (!gallery?.photos) return { total: 0, ok: 0, defects: 0, potential: 0, pending: 0 }
+  // Group photos by piece
+  const pieceGroups = useMemo(() => {
+    if (!gallery?.photos) return []
 
-    const total = gallery.photos.length
-    const ok = gallery.photos.filter((p: any) => p.pieceStatus === 'ok').length
-    const defects = gallery.photos.filter((p: any) => p.pieceStatus === 'defect').length
-    const potential = gallery.photos.filter((p: any) => p.pieceStatus === 'potential_defect').length
-    const pending = gallery.photos.filter((p: any) => p.pieceStatus === 'pending_review').length
+    const groups = new Map<string, PieceGroup>()
 
-    return { total, ok, defects, potential, pending }
+    gallery.photos.forEach((photo: any) => {
+      const pieceKey = `piece-${photo.pieceNumber}`
+
+      if (!groups.has(pieceKey)) {
+        groups.set(pieceKey, {
+          pieceId: photo.pieceId,
+          pieceNumber: photo.pieceNumber,
+          status: photo.pieceStatus,
+          photos: [],
+          measurements: photo.measurements,
+          defectCount: 0,
+          firstPhotoTime: photo.capturedAt,
+          lastPhotoTime: photo.capturedAt
+        })
+      }
+
+      const group = groups.get(pieceKey)!
+      group.photos.push(photo)
+
+      // Update times
+      if (new Date(photo.capturedAt) < new Date(group.firstPhotoTime)) {
+        group.firstPhotoTime = photo.capturedAt
+      }
+      if (new Date(photo.capturedAt) > new Date(group.lastPhotoTime)) {
+        group.lastPhotoTime = photo.capturedAt
+      }
+
+      // Count defects
+      if (photo.pieceStatus === 'defect' || photo.pieceStatus === 'potential_defect') {
+        group.defectCount++
+      }
+    })
+
+    // Sort by piece number
+    return Array.from(groups.values()).sort((a, b) => a.pieceNumber - b.pieceNumber)
   }, [gallery])
 
-  const handlePhotoClick = (photo: any, index: number) => {
+  // Calculate statistics
+  const stats = useMemo(() => {
+    if (!pieceGroups) return { totalPieces: 0, totalPhotos: 0, ok: 0, defects: 0, potential: 0, pending: 0 }
+
+    const totalPieces = pieceGroups.length
+    const totalPhotos = pieceGroups.reduce((sum, group) => sum + group.photos.length, 0)
+    const ok = pieceGroups.filter(g => g.status === 'ok').length
+    const defects = pieceGroups.filter(g => g.status === 'defect').length
+    const potential = pieceGroups.filter(g => g.status === 'potential_defect').length
+    const pending = pieceGroups.filter(g => g.status === 'pending_review').length
+
+    return { totalPieces, totalPhotos, ok, defects, potential, pending }
+  }, [pieceGroups])
+
+  const togglePieceExpansion = (pieceId: string) => {
+    const newExpanded = new Set(expandedPieces)
+    if (newExpanded.has(pieceId)) {
+      newExpanded.delete(pieceId)
+    } else {
+      newExpanded.add(pieceId)
+    }
+    setExpandedPieces(newExpanded)
+  }
+
+  const handlePhotoClick = (photo: any, piece: PieceGroup) => {
     setSelectedPhoto(photo)
-    setCurrentPhotoIndex(index)
+    setSelectedPiece(`piece-${piece.pieceNumber}`)
+    const photoIndex = piece.photos.findIndex(p => p.id === photo.id)
+    setCurrentPhotoIndex(photoIndex)
   }
 
   const navigatePhoto = useCallback((direction: 'prev' | 'next') => {
-    if (!gallery?.photos) return
+    if (!selectedPiece || !gallery?.photos) return
+
+    const piece = pieceGroups.find(g => `piece-${g.pieceNumber}` === selectedPiece)
+    if (!piece) return
+
     const newIndex = direction === 'prev'
-      ? (currentPhotoIndex - 1 + gallery.photos.length) % gallery.photos.length
-      : (currentPhotoIndex + 1) % gallery.photos.length
+      ? (currentPhotoIndex - 1 + piece.photos.length) % piece.photos.length
+      : (currentPhotoIndex + 1) % piece.photos.length
+
     setCurrentPhotoIndex(newIndex)
-    setSelectedPhoto(gallery.photos[newIndex])
-  }, [gallery, currentPhotoIndex])
+    setSelectedPhoto(piece.photos[newIndex])
+  }, [pieceGroups, selectedPiece, currentPhotoIndex, gallery])
 
   // Keyboard navigation
   useEffect(() => {
@@ -75,12 +163,31 @@ export default function LotGalleryPage() {
         navigatePhoto('next')
       } else if (e.key === 'Escape') {
         setSelectedPhoto(null)
+        setSelectedPiece(null)
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [selectedPhoto, navigatePhoto])
+
+  const getStatusColor = (status: string) => {
+    switch(status) {
+      case 'ok': return 'bg-green-500 text-white'
+      case 'defect': return 'bg-red-500 text-white'
+      case 'potential_defect': return 'bg-amber-500 text-white'
+      default: return 'bg-blue-500 text-white'
+    }
+  }
+
+  const getStatusIcon = (status: string) => {
+    switch(status) {
+      case 'ok': return <CheckCircle2Icon className="h-4 w-4" />
+      case 'defect': return <XCircleIcon className="h-4 w-4" />
+      case 'potential_defect': return <AlertTriangleIcon className="h-4 w-4" />
+      default: return <AlertCircleIcon className="h-4 w-4" />
+    }
+  }
 
   if (loading) {
     return (
@@ -131,11 +238,11 @@ export default function LotGalleryPage() {
           <div className="flex items-start justify-between mb-6">
             <div>
               <h1 className="text-4xl font-bold text-neutral-900 mb-2 flex items-center gap-3">
-                <ImageIcon className="h-10 w-10 text-primary-600" />
-                Inspection Gallery
+                <PackageIcon className="h-10 w-10 text-primary-600" />
+                Piece Gallery
               </h1>
               <p className="text-neutral-600 text-lg">
-                Visual record of {stats.total} inspected pieces
+                {stats.totalPieces} pieces with {stats.totalPhotos} photos
               </p>
             </div>
             <Link
@@ -148,15 +255,27 @@ export default function LotGalleryPage() {
           </div>
 
           {/* Statistics Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
             <div className="bg-white rounded-xl border border-neutral-200 p-4 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-primary-50">
-                  <ImageIcon className="h-5 w-5 text-primary-600" />
+                  <PackageIcon className="h-5 w-5 text-primary-600" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-neutral-900">{stats.total}</div>
-                  <div className="text-xs text-neutral-500 uppercase tracking-wide">Total Photos</div>
+                  <div className="text-2xl font-bold text-neutral-900">{stats.totalPieces}</div>
+                  <div className="text-xs text-neutral-500 uppercase tracking-wide">Pieces</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-neutral-200 p-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-blue-50">
+                  <CameraIcon className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-neutral-900">{stats.totalPhotos}</div>
+                  <div className="text-xs text-neutral-500 uppercase tracking-wide">Photos</div>
                 </div>
               </div>
             </div>
@@ -168,7 +287,7 @@ export default function LotGalleryPage() {
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-green-600">{stats.ok}</div>
-                  <div className="text-xs text-neutral-500 uppercase tracking-wide">OK Pieces</div>
+                  <div className="text-xs text-neutral-500 uppercase tracking-wide">OK</div>
                 </div>
               </div>
             </div>
@@ -188,7 +307,7 @@ export default function LotGalleryPage() {
             <div className="bg-white rounded-xl border border-neutral-200 p-4 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-amber-50">
-                  <AlertCircleIcon className="h-5 w-5 text-amber-600" />
+                  <AlertTriangleIcon className="h-5 w-5 text-amber-600" />
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-amber-600">{stats.potential}</div>
@@ -221,7 +340,7 @@ export default function LotGalleryPage() {
                   : 'bg-white text-neutral-700 border border-neutral-300 hover:border-primary-300'
               }`}
             >
-              All ({stats.total})
+              All Pieces ({stats.totalPieces})
             </button>
             <button
               onClick={() => setStatusFilter('ok')}
@@ -266,174 +385,252 @@ export default function LotGalleryPage() {
           </div>
         </div>
 
-        {/* Gallery Grid */}
-        {gallery.photos.length === 0 ? (
+        {/* Pieces Grid */}
+        {pieceGroups.length === 0 ? (
           <div className="bg-white rounded-2xl shadow-lg border border-neutral-200 p-16 text-center">
             <div className="text-8xl mb-6">📸</div>
-            <h3 className="text-2xl font-bold text-neutral-900 mb-3">No photos found</h3>
+            <h3 className="text-2xl font-bold text-neutral-900 mb-3">No pieces found</h3>
             <p className="text-neutral-600 text-lg">
-              {statusFilter ? 'Try changing the filter above' : 'No photos have been captured yet'}
+              {statusFilter ? 'Try changing the filter above' : 'No pieces have been photographed yet'}
             </p>
           </div>
         ) : (
-          <div className="columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
-            {gallery.photos.map((photo: any, index: number) => (
-              <button
-                key={photo.id}
-                onClick={() => handlePhotoClick(photo, index)}
-                className="group relative w-full break-inside-avoid mb-4 bg-white rounded-xl overflow-hidden shadow-md hover:shadow-2xl transition-all duration-300 border border-neutral-200"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={photo.url || '/placeholder-image.jpg'}
-                  alt={`Piece #${photo.pieceNumber}`}
-                  className="w-full h-auto object-cover transition-transform duration-300 group-hover:scale-105"
-                  onError={(e) => {
-                    e.currentTarget.src =
-                      'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400"%3E%3Crect fill="%23e2e8f0" width="400" height="400"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%2394a3b8" font-size="64"%3E📷%3C/text%3E%3C/svg%3E'
-                  }}
-                />
+          <div className="space-y-6">
+            {pieceGroups.map((piece) => {
+              const isExpanded = expandedPieces.has(`piece-${piece.pieceNumber}`)
+              const displayPhotos = isExpanded ? piece.photos : piece.photos.slice(0, 4)
 
-                {/* Status Badge */}
-                <div className="absolute top-3 right-3">
-                  <span
-                    className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold shadow-lg ${
-                      photo.pieceStatus === 'ok'
-                        ? 'bg-green-500 text-white'
-                        : photo.pieceStatus === 'defect'
-                        ? 'bg-red-500 text-white'
-                        : photo.pieceStatus === 'potential_defect'
-                        ? 'bg-amber-500 text-white'
-                        : 'bg-blue-500 text-white'
-                    }`}
-                  >
-                    {photo.pieceStatus === 'ok' && <CheckCircle2Icon className="h-3 w-3" />}
-                    {photo.pieceStatus === 'defect' && <XCircleIcon className="h-3 w-3" />}
-                    {(photo.pieceStatus === 'potential_defect' || photo.pieceStatus === 'pending_review') && (
-                      <AlertCircleIcon className="h-3 w-3" />
-                    )}
-                    {photo.pieceStatus?.replace('_', ' ').toUpperCase() || 'UNKNOWN'}
-                  </span>
-                </div>
-
-                {/* Hover Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
+              return (
+                <div
+                  key={`piece-${piece.pieceNumber}`}
+                  className="bg-white rounded-2xl shadow-lg border border-neutral-200 overflow-hidden"
+                >
+                  {/* Piece Header */}
+                  <div className="p-6 border-b border-neutral-200">
                     <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-sm font-bold mb-1">Piece #{photo.pieceNumber}</div>
-                        <div className="text-xs text-neutral-200">
-                          {new Date(photo.capturedAt).toLocaleString()}
+                      <div className="flex items-center gap-4">
+                        <button
+                          onClick={() => togglePieceExpansion(`piece-${piece.pieceNumber}`)}
+                          className="p-2 rounded-lg hover:bg-neutral-100 transition"
+                        >
+                          {isExpanded ? (
+                            <ChevronDownIcon className="h-5 w-5 text-neutral-600" />
+                          ) : (
+                            <ChevronRightIcon className="h-5 w-5 text-neutral-600" />
+                          )}
+                        </button>
+
+                        <div>
+                          <h3 className="text-xl font-bold text-neutral-900 flex items-center gap-3">
+                            <PackageIcon className="h-5 w-5 text-primary-600" />
+                            Piece #{piece.pieceNumber}
+                            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(piece.status)}`}>
+                              {getStatusIcon(piece.status)}
+                              {piece.status.replace('_', ' ').toUpperCase()}
+                            </span>
+                          </h3>
+                          <p className="text-sm text-neutral-600 mt-1">
+                            {piece.photos.length} photo{piece.photos.length !== 1 ? 's' : ''} •
+                            First: {new Date(piece.firstPhotoTime).toLocaleTimeString()} •
+                            Last: {new Date(piece.lastPhotoTime).toLocaleTimeString()}
+                          </p>
                         </div>
                       </div>
-                      <ZoomInIcon className="h-5 w-5" />
+
+                      <div className="flex items-center gap-3">
+                        {piece.measurements && (
+                          <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-lg">
+                            <RulerIcon className="h-4 w-4 text-blue-600" />
+                            <span className="text-sm font-medium text-blue-900">Measured</span>
+                          </div>
+                        )}
+                        {piece.defectCount > 0 && (
+                          <div className="flex items-center gap-2 px-3 py-2 bg-red-50 rounded-lg">
+                            <AlertTriangleIcon className="h-4 w-4 text-red-600" />
+                            <span className="text-sm font-medium text-red-900">{piece.defectCount} Issue{piece.defectCount !== 1 ? 's' : ''}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Measurements info if available */}
+                    {piece.measurements && (
+                      <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                        <div className="flex items-center gap-6 text-sm">
+                          <div>
+                            <span className="text-neutral-600">Type:</span>
+                            <span className="ml-2 font-medium text-neutral-900">{piece.measurements.garment_type}</span>
+                          </div>
+                          <div>
+                            <span className="text-neutral-600">Size:</span>
+                            <span className="ml-2 font-medium text-neutral-900">{piece.measurements.size_estimate}</span>
+                          </div>
+                          <div>
+                            <span className="text-neutral-600">Chest:</span>
+                            <span className="ml-2 font-medium text-neutral-900">{piece.measurements.chest_width_cm?.toFixed(1)}cm</span>
+                          </div>
+                          <div>
+                            <span className="text-neutral-600">Length:</span>
+                            <span className="ml-2 font-medium text-neutral-900">{piece.measurements.body_length_cm?.toFixed(1)}cm</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Photos Grid */}
+                  <div className="p-6">
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                      {displayPhotos.map((photo: any, index: number) => (
+                        <button
+                          key={photo.id}
+                          onClick={() => handlePhotoClick(photo, piece)}
+                          className="group relative aspect-square bg-neutral-100 rounded-lg overflow-hidden hover:ring-2 hover:ring-primary-500 transition"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={photo.url || '/placeholder-image.jpg'}
+                            alt={`Piece #${piece.pieceNumber} - Photo ${index + 1}`}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            onError={(e) => {
+                              e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400"%3E%3Crect fill="%23e2e8f0" width="400" height="400"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%2394a3b8" font-size="64"%3E📷%3C/text%3E%3C/svg%3E'
+                            }}
+                          />
+
+                          {/* Photo number badge */}
+                          <div className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
+                            #{index + 1}
+                          </div>
+
+                          {/* First photo indicator */}
+                          {index === 0 && (
+                            <div className="absolute top-2 right-2 bg-primary-600 text-white text-xs px-2 py-1 rounded-full font-bold">
+                              First
+                            </div>
+                          )}
+
+                          {/* Hover overlay */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition">
+                            <div className="absolute bottom-2 left-2 right-2 text-white text-xs">
+                              <div className="font-medium">{new Date(photo.capturedAt).toLocaleTimeString()}</div>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+
+                      {/* Show more button */}
+                      {!isExpanded && piece.photos.length > 4 && (
+                        <button
+                          onClick={() => togglePieceExpansion(`piece-${piece.pieceNumber}`)}
+                          className="aspect-square bg-neutral-100 rounded-lg flex items-center justify-center hover:bg-neutral-200 transition"
+                        >
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-neutral-600">+{piece.photos.length - 4}</div>
+                            <div className="text-xs text-neutral-500">more photos</div>
+                          </div>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
-              </button>
-            ))}
+              )
+            })}
           </div>
         )}
 
-        {/* Enhanced Photo Lightbox Modal */}
-        {selectedPhoto && (
-        <div
-          className="fixed inset-0 bg-black/95 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
-          onClick={() => setSelectedPhoto(null)}
-        >
-          <div className="max-w-7xl w-full" onClick={(e) => e.stopPropagation()}>
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="text-white">
-                <h2 className="text-3xl font-bold flex items-center gap-3">
-                  Piece #{selectedPhoto.pieceNumber}
-                  <span
-                    className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-bold ${
-                      selectedPhoto.pieceStatus === 'ok'
-                        ? 'bg-green-500'
-                        : selectedPhoto.pieceStatus === 'defect'
-                        ? 'bg-red-500'
-                        : selectedPhoto.pieceStatus === 'potential_defect'
-                        ? 'bg-amber-500'
-                        : 'bg-blue-500'
-                    }`}
-                  >
-                    {selectedPhoto.pieceStatus === 'ok' && <CheckCircle2Icon className="h-4 w-4" />}
-                    {selectedPhoto.pieceStatus === 'defect' && <XCircleIcon className="h-4 w-4" />}
-                    {(selectedPhoto.pieceStatus === 'potential_defect' || selectedPhoto.pieceStatus === 'pending_review') && (
-                      <AlertCircleIcon className="h-4 w-4" />
-                    )}
-                    {selectedPhoto.pieceStatus?.replace('_', ' ').toUpperCase()}
-                  </span>
-                </h2>
-                <p className="text-neutral-300 mt-2 text-sm">
-                  Captured {new Date(selectedPhoto.capturedAt).toLocaleString()} • Photo {currentPhotoIndex + 1} of {gallery.photos.length}
-                </p>
-              </div>
-              <button
-                onClick={() => setSelectedPhoto(null)}
-                className="p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition"
-              >
-                <XIcon className="h-6 w-6" />
-              </button>
-            </div>
-
-            {/* Main Image */}
-            <div className="relative bg-neutral-900 rounded-2xl overflow-hidden shadow-2xl">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={selectedPhoto.url || '/placeholder-image.jpg'}
-                alt={`Piece #${selectedPhoto.pieceNumber}`}
-                className="w-full h-auto max-h-[75vh] object-contain mx-auto"
-                onError={(e) => {
-                  e.currentTarget.src =
-                    'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="1200" height="900"%3E%3Crect fill="%231f2937" width="1200" height="900"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%239ca3af" font-size="96"%3E📷%3C/text%3E%3C/svg%3E'
-                }}
-              />
-
-              {/* Navigation Arrows */}
-              {gallery.photos.length > 1 && (
-                <>
-                  <button
-                    onClick={() => navigatePhoto('prev')}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 p-4 rounded-full bg-black/50 hover:bg-black/70 text-white transition backdrop-blur-sm"
-                  >
-                    <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => navigatePhoto('next')}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 p-4 rounded-full bg-black/50 hover:bg-black/70 text-white transition backdrop-blur-sm"
-                  >
-                    <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                </>
-              )}
-            </div>
-
-            {/* Footer Info */}
-            <div className="mt-4 bg-white/10 backdrop-blur-md rounded-xl p-4">
-              <div className="flex items-center justify-between text-sm text-white">
-                <div className="flex items-center gap-6">
-                  <div>
-                    <span className="text-neutral-400">Photo ID:</span>
-                    <span className="ml-2 font-mono text-xs">{selectedPhoto.id.substring(0, 8)}...</span>
-                  </div>
-                  <div>
-                    <span className="text-neutral-400">File:</span>
-                    <span className="ml-2 font-mono text-xs">{selectedPhoto.filePath?.split('/').pop() || 'N/A'}</span>
-                  </div>
+        {/* Photo Lightbox Modal */}
+        {selectedPhoto && selectedPiece && (
+          <div
+            className="fixed inset-0 bg-black/95 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
+            onClick={() => {
+              setSelectedPhoto(null)
+              setSelectedPiece(null)
+            }}
+          >
+            <div className="max-w-7xl w-full" onClick={(e) => e.stopPropagation()}>
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="text-white">
+                  <h2 className="text-3xl font-bold flex items-center gap-3">
+                    Piece #{selectedPhoto.pieceNumber} - Photo {currentPhotoIndex + 1}
+                    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-bold ${getStatusColor(selectedPhoto.pieceStatus)}`}>
+                      {getStatusIcon(selectedPhoto.pieceStatus)}
+                      {selectedPhoto.pieceStatus?.replace('_', ' ').toUpperCase()}
+                    </span>
+                  </h2>
+                  <p className="text-neutral-300 mt-2 text-sm">
+                    Captured {new Date(selectedPhoto.capturedAt).toLocaleString()}
+                  </p>
                 </div>
-                <div className="text-neutral-400 text-xs">
-                  Use ← → arrow keys to navigate
+                <button
+                  onClick={() => {
+                    setSelectedPhoto(null)
+                    setSelectedPiece(null)
+                  }}
+                  className="p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition"
+                >
+                  <XIcon className="h-6 w-6" />
+                </button>
+              </div>
+
+              {/* Main Image */}
+              <div className="relative bg-neutral-900 rounded-2xl overflow-hidden shadow-2xl">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={selectedPhoto.url || '/placeholder-image.jpg'}
+                  alt={`Piece #${selectedPhoto.pieceNumber}`}
+                  className="w-full h-auto max-h-[75vh] object-contain mx-auto"
+                  onError={(e) => {
+                    e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="1200" height="900"%3E%3Crect fill="%231f2937" width="1200" height="900"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%239ca3af" font-size="96"%3E📷%3C/text%3E%3C/svg%3E'
+                  }}
+                />
+
+                {/* Navigation Arrows */}
+                {(() => {
+                  const piece = pieceGroups.find(g => `piece-${g.pieceNumber}` === selectedPiece)
+                  return piece && piece.photos.length > 1 && (
+                    <>
+                      <button
+                        onClick={() => navigatePhoto('prev')}
+                        className="absolute left-4 top-1/2 -translate-y-1/2 p-4 rounded-full bg-black/50 hover:bg-black/70 text-white transition backdrop-blur-sm"
+                      >
+                        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => navigatePhoto('next')}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 p-4 rounded-full bg-black/50 hover:bg-black/70 text-white transition backdrop-blur-sm"
+                      >
+                        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    </>
+                  )
+                })()}
+              </div>
+
+              {/* Footer Info */}
+              <div className="mt-4 bg-white/10 backdrop-blur-md rounded-xl p-4">
+                <div className="flex items-center justify-between text-sm text-white">
+                  <div className="flex items-center gap-6">
+                    <div>
+                      <span className="text-neutral-400">Photo ID:</span>
+                      <span className="ml-2 font-mono text-xs">{selectedPhoto.id.substring(0, 8)}...</span>
+                    </div>
+                    <div>
+                      <span className="text-neutral-400">File:</span>
+                      <span className="ml-2 font-mono text-xs">{selectedPhoto.filePath?.split('/').pop() || 'N/A'}</span>
+                    </div>
+                  </div>
+                  <div className="text-neutral-400 text-xs">
+                    Use ← → arrow keys to navigate
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
         )}
       </div>
     </div>
