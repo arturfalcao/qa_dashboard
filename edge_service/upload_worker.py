@@ -70,42 +70,60 @@ class UploadWorker(Thread):
         defects = payload["defects"]
         status = payload["status"]
 
-        # Upload first photo to create the piece (API auto-creates piece if pieceId is null)
-        first_photo = Path(photos[0])
-        if not first_photo.exists():
-            raise FileNotFoundError(f"Photo missing: {first_photo}")
+        uploaded_photos = []
 
-        log.info("Creating piece with first photo upload")
-        response = self._api.upload_photo(first_photo, session_id, None)
-        piece_id = response.get("pieceId")
+        try:
+            # Upload first photo to create the piece (API auto-creates piece if pieceId is null)
+            first_photo = Path(photos[0])
+            if not first_photo.exists():
+                raise FileNotFoundError(f"Photo missing: {first_photo}")
 
-        if not piece_id:
-            raise ValueError("API did not return pieceId after photo upload")
+            log.info("Creating piece with first photo upload")
+            response = self._api.upload_photo(first_photo, session_id, None)
+            piece_id = response.get("pieceId")
 
-        log.info("Piece created: %s", piece_id)
+            if not piece_id:
+                raise ValueError("API did not return pieceId after photo upload")
 
-        # Upload remaining photos
-        for photo_path in photos[1:]:
-            path = Path(photo_path)
-            if not path.exists():
-                log.warning("Photo missing, skipping: %s", path)
-                continue
-            self._api.upload_photo(path, session_id, piece_id)
-            log.info("Uploaded photo: %s", photo_path)
+            uploaded_photos.append(first_photo)
+            log.info("Piece created: %s", piece_id)
 
-        # Flag defects
-        for defect in defects:
-            defect_status = defect["status"]
-            transcript = defect["transcript"]
-            if defect_status == "defect":
-                self._api.flag_defect(piece_id, transcript)
-            elif defect_status == "potential_defect":
-                self._api.flag_potential(piece_id, transcript)
-            log.info("Flagged %s for piece", defect_status)
+            # Upload remaining photos
+            for photo_path in photos[1:]:
+                path = Path(photo_path)
+                if not path.exists():
+                    log.warning("Photo missing, skipping: %s", path)
+                    continue
+                self._api.upload_photo(path, session_id, piece_id)
+                uploaded_photos.append(path)
+                log.info("Uploaded photo: %s", photo_path)
 
-        # Complete the piece
-        self._api.complete_piece(session_id, piece_id, status)
-        log.info("Piece %s completed with status %s", piece_id, status)
+            # Flag defects
+            for defect in defects:
+                defect_status = defect["status"]
+                transcript = defect["transcript"]
+                if defect_status == "defect":
+                    self._api.flag_defect(piece_id, transcript)
+                elif defect_status == "potential_defect":
+                    self._api.flag_potential(piece_id, transcript)
+                log.info("Flagged %s for piece", defect_status)
+
+            # Complete the piece
+            self._api.complete_piece(session_id, piece_id, status)
+            log.info("Piece %s completed with status %s", piece_id, status)
+
+            # Clean up local files after successful upload
+            for photo_path in uploaded_photos:
+                try:
+                    photo_path.unlink()
+                    log.info("Deleted local photo: %s", photo_path)
+                except Exception as exc:
+                    log.warning("Failed to delete local photo %s: %s", photo_path, exc)
+
+        except Exception as exc:
+            # If upload fails, keep local files for retry
+            log.error("Upload failed, keeping local files for retry: %s", exc)
+            raise
 
     def _set_processing(self) -> None:
         if self._leds:
