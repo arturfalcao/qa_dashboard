@@ -1,0 +1,81 @@
+{
+  "garment_type": "pants",
+  "measurements": {
+    "waist_width": {
+      "value": 24.9,
+      "uncertainty": 1.0,
+      "unit": "mm",
+      "status": "pass"
+    },
+    "hip_width": {
+      "value": 67.5,
+      "uncertainty": 1.0,
+      "unit": "mm",
+      "status": "pass"
+    },
+    "outseam": {
+      "value": 74.58869119538761,
+      "uncertainty": 1.5,
+      "unit": "mm",
+      "status": "pass"
+    },
+    "inseam": {
+      "value": 166.4415235572223,
+      "uncertainty": 1.5,
+      "unit": "mm",
+      "status": "pass"
+    }
+  },
+  "landmarks": {
+    "leftmost": {
+      "x": 174.0,
+      "y": 709.0,
+      "confidence": 1.0
+    },
+    "rightmost": {
+      "x": 264.0,
+      "y": 566.0,
+      "confidence": 1.0
+    },
+    "topmost": {
+      "x": 254.0,
+      "y": 546.0,
+      "confidence": 1.0
+    },
+    "bottommost": {
+      "x": 205.0,
+      "y": 748.0,
+      "confidence": 1.0
+    },
+    "centroid": {
+      "x": 209.0,
+      "y": 623.0,
+      "confidence": 1.0
+    },
+    "waist_left": {
+      "x": 181.0,
+      "y": 575.0,
+      "confidence": 1.0
+    },
+    "waist_right": {
+      "x": 264.0,
+      "y": 566.0,
+      "confidence": 1.0
+    },
+    "crotch": {
+      "x": 199.0,
+      "y": 645.0,
+      "confidence": 1.0
+    },
+    "ankle_left": {
+      "x": 174.0,
+      "y": 709.0,
+      "confidence": 1.0
+    },
+    "ankle_right": {
+      "x": 216.0,
+      "y": 694.0,
+      "confidence": 1.0
+    }
+  }
+}

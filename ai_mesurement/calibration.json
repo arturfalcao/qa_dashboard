@@ -1,0 +1,80 @@
+{
+  "camera_matrix": [
+    [
+      3000.0,
+      0.0,
+      2016.0
+    ],
+    [
+      0.0,
+      3000.0,
+      1512.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "dist_coeff": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "homography": [
+    [
+      1.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      1.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "pixel_to_mm": 0.3,
+  "rms_error": 0.0,
+  "calibration_date": "2025-10-07",
+  "bench_dimensions_mm": {
+    "width": 1200,
+    "height": 800
+  },
+  "fiducial_markers": {
+    "top_left": {
+      "id": 0,
+      "world_coords": [
+        0,
+        0
+      ]
+    },
+    "top_right": {
+      "id": 1,
+      "world_coords": [
+        1100,
+        0
+      ]
+    },
+    "bottom_right": {
+      "id": 2,
+      "world_coords": [
+        1100,
+        700
+      ]
+    },
+    "bottom_left": {
+      "id": 3,
+      "world_coords": [
+        0,
+        700
+      ]
+    }
+  }
+}

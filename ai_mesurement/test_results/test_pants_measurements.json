@@ -1,0 +1,44 @@
+{
+  "garment_type": "unknown",
+  "measurements": {
+    "width": {
+      "value": 11.818629362155324,
+      "uncertainty": 1.0,
+      "unit": "mm",
+      "status": "pass"
+    },
+    "height": {
+      "value": 12.657013865837392,
+      "uncertainty": 1.0,
+      "unit": "mm",
+      "status": "pass"
+    }
+  },
+  "landmarks": {
+    "leftmost": {
+      "x": 1107.0,
+      "y": 726.0,
+      "confidence": 1.0
+    },
+    "rightmost": {
+      "x": 1143.0,
+      "y": 742.0,
+      "confidence": 1.0
+    },
+    "topmost": {
+      "x": 1142.0,
+      "y": 707.0,
+      "confidence": 1.0
+    },
+    "bottommost": {
+      "x": 1120.0,
+      "y": 743.0,
+      "confidence": 1.0
+    },
+    "centroid": {
+      "x": 1128.0,
+      "y": 730.0,
+      "confidence": 1.0
+    }
+  }
+}
