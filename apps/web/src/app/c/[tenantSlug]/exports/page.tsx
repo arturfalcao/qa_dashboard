@@ -185,7 +185,7 @@ export default function ExportsPage() {
             <div className="w-2 h-2 rounded-full bg-green-500 mt-1.5 flex-shrink-0"></div>
             <div>
               <div className="font-medium text-gray-900">Tenant isolation</div>
-              <div className="text-gray-600">Only your tenant's data is included in exports</div>
+              <div className="text-gray-600">Only your tenant&apos;s data is included in exports</div>
             </div>
           </div>
           <div className="flex items-start gap-3">

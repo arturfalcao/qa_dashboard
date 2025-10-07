@@ -567,7 +567,7 @@ export function TechPackWizard({ isOpen, onClose, tenantSlug }: TechPackWizardPr
                 <div className="text-sm">
                   <p className="font-medium text-green-900">Ready to Create Lot</p>
                   <p className="text-green-700 mt-1">
-                    Review the summary below and click "Create Lot" to finish
+                    Review the summary below and click &quot;Create Lot&quot; to finish
                   </p>
                 </div>
               </div>

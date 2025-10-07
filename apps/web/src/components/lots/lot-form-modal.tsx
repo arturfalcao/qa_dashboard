@@ -1019,7 +1019,7 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
             {quantityTotal > 0 && sizeSpecifications.length > 0 && (
               sizeSpecifications.reduce((sum, spec) => sum + (spec.quantity || 0), 0) !== quantityTotal ? (
                 <span className="ml-2 text-yellow-600">
-                  (Warning: doesn't match total quantity)
+                  (Warning: doesn&apos;t match total quantity)
                 </span>
               ) : (
                 <span className="ml-2 text-green-600">
