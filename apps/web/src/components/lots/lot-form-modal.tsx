@@ -69,6 +69,19 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
   const [certifications, setCertifications] = useState<Array<{type: string}>>([])
   const [dppMetadata, setDppMetadata] = useState('')
 
+  // Tech Pack fields
+  const [techPackFile, setTechPackFile] = useState<File | null>(null)
+  const [uploadingTechPack, setUploadingTechPack] = useState(false)
+  const [techPackStatus, setTechPackStatus] = useState<string | null>(null)
+  const [techPackData, setTechPackData] = useState<any>(null)
+
+  // Size specifications
+  const [sizeSpecifications, setSizeSpecifications] = useState<Array<{
+    size: string
+    quantity: number
+    measurements: Record<string, number>
+  }>>([])
+
   useEffect(() => {
     if (initialLot) {
       if (initialLot.suppliers && initialLot.suppliers.length > 0) {
@@ -101,6 +114,9 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
       setDyeLot((initialLot as any).dyeLot || '')
       setCertifications(((initialLot as any).certifications || []).map((cert: any) => ({ type: cert.type })))
       setDppMetadata((initialLot as any).dppMetadata ? JSON.stringify((initialLot as any).dppMetadata, null, 2) : '')
+
+      // Load size specifications if available
+      setSizeSpecifications((initialLot as any).sizeSpecifications || [])
     } else {
       setSuppliers([])
       setSelectedClientId('')
@@ -113,6 +129,7 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
       setDyeLot('')
       setCertifications([])
       setDppMetadata('')
+      setSizeSpecifications([])
     }
     setError('')
   }, [initialLot, isOpen])
@@ -190,7 +207,7 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
   }
 
   const createMutation = useMutation({
-    mutationFn: (payload: {
+    mutationFn: async (payload: {
       suppliers: Array<{
         factoryId: string
         stage?: string | null
@@ -206,10 +223,33 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
       dyeLot?: string
       certifications?: Array<{ type: string }>
       dppMetadata?: Record<string, any>
-    }) =>
-      initialLot
-        ? apiClient.updateLot(initialLot.id, payload)
-        : apiClient.createLot(payload),
+    }) => {
+      let lot: Lot
+      if (initialLot) {
+        lot = await apiClient.updateLot(initialLot.id, payload)
+      } else {
+        lot = await apiClient.createLot(payload)
+
+        // If creating a new lot and there's a tech pack file, upload it
+        if (techPackFile) {
+          try {
+            const uploadResult = await apiClient.uploadTechPack(lot.id, techPackFile)
+            console.log('Tech pack uploaded successfully:', uploadResult)
+            // Refresh the lot data to get the updated tech pack fields
+            await queryClient.invalidateQueries({ queryKey: ['lot', lot.id] })
+          } catch (err: any) {
+            // Log error but don't fail the entire operation
+            console.error('Tech pack upload failed:', err)
+            // Show a more user-friendly error
+            const errorMessage = err.message || 'Unknown error'
+            console.warn(`Tech pack upload error: ${errorMessage}`)
+            // Note: The lot is still created, just without the tech pack
+            // User can try uploading the tech pack again from the edit form
+          }
+        }
+      }
+      return lot
+    },
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['lots'] }),
@@ -473,6 +513,8 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
               dyeLot: dyeLot.trim() || undefined,
               certifications: certifications.length > 0 ? certifications : undefined,
               dppMetadata: parsedDppMetadata,
+              // Size specifications
+              sizeSpecifications: sizeSpecifications.length > 0 ? sizeSpecifications : undefined,
             }
 
             console.log('Lot payload:', JSON.stringify(payload, null, 2))
@@ -832,6 +874,273 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
               Optional JSON metadata for additional DPP information
             </p>
           </div>
+        </div>
+
+        {/* Size Specifications Section */}
+        <div className="border-t pt-4">
+          <h4 className="mb-4 text-sm font-semibold text-gray-900">Size Specifications</h4>
+          <p className="mb-4 text-xs text-gray-500">
+            Add size breakdown with quantities and measurements (optional)
+          </p>
+
+          <div className="space-y-3">
+            {sizeSpecifications.map((sizeSpec, index) => (
+              <div key={index} className="border border-gray-200 rounded-lg p-3 space-y-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-700">Size</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. S, M, L, 38, 40"
+                        value={sizeSpec.size}
+                        onChange={(e) => {
+                          const updated = [...sizeSpecifications]
+                          updated[index].size = e.target.value
+                          setSizeSpecifications(updated)
+                        }}
+                        className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-700">Quantity</label>
+                      <input
+                        type="number"
+                        min={0}
+                        placeholder="e.g. 500"
+                        value={sizeSpec.quantity || ''}
+                        onChange={(e) => {
+                          const updated = [...sizeSpecifications]
+                          updated[index].quantity = Number(e.target.value)
+                          setSizeSpecifications(updated)
+                        }}
+                        className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSizeSpecifications(sizeSpecifications.filter((_, i) => i !== index))
+                    }}
+                    className="ml-3 text-red-600 hover:text-red-700 text-sm"
+                  >
+                    Remove
+                  </button>
+                </div>
+
+                {/* Measurements */}
+                <div>
+                  <label className="mb-2 block text-xs font-medium text-gray-700">Measurements (cm)</label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {(() => {
+                      const predefinedMeasurements = ['chest', 'length', 'sleeve', 'shoulder', 'waist', 'hip']
+                      const existingMeasurements = Object.keys(sizeSpec.measurements || {})
+                      const allMeasurements = Array.from(new Set([...predefinedMeasurements, ...existingMeasurements]))
+
+                      return allMeasurements.map((measurementType) => (
+                        <div key={measurementType} className="relative">
+                          <input
+                            type="number"
+                            step="0.1"
+                            placeholder={measurementType.charAt(0).toUpperCase() + measurementType.slice(1)}
+                            value={sizeSpec.measurements?.[measurementType] || ''}
+                            onChange={(e) => {
+                              const updated = [...sizeSpecifications]
+                              if (!updated[index].measurements) {
+                                updated[index].measurements = {}
+                              }
+                              if (e.target.value) {
+                                updated[index].measurements[measurementType] = Number(e.target.value)
+                              } else {
+                                delete updated[index].measurements[measurementType]
+                              }
+                              setSizeSpecifications(updated)
+                            }}
+                            className="block w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+                          />
+                          {!predefinedMeasurements.includes(measurementType) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = [...sizeSpecifications]
+                                if (updated[index].measurements) {
+                                  delete updated[index].measurements[measurementType]
+                                  setSizeSpecifications(updated)
+                                }
+                              }}
+                              className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs hover:bg-red-600"
+                              title="Remove custom measurement"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
+                      ))
+                    })()}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newMeasurement = prompt('Enter measurement name (e.g., inseam, cuff):')
+                      if (newMeasurement) {
+                        const updated = [...sizeSpecifications]
+                        if (!updated[index].measurements) {
+                          updated[index].measurements = {}
+                        }
+                        updated[index].measurements[newMeasurement.toLowerCase()] = 0
+                        setSizeSpecifications(updated)
+                      }
+                    }}
+                    className="mt-2 text-xs text-primary-600 hover:text-primary-700"
+                  >
+                    + Add custom measurement
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={() => {
+                setSizeSpecifications([
+                  ...sizeSpecifications,
+                  { size: '', quantity: 0, measurements: {} }
+                ])
+              }}
+              className="text-sm text-primary-600 hover:text-primary-700"
+            >
+              + Add Size
+            </button>
+          </div>
+
+          <p className="mt-2 text-xs text-gray-500">
+            Total from sizes: {sizeSpecifications.reduce((sum, spec) => sum + (spec.quantity || 0), 0)} units
+            {quantityTotal > 0 && sizeSpecifications.length > 0 && (
+              sizeSpecifications.reduce((sum, spec) => sum + (spec.quantity || 0), 0) !== quantityTotal ? (
+                <span className="ml-2 text-yellow-600">
+                  (Warning: doesn't match total quantity)
+                </span>
+              ) : (
+                <span className="ml-2 text-green-600">
+                  ✓ Matches total quantity
+                </span>
+              )
+            )}
+          </p>
+        </div>
+
+        {/* Tech Pack Upload Section */}
+        <div className="border-t pt-4">
+          <h4 className="mb-4 text-sm font-semibold text-gray-900">Tech Pack Upload</h4>
+          <p className="mb-4 text-xs text-gray-500">
+            Upload a tech pack file to automatically extract product specifications and measurements
+          </p>
+
+          <div className="mb-4">
+            <label className="mb-2 block text-sm font-medium text-gray-700">Tech Pack File</label>
+            <div className="flex items-center space-x-3">
+              <input
+                type="file"
+                accept=".pdf,.xlsx,.xls,.csv,.jpg,.jpeg,.png,.gif"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null
+                  setTechPackFile(file)
+                }}
+                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-gray-300 file:text-sm file:font-medium file:text-gray-700 file:bg-gray-50 hover:file:bg-gray-100"
+              />
+              {techPackFile && (
+                <button
+                  type="button"
+                  onClick={() => setTechPackFile(null)}
+                  className="text-red-600 hover:text-red-700 text-sm"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Supported formats: PDF, Excel, CSV, Images (JPG, PNG)
+            </p>
+          </div>
+
+          {techPackFile && !initialLot && (
+            <div className="mb-4">
+              <button
+                type="button"
+                onClick={async () => {
+                  setUploadingTechPack(true)
+                  setError('')
+                  try {
+                    // Note: For new lots, we'll upload the tech pack after the lot is created
+                    // For now, just show that it's selected
+                    setTechPackStatus('ready')
+                  } catch (err: any) {
+                    setError(`Tech pack processing failed: ${err.message}`)
+                  } finally {
+                    setUploadingTechPack(false)
+                  }
+                }}
+                disabled={uploadingTechPack}
+                className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-700 disabled:opacity-60"
+              >
+                {uploadingTechPack ? 'Processing...' : 'Process Tech Pack'}
+              </button>
+              <p className="mt-2 text-xs text-gray-500">
+                The tech pack will be processed after the lot is created
+              </p>
+            </div>
+          )}
+
+          {initialLot && techPackFile && (
+            <div className="mb-4">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!techPackFile) return
+                  setUploadingTechPack(true)
+                  setError('')
+                  try {
+                    const result = await apiClient.uploadTechPack(initialLot.id, techPackFile)
+
+                    // Update form fields with extracted data
+                    if (result.extractedData) {
+                      if (result.extractedData.styleRef) {
+                        setStyleRef(result.extractedData.styleRef)
+                      }
+                      if (result.extractedData.materialComposition) {
+                        setMaterialComposition(result.extractedData.materialComposition)
+                      }
+                      if (result.extractedData.dyeLot) {
+                        setDyeLot(result.extractedData.dyeLot)
+                      }
+                      if (result.extractedData.productionQuantity) {
+                        setQuantityTotal(result.extractedData.productionQuantity)
+                      }
+                    }
+
+                    setTechPackStatus('completed')
+                    setTechPackData(result.extractedData)
+                    setTechPackFile(null)
+
+                    // Show success message
+                    setError('') // Clear any previous errors
+                    alert('Tech pack uploaded and processed successfully!')
+                  } catch (err: any) {
+                    setError(`Tech pack upload failed: ${err.message}`)
+                    setTechPackStatus('failed')
+                  } finally {
+                    setUploadingTechPack(false)
+                  }
+                }}
+                disabled={uploadingTechPack}
+                className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-700 disabled:opacity-60"
+              >
+                {uploadingTechPack ? 'Processing...' : 'Upload & Process Tech Pack'}
+              </button>
+            </div>
+          )}
+
         </div>
 
           <div className="flex justify-end space-x-3 pt-2">

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { useAuth } from '@/components/providers/auth-provider'
 import { apiClient } from '@/lib/api'
 import { storeUser } from '@/lib/auth'
@@ -99,11 +100,15 @@ export default function LoginPage() {
 
       <div className="relative mx-auto flex min-h-screen max-w-7xl flex-col justify-center px-6 py-12 sm:px-8 lg:grid lg:grid-cols-12 lg:gap-12 lg:px-12">
         <section className="relative hidden overflow-hidden rounded-3xl bg-gradient-to-br from-primary-700 via-slate-900 to-slate-950 p-12 text-white shadow-2xl lg:col-span-6 xl:col-span-7 lg:flex lg:flex-col">
-          <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.3em] text-primary-100">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-lg font-bold">
-              QA
-            </span>
-            <span>Quality Assurance Platform</span>
+          <div className="flex items-center gap-4">
+            <Image
+              src="/logo/PackPolish_logo_white.png"
+              alt="Pack & Polish"
+              width={180}
+              height={50}
+              className="object-contain"
+              priority
+            />
           </div>
 
           <div className="mt-12 max-w-xl">
@@ -151,12 +156,16 @@ export default function LoginPage() {
         </section>
 
         <section className="relative z-10 col-span-12 mx-auto w-full max-w-xl lg:col-span-6 xl:col-span-5 lg:ml-auto">
-          <div className="mb-10 flex items-center gap-3 lg:hidden">
-            <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-primary-600/10 text-lg font-bold text-primary-600">
-              QA
-            </span>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-600">QA Dashboard</p>
+          <div className="mb-10 flex flex-col items-center gap-4 lg:hidden">
+            <Image
+              src="/logo/PackPolish_logo_transparent.png"
+              alt="Pack & Polish"
+              width={180}
+              height={50}
+              className="object-contain"
+              priority
+            />
+            <div className="text-center">
               <p className="text-base font-semibold text-white">Sign in to orchestrate your quality strategy</p>
             </div>
           </div>

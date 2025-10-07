@@ -253,6 +253,137 @@ export interface PackagingReadinessReportData {
   comments?: string;
 }
 
+export interface SupplierPerformanceSnapshotData {
+  client: {
+    name: string;
+    logo?: string;
+  };
+  period: {
+    startDate: string;
+    endDate: string;
+  };
+  suppliers: Array<{
+    id: string;
+    name: string;
+    location: string;
+    metrics: {
+      totalLots: number;
+      defectRate: number;
+      onTimeDelivery: number;
+      qualityScore: number;
+      trend: 'improving' | 'stable' | 'declining';
+    };
+    recentIssues: Array<{
+      date: string;
+      description: string;
+      severity: 'critical' | 'major' | 'minor';
+    }>;
+    strengths: string[];
+    areasForImprovement: string[];
+  }>;
+  summary: {
+    totalSuppliers: number;
+    averageDefectRate: number;
+    averageOnTimeDelivery: number;
+    topPerformer: string;
+    needsAttention: string[];
+  };
+}
+
+export interface CapaReportData {
+  capa: {
+    id: string;
+    title: string;
+    type: 'corrective' | 'preventive';
+    status: 'open' | 'in_progress' | 'completed' | 'closed';
+    priority: 'critical' | 'high' | 'medium' | 'low';
+    openedDate: string;
+    targetDate?: string;
+    closedDate?: string;
+  };
+  issue: {
+    description: string;
+    rootCause: string;
+    impactAssessment: string;
+    affectedLots?: string[];
+    affectedProducts?: string[];
+  };
+  actions: Array<{
+    id: string;
+    description: string;
+    type: 'immediate' | 'corrective' | 'preventive';
+    assignedTo: string;
+    dueDate: string;
+    completedDate?: string;
+    status: 'pending' | 'in_progress' | 'completed';
+    evidence?: string[];
+    notes?: string;
+  }>;
+  timeline: Array<{
+    date: string;
+    event: string;
+    user: string;
+    details?: string;
+  }>;
+  effectiveness: {
+    verified: boolean;
+    verificationDate?: string;
+    verifiedBy?: string;
+    outcome: string;
+    followUpRequired: boolean;
+  };
+  attachments: Array<{
+    url: string;
+    name: string;
+    type: string;
+    uploadedAt: string;
+  }>;
+}
+
+export interface InlineQcCheckpointsData {
+  lot: {
+    id: string;
+    styleRef: string;
+    quantity: number;
+    factory: {
+      name: string;
+      location: string;
+    };
+  };
+  phase: string;
+  checkpoints: Array<{
+    id: string;
+    name: string;
+    category: 'cutting' | 'sewing' | 'finishing' | 'packing';
+    status: 'pending' | 'in_progress' | 'completed' | 'failed';
+    completedAt?: string;
+    inspector?: string;
+    checks: Array<{
+      checkPoint: string;
+      expected: string;
+      actual: string;
+      status: 'pass' | 'fail' | 'na';
+      notes?: string;
+      photos?: string[];
+    }>;
+  }>;
+  defectsFound: Array<{
+    checkpoint: string;
+    defectType: string;
+    severity: 'critical' | 'major' | 'minor';
+    count: number;
+    actionTaken: string;
+  }>;
+  summary: {
+    totalCheckpoints: number;
+    completedCheckpoints: number;
+    passedCheckpoints: number;
+    failedCheckpoints: number;
+    overallStatus: 'on_track' | 'at_risk' | 'failed';
+    completionPercentage: number;
+  };
+}
+
 export interface DppSummaryReportData {
   dpp: {
     id: string;

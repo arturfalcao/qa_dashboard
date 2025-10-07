@@ -58,8 +58,8 @@ class IntelligentGarmentMeasurement:
         self.debug = debug
 
         # Initialize components
-        self.ruler_detector = SmartRulerDetector(known_length_cm=ruler_length_cm, debug=False)
-        self.segmenter = FastGarmentSegmenter(debug=False)
+        self.ruler_detector = SmartRulerDetector(known_length_cm=ruler_length_cm, debug=debug)
+        self.segmenter = FastGarmentSegmenter(debug=debug)
         self.classifier = GarmentClassifier(debug=debug)
         self.visualizer = CleanMeasurementVisualizer()
 
@@ -531,7 +531,15 @@ class IntelligentGarmentMeasurement:
             # Generic output for other types
             for key, value in measurements.items():
                 if not key.endswith('_px'):
-                    print(f"   {key.replace('_', ' ').title()}: {value:.1f} cm")
+                    # Handle both float values and dict values
+                    if isinstance(value, (int, float)):
+                        print(f"   {key.replace('_', ' ').title()}: {value:.1f} cm")
+                    elif isinstance(value, dict):
+                        # If it's a dict, extract the numeric value if present
+                        if 'value' in value:
+                            print(f"   {key.replace('_', ' ').title()}: {value['value']:.1f} cm")
+                        else:
+                            print(f"   {key.replace('_', ' ').title()}: {value}")
 
         print(f"\n{'='*60}")
 
@@ -584,10 +592,11 @@ class IntelligentGarmentMeasurement:
         ax.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
         ax.set_title(f'Detected: {garment_type.value.upper()}', fontweight='bold')
 
-        # Draw ruler box
-        rx, ry, rw, rh = ruler_bbox
-        rect = plt.Rectangle((rx, ry), rw, rh, fill=False, edgecolor='yellow', linewidth=2)
-        ax.add_patch(rect)
+        # Draw ruler box if available
+        if ruler_bbox is not None:
+            rx, ry, rw, rh = ruler_bbox
+            rect = plt.Rectangle((rx, ry), rw, rh, fill=False, edgecolor='yellow', linewidth=2)
+            ax.add_patch(rect)
         ax.axis('off')
 
         # Show measurements

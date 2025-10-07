@@ -68,16 +68,10 @@ export default function LiveFeedPage() {
     [events],
   )
 
-  const activeSessions = liveFeed?.activeSessions ?? []
   const pendingDefects = liveFeed?.pendingDefects ?? []
 
   const summaryCards = useMemo(
     () => [
-      {
-        label: 'Active sessions',
-        value: activeSessions.length.toString(),
-        helper: activeSessions.length ? 'Operators reporting live' : 'No sessions in progress',
-      },
       {
         label: 'Pending defects',
         value: pendingDefects.length.toString(),
@@ -86,7 +80,7 @@ export default function LiveFeedPage() {
       {
         label: 'Recent inspections',
         value: inspections.length.toString(),
-        helper: 'Last 50 records streamed',
+        helper: 'Last 50 records',
       },
       {
         label: 'Live alerts',
@@ -94,26 +88,14 @@ export default function LiveFeedPage() {
         helper: recentEvents.length ? 'Action required' : 'No new alerts',
       },
     ],
-    [activeSessions.length, pendingDefects.length, inspections.length, recentEvents.length],
+    [pendingDefects.length, inspections.length, recentEvents.length],
   )
 
-  const statusMeta = (
+  const statusMeta = lastUpdateTime ? (
     <div className="flex flex-wrap items-center gap-3 text-xs text-neutral-500">
-      <span
-        className={cn(
-          'flex items-center gap-2 font-medium',
-          activeSessions.length ? 'text-emerald-600' : 'text-neutral-400',
-        )}
-      >
-        <span className="relative flex h-2 w-2">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-current opacity-75" />
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-current" />
-        </span>
-        {activeSessions.length ? 'Live' : 'Idle'}
-      </span>
-      {lastUpdateTime && <span>Updated {formatRelativeTime(lastUpdateTime)}</span>}
+      <span>Updated {formatRelativeTime(lastUpdateTime)}</span>
     </div>
-  )
+  ) : null
 
   const headerActions = (
     <div className="flex items-center gap-2">
@@ -184,74 +166,6 @@ export default function LiveFeedPage() {
       <Card>
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <CardTitle>Active inspections</CardTitle>
-            <CardDescription>Operators streaming edge data in real time.</CardDescription>
-          </div>
-          {activeSessions.length > 0 && (
-            <span className="rounded-full bg-primary-100 px-3 py-1 text-xs font-semibold text-primary-700">
-              {activeSessions.length} active
-            </span>
-          )}
-        </CardHeader>
-        <CardContent>
-          {activeSessions.length === 0 ? (
-            <EmptyState
-              icon={<ActivityIcon className="h-5 w-5" />}
-              title="No sessions online"
-              description="When operators start an inspection, it will appear here."
-            />
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2">
-              {activeSessions.map((session: any) => (
-                <Card key={session.id} className="border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900/60">
-                  <CardHeader className="flex flex-col gap-1">
-                    <CardTitle className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
-                      {session.lot?.styleRef || 'Unknown lot'}
-                    </CardTitle>
-                    <CardDescription>
-                      Started {new Date(session.startedAt).toLocaleTimeString()}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-3 gap-2 text-center text-sm">
-                      <div>
-                        <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                          {session.piecesInspected}
-                        </p>
-                        <p className="text-xs text-neutral-500">Inspected</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-danger-600">
-                          {session.piecesDefect}
-                        </p>
-                        <p className="text-xs text-neutral-500">Defects</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-amber-600">
-                          {session.piecesPotentialDefect}
-                        </p>
-                        <p className="text-xs text-neutral-500">Potential</p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="px-0"
-                      onClick={() => router.push(`/operator/inspection/${session.id}`)}
-                    >
-                      Open operator view
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
             <CardTitle>Potential Defect Review</CardTitle>
             <CardDescription>
               Review flagged pieces with visual evidence. Confirm real defects or mark as false positives to reduce noise.
@@ -268,7 +182,7 @@ export default function LiveFeedPage() {
             <EmptyState
               icon={<AlertTriangleIcon className="h-5 w-5" />}
               title="No defects awaiting review"
-              description="We’ll notify you here when operators flag issues."
+              description="Flagged defects will appear here for quality review."
             />
           ) : (
             <div className="space-y-3">

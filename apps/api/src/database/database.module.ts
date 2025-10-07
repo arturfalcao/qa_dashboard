@@ -70,6 +70,7 @@ import { InspectionSessionController } from "./controllers/inspection-session.co
 import { StorageModule } from "../storage/storage.module";
 import { DppModule } from "../dpp/dpp.module";
 import { DppService } from "../dpp/dpp.service";
+import { TechPackModule } from "../tech-pack/tech-pack.module";
 
 @Module({
   imports: [
@@ -108,6 +109,7 @@ import { DppService } from "../dpp/dpp.service";
     ]),
     StorageModule,
     DppModule,
+    TechPackModule,
   ],
   providers: [
     InspectionService,

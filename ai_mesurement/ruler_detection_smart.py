@@ -65,59 +65,118 @@ class SmartRulerDetector:
         # Convert to grayscale
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-        # Strong edge detection
+        # Focus on bottom third of image where ruler is typically placed
+        height = gray.shape[0]
+        bottom_region = gray[height*2//3:, :]
+
+        # Strong edge detection on bottom region
+        edges_bottom = cv2.Canny(bottom_region, 50, 150, apertureSize=3)
+
+        # Also check full image for fallback
         edges = cv2.Canny(gray, 50, 150, apertureSize=3)
 
         # Morphological operations to connect edges
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        edges_bottom = cv2.dilate(edges_bottom, kernel, iterations=1)
         edges = cv2.dilate(edges, kernel, iterations=1)
 
-        # Detect lines using Hough Transform
-        lines = cv2.HoughLinesP(
+        # First try to detect lines in bottom region (where ruler usually is)
+        lines_bottom = cv2.HoughLinesP(
+            edges_bottom,
+            rho=1,
+            theta=np.pi/180,
+            threshold=80,
+            minLineLength=300,
+            maxLineGap=30
+        )
+
+        # Also detect lines in full image as fallback
+        lines_full = cv2.HoughLinesP(
             edges,
             rho=1,
             theta=np.pi/180,
-            threshold=100,
-            minLineLength=500,  # At least 500 pixels long
-            maxLineGap=50
+            threshold=80,
+            minLineLength=300,
+            maxLineGap=30
         )
 
-        if lines is None:
-            return None
-
-        # Filter for very long, straight lines (likely ruler edges)
         ruler_candidates = []
 
-        for line in lines:
-            x1, y1, x2, y2 = line[0]
-            length = np.sqrt((x2-x1)**2 + (y2-y1)**2)
+        # Process bottom region lines (prioritized)
+        if lines_bottom is not None:
+            offset_y = height * 2 // 3  # Offset for bottom region
+            for line in lines_bottom:
+                x1, y1, x2, y2 = line[0]
+                # Adjust y coordinates for bottom region
+                y1 += offset_y
+                y2 += offset_y
+                length = np.sqrt((x2-x1)**2 + (y2-y1)**2)
+                angle = np.abs(np.arctan2(y2-y1, x2-x1) * 180 / np.pi)
 
-            # Calculate angle (should be close to 0° or 90°)
-            angle = np.abs(np.arctan2(y2-y1, x2-x1) * 180 / np.pi)
+                is_horizontal = angle < 10 or angle > 170
 
-            # Ruler should be horizontal or vertical
-            is_horizontal = angle < 10 or angle > 170
-            is_vertical = 80 < angle < 100
+                # Prioritize horizontal rulers in bottom region
+                if is_horizontal and 400 < length < 1500:
+                    ruler_candidates.append({
+                        'line': (x1, y1, x2, y2),
+                        'length': length,
+                        'angle': angle,
+                        'orientation': 'horizontal',
+                        'priority': 2  # Higher priority for bottom horizontal
+                    })
 
-            if (is_horizontal or is_vertical) and length > 1000:
-                ruler_candidates.append({
-                    'line': (x1, y1, x2, y2),
-                    'length': length,
-                    'angle': angle,
-                    'orientation': 'horizontal' if is_horizontal else 'vertical'
-                })
+        # Process full image lines (lower priority)
+        if lines_full is not None:
+            for line in lines_full:
+                x1, y1, x2, y2 = line[0]
+                length = np.sqrt((x2-x1)**2 + (y2-y1)**2)
+                angle = np.abs(np.arctan2(y2-y1, x2-x1) * 180 / np.pi)
+
+                is_horizontal = angle < 10 or angle > 170
+                is_vertical = 80 < angle < 100
+
+                if (is_horizontal or is_vertical) and 400 < length < 1500:
+                    # Check if it's in bottom half
+                    in_bottom = y1 > height/2 and y2 > height/2
+                    ruler_candidates.append({
+                        'line': (x1, y1, x2, y2),
+                        'length': length,
+                        'angle': angle,
+                        'orientation': 'horizontal' if is_horizontal else 'vertical',
+                        'priority': 1 if (is_horizontal and in_bottom) else 0
+                    })
 
         if not ruler_candidates:
+            print(f"   ⚠️ No ruler candidates found within expected size range (400-1500 pixels)")
             return None
 
-        # Get longest line
-        best = max(ruler_candidates, key=lambda x: x['length'])
+        print(f"   📏 Found {len(ruler_candidates)} ruler candidates")
+
+        # Sort by priority first, then by length
+        # Higher priority = horizontal rulers in bottom region
+        best = max(ruler_candidates, key=lambda x: (x.get('priority', 0), x['length']))
+
+        # Debug output
+        print(f"   📏 Detected line length: {best['length']:.1f} pixels")
+        print(f"   📏 Known ruler length: {self.known_length_cm} cm")
+        calculated_scale = best['length'] / self.known_length_cm
+        print(f"   📏 Calculated scale: {calculated_scale:.2f} pixels/cm")
+
+        # Save debug visualization if in debug mode
+        if self.debug:
+            debug_img = image.copy()
+            x1, y1, x2, y2 = best['line']
+            cv2.line(debug_img, (x1, y1), (x2, y2), (0, 255, 0), 3)
+            cv2.putText(debug_img, f"Detected Ruler: {best['length']:.0f}px",
+                       (x1, y1-10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            cv2.imwrite("ruler_detection_debug.png", debug_img)
+            print(f"   📊 Debug image saved: ruler_detection_debug.png")
 
         return {
             'method': 'hough_lines',
             'bbox': self._line_to_bbox(best['line'], image.shape),
             'length_pixels': best['length'],
-            'pixels_per_cm': best['length'] / self.known_length_cm,
+            'pixels_per_cm': calculated_scale,
             'orientation': best['orientation'],
             'confidence': min(0.9, best['length'] / 2000)  # Higher confidence for longer lines
         }
@@ -125,24 +184,42 @@ class SmartRulerDetector:
     def _detect_ruler_by_color_improved(self, image: np.ndarray) -> Optional[Dict]:
         """
         Improved color-based detection
-        Uses LAB color space + intelligent morphology
+        Detects green, orange, and brown rulers
         """
 
-        # Convert to LAB (better for green detection)
-        lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
-        l, a, b = cv2.split(lab)
-
-        # Green objects have negative 'a' channel values
-        green_mask = (a < 120).astype(np.uint8) * 255
-
-        # Also try HSV
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+        # Try multiple color ranges for typical rulers
+        masks = []
+
+        # Orange/Brown wooden rulers (most common)
+        lower_orange = np.array([10, 50, 50])
+        upper_orange = np.array([25, 255, 255])
+        orange_mask = cv2.inRange(hsv, lower_orange, upper_orange)
+        masks.append(orange_mask)
+
+        # Brown rulers
+        lower_brown = np.array([10, 30, 30])
+        upper_brown = np.array([20, 200, 150])
+        brown_mask = cv2.inRange(hsv, lower_brown, upper_brown)
+        masks.append(brown_mask)
+
+        # Green rulers
         lower_green = np.array([30, 20, 20])
         upper_green = np.array([90, 255, 255])
-        hsv_mask = cv2.inRange(hsv, lower_green, upper_green)
+        green_mask = cv2.inRange(hsv, lower_green, upper_green)
+        masks.append(green_mask)
 
-        # Combine both masks
-        combined_mask = cv2.bitwise_or(green_mask, hsv_mask)
+        # Yellow rulers
+        lower_yellow = np.array([20, 100, 100])
+        upper_yellow = np.array([30, 255, 255])
+        yellow_mask = cv2.inRange(hsv, lower_yellow, upper_yellow)
+        masks.append(yellow_mask)
+
+        # Combine all masks
+        combined_mask = masks[0]
+        for mask in masks[1:]:
+            combined_mask = cv2.bitwise_or(combined_mask, mask)
 
         # Aggressive morphology to connect ruler parts
         # Use directional kernels

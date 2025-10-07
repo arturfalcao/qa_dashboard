@@ -75,7 +75,10 @@ export function ReportGenerationModal({
   initialType,
   initialLotId
 }: ReportGenerationModalProps) {
-  const [selectedType, setSelectedType] = useState<ReportType>(initialType || ReportType.EXECUTIVE_QUALITY_SUMMARY)
+  // If initialLotId is provided, default to a lot-specific report
+  const defaultType = initialType || (initialLotId ? ReportType.LOT_INSPECTION_REPORT : ReportType.EXECUTIVE_QUALITY_SUMMARY)
+
+  const [selectedType, setSelectedType] = useState<ReportType>(defaultType)
   const [selectedLot, setSelectedLot] = useState<string>(initialLotId || '')
   const [selectedLanguage, setSelectedLanguage] = useState<ReportLanguage>(ReportLanguage.EN)
   const [parameters, setParameters] = useState<Record<string, any>>({})
@@ -142,7 +145,7 @@ export function ReportGenerationModal({
     if (!generateMutation.isPending) {
       onClose()
       // Reset form
-      setSelectedType(initialType || ReportType.EXECUTIVE_QUALITY_SUMMARY)
+      setSelectedType(defaultType)
       setSelectedLot(initialLotId || '')
       setSelectedLanguage(ReportLanguage.EN)
       setParameters({})
@@ -192,6 +195,14 @@ export function ReportGenerationModal({
                   </button>
                 </div>
 
+                {initialLotId && (
+                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <p className="text-sm text-blue-700">
+                      You&apos;re generating a report for the current lot. Only lot-specific reports are available.
+                    </p>
+                  </div>
+                )}
+
                 <form onSubmit={handleSubmit} className="space-y-6">
                   {/* Report Type Selection */}
                   <div>
@@ -199,7 +210,9 @@ export function ReportGenerationModal({
                       Report Type
                     </label>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {REPORT_TYPES.map((reportType) => (
+                      {REPORT_TYPES
+                        .filter(reportType => !initialLotId || reportType.requiresLot)
+                        .map((reportType) => (
                         <div
                           key={reportType.type}
                           className={`relative cursor-pointer rounded-lg border p-4 hover:bg-gray-50 ${
@@ -234,21 +247,32 @@ export function ReportGenerationModal({
                   {selectedReportType?.requiresLot && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Select Lot *
+                        {initialLotId ? 'Report for Lot' : 'Select Lot *'}
                       </label>
-                      <select
-                        value={selectedLot}
-                        onChange={(e) => setSelectedLot(e.target.value)}
-                        required
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                      >
-                        <option value="">Choose a lot...</option>
-                        {lots.map((lot: any) => (
-                          <option key={lot.id} value={lot.id}>
-                            {lot.styleRef} - {lot.factory?.name} ({lot.quantityTotal} units)
-                          </option>
-                        ))}
-                      </select>
+                      {initialLotId ? (
+                        <div className="block w-full px-3 py-2 border border-gray-200 bg-gray-50 rounded-md text-sm text-gray-700">
+                          {(() => {
+                            const currentLot = lots.find((lot: any) => lot.id === selectedLot)
+                            return currentLot
+                              ? `${currentLot.styleRef} - ${currentLot.factory?.name || 'Factory'} (${currentLot.quantityTotal} units)`
+                              : 'Loading lot information...'
+                          })()}
+                        </div>
+                      ) : (
+                        <select
+                          value={selectedLot}
+                          onChange={(e) => setSelectedLot(e.target.value)}
+                          required
+                          className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                        >
+                          <option value="">Choose a lot...</option>
+                          {lots.map((lot: any) => (
+                            <option key={lot.id} value={lot.id}>
+                              {lot.styleRef} - {lot.factory?.name} ({lot.quantityTotal} units)
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </div>
                   )}
 

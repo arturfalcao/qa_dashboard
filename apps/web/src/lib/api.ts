@@ -327,6 +327,55 @@ class ApiClient {
     })
   }
 
+  async deleteLot(id: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/lots/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
+  // Tech Pack methods
+  async uploadTechPack(lotId: string, file: File): Promise<{
+    message: string
+    lot: Lot
+    extractedData: any
+  }> {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const url = `${API_BASE_URL}/lots/${lotId}/tech-pack`
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        ...this.getAuthHeader(),
+      },
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Upload failed' }))
+      throw new Error(error.message || `HTTP ${response.status}`)
+    }
+
+    return response.json()
+  }
+
+  async getTechPackData(lotId: string): Promise<{
+    techPackStatus: string | null
+    techPackUploadedAt: string | null
+    techPackData: any
+    sizeSpecifications: any
+    hasFile: boolean
+  }> {
+    return this.request(`/lots/${lotId}/tech-pack`)
+  }
+
+  async downloadTechPack(lotId: string): Promise<{
+    downloadUrl: string
+    fileName: string
+  }> {
+    return this.request(`/lots/${lotId}/tech-pack/download`)
+  }
+
   // Photos & annotations (best-effort placeholder implementations)
   async getPhotosForInspection(inspectionId: string): Promise<Array<{ id: string; url: string; angle?: string }>> {
     try {

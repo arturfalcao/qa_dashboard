@@ -405,6 +405,15 @@ export interface Lot {
   dyeLot?: string | null;
   certifications?: LotCertificationRecord[] | null;
   dppMetadata?: DppMetadata | null;
+  // Tech Pack fields
+  techPackFileKey?: string | null;
+  techPackData?: Record<string, any> | null;
+  sizeSpecifications?: Array<{
+    size: string;
+    measurements: Record<string, number>;
+  }> | null;
+  techPackStatus?: "pending" | "processing" | "completed" | "failed" | null;
+  techPackUploadedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   factory?: Factory;

@@ -1,0 +1,31 @@
+{
+  "garment_type": "shirt",
+  "measurements": {
+    "body_length_cm": 82.87909920959343,
+    "body_length_points": {
+      "hps": [
+        1638,
+        192
+      ],
+      "bottom": [
+        1638,
+        2529
+      ]
+    },
+    "chest_width_cm": 92.24156484559373,
+    "chest_circumference_cm": 184.48312969118746,
+    "chest_y": 841,
+    "waist_width_cm": 60.89149051898671,
+    "waist_y": 1419,
+    "hem_width_cm": 61.919943183547346,
+    "hem_y": 2496,
+    "shoulder_width_cm": 40.783467732577
+  },
+  "size_estimate": "XXL+",
+  "confidence": 0.770846112533485,
+  "ruler_confidence": 0.43706435452917,
+  "classification_confidence": 0.9867345690727234,
+  "timestamp": "2025-10-06T17:23:10.581974",
+  "image_path": "test.jpg",
+  "system": "IntelligentGarmentMeasurement v1.0"
+}
