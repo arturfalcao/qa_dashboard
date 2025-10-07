@@ -115,14 +115,21 @@ export function TechPackWizard({ isOpen, onClose, tenantSlug }: TechPackWizardPr
           issuer: c.issuer,
         }))
 
-      const lotData = {
+      const lotData: any = {
         styleRef: data.styleRef,
         quantityTotal: data.quantityTotal,
-        ...(data.suppliers && data.suppliers.length > 0 ? { suppliers: data.suppliers } : {}),
+        suppliers: data.suppliers && data.suppliers.length > 0 ? data.suppliers : [],
         status: LotStatus.PLANNED,
-        ...(materialComposition && materialComposition.length > 0 ? { materialComposition } : {}),
-        ...(data.dyeLot ? { dyeLot: data.dyeLot } : {}),
-        ...(certifications && certifications.length > 0 ? { certifications } : {}),
+      }
+
+      if (materialComposition && materialComposition.length > 0) {
+        lotData.materialComposition = materialComposition
+      }
+      if (data.dyeLot) {
+        lotData.dyeLot = data.dyeLot
+      }
+      if (certifications && certifications.length > 0) {
+        lotData.certifications = certifications
       }
 
       // Create the lot
