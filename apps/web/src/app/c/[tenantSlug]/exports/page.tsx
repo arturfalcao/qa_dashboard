@@ -87,7 +87,7 @@ export default function ExportsPage() {
               className="w-full"
               variant="secondary"
               onClick={() => {
-                publish({ variant: 'info', title: 'Coming Soon', description: 'Excel export will be available soon.' })
+                publish({ variant: 'default', title: 'Coming Soon', description: 'Excel export will be available soon.' })
               }}
               disabled
             >
