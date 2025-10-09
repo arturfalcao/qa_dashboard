@@ -1,337 +1,162 @@
-#!/usr/bin/env python3
-"""
-Camera Calibration Tool for Garment Measurement System
-Generates and manages calibration files for the measurement pipeline
-"""
 
 import cv2
 import numpy as np
 import json
-import logging
-from pathlib import Path
-from typing import List, Tuple, Optional
+from dataclasses import dataclass, asdict
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+try:
+    # OpenCV >= 4.7 API
+    from cv2 import aruco as aruco_mod
+    HAVE_NEW_ARUCO = True
+except Exception:
+    aruco_mod = cv2.aruco
+    HAVE_NEW_ARUCO = False
 
-class CalibrationTool:
-    """Tool for camera calibration and homography calculation"""
 
-    def __init__(self):
-        self.camera_matrix = None
-        self.dist_coeffs = None
-        self.homography = None
-        # Handle different OpenCV versions
-        try:
-            self.aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
-            self.aruco_params = cv2.aruco.DetectorParameters()
-        except AttributeError:
-            # Older OpenCV version
-            self.aruco_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_6X6_250)
-            self.aruco_params = cv2.aruco.DetectorParameters_create()
+@dataclass
+class CalibrationData:
+    camera_matrix: list
+    dist_coeff: list
+    homography: list
+    ppm: float                 # pixels per mm
+    pixel_to_mm: float         # mm per pixel
+    rect_rms_mm: float         # homography reprojection RMS in mm
+    bench_width_mm: float
+    bench_height_mm: float
+    marker_world_mm: dict      # {id: [x,y]} world corner positions (mm)
+    marker_size_mm: float
 
-    def create_default_calibration(self, output_file: str):
-        """Create a default calibration file for testing without actual calibration"""
+    def to_json(self):
+        return json.dumps(asdict(self), indent=2)
 
-        # Default camera matrix (identity-like for testing)
-        default_calib = {
-            "camera_matrix": [
-                [3000.0, 0.0, 2016.0],
-                [0.0, 3000.0, 1512.0],
-                [0.0, 0.0, 1.0]
-            ],
-            "dist_coeff": [0.0, 0.0, 0.0, 0.0, 0.0],
-            "homography": [
-                [1.0, 0.0, 0.0],
-                [0.0, 1.0, 0.0],
-                [0.0, 0.0, 1.0]
-            ],
-            "pixel_to_mm": 0.3,  # 0.3mm per pixel
-            "rms_error": 0.0,
-            "calibration_date": "2025-10-07",
-            "bench_dimensions_mm": {
-                "width": 1200,
-                "height": 800
-            },
-            "fiducial_markers": {
-                "top_left": {"id": 0, "world_coords": [0, 0]},
-                "top_right": {"id": 1, "world_coords": [1100, 0]},
-                "bottom_right": {"id": 2, "world_coords": [1100, 700]},
-                "bottom_left": {"id": 3, "world_coords": [0, 700]}
-            }
-        }
-
-        with open(output_file, 'w') as f:
-            json.dump(default_calib, f, indent=2)
-
-        logger.info(f"Created default calibration file: {output_file}")
-        return default_calib
-
-    def calibrate_from_checkerboard(self, images: List[np.ndarray],
-                                   pattern_size: Tuple[int, int] = (9, 6),
-                                   square_size: float = 30.0) -> bool:
-        """Perform intrinsic calibration using checkerboard images"""
-
-        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-
-        # Prepare object points
-        objp = np.zeros((pattern_size[0] * pattern_size[1], 3), np.float32)
-        objp[:, :2] = np.mgrid[0:pattern_size[0], 0:pattern_size[1]].T.reshape(-1, 2)
-        objp *= square_size
-
-        objpoints = []
-        imgpoints = []
-
-        for img in images:
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if len(img.shape) == 3 else img
-
-            # Find the chess board corners
-            ret, corners = cv2.findChessboardCorners(gray, pattern_size, None)
-
-            if ret:
-                objpoints.append(objp)
-                corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
-                imgpoints.append(corners2)
-
-                # Draw and display the corners (optional)
-                cv2.drawChessboardCorners(img, pattern_size, corners2, ret)
-
-        if len(objpoints) > 0:
-            ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(
-                objpoints, imgpoints, gray.shape[::-1], None, None
-            )
-
-            self.camera_matrix = mtx
-            self.dist_coeffs = dist
-
-            logger.info(f"Calibration successful! RMS error: {ret:.3f}")
-            return True
-
-        logger.error("Calibration failed - no valid checkerboard patterns found")
-        return False
-
-    def detect_aruco_markers(self, image: np.ndarray):
-        """Detect ArUco markers in image for homography calculation"""
-
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image
-
-        corners, ids, rejected = cv2.aruco.detectMarkers(
-            gray, self.aruco_dict, parameters=self.aruco_params
+    @staticmethod
+    def from_json(js: dict):
+        return CalibrationData(
+            camera_matrix=js["camera_matrix"],
+            dist_coeff=js["dist_coeff"],
+            homography=js["homography"],
+            ppm=js["ppm"],
+            pixel_to_mm=js["pixel_to_mm"],
+            rect_rms_mm=js.get("rect_rms_mm", 0.0),
+            bench_width_mm=js["bench_width_mm"],
+            bench_height_mm=js["bench_height_mm"],
+            marker_world_mm=js["marker_world_mm"],
+            marker_size_mm=js["marker_size_mm"],
         )
 
-        if ids is not None and len(ids) > 0:
-            logger.info(f"Detected {len(ids)} ArUco markers")
-            return corners, ids
 
-        logger.warning("No ArUco markers detected")
-        return None, None
+class CalibrationTool:
+    def __init__(self, dict_name="DICT_6X6_50"):
+        if hasattr(aruco_mod, "getPredefinedDictionary"):
+            self.dict = getattr(aruco_mod, "getPredefinedDictionary")(getattr(aruco_mod, dict_name))
+        else:
+            self.dict = aruco_mod.Dictionary_get(getattr(aruco_mod, dict_name))
+        # Detector parameters
+        if HAVE_NEW_ARUCO and hasattr(aruco_mod, "DetectorParameters"):
+            self.params = aruco_mod.DetectorParameters()
+            self.detector = aruco_mod.ArucoDetector(self.dict, self.params)
+        else:
+            self.params = aruco_mod.DetectorParameters_create()
+            self.detector = None
 
-    def calculate_homography_from_markers(self, image: np.ndarray,
-                                         world_coords: dict) -> Optional[np.ndarray]:
-        """Calculate homography from detected ArUco markers"""
+        self.data: CalibrationData | None = None
 
-        corners, ids = self.detect_aruco_markers(image)
+    # --- ArUco detection ---
+    def detect_aruco_markers(self, img_bgr):
+        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY) if img_bgr.ndim == 3 else img_bgr
+        if self.detector is not None:
+            corners, ids, _ = self.detector.detectMarkers(gray)
+        else:
+            corners, ids, _ = aruco_mod.detectMarkers(gray, self.dict, parameters=self.params)
+        return corners, ids
 
+    # --- Compute homography from specific marker corners ---
+    def calculate_homography_from_markers(self, img_bgr, world_corner_ids=(0,1,2,3)):
+        corners, ids = self.detect_aruco_markers(img_bgr)
         if ids is None or len(ids) < 4:
-            logger.error("Need at least 4 markers for homography calculation")
-            return None
+            raise RuntimeError("Need all four ArUco ids {0,1,2,3} visible for homography.")
 
-        image_points = []
-        world_points = []
+        ids = ids.flatten().tolist()
+        id2corners = {int(i): c[0] for c, i in zip(corners, ids)}
+        for need in world_corner_ids:
+            if need not in id2corners:
+                raise RuntimeError(f"Missing required ArUco id {need} for homography.")
 
-        for i, marker_id in enumerate(ids.flatten()):
-            if marker_id in world_coords:
-                # Get center of marker
-                marker_corners = corners[i][0]
-                center = np.mean(marker_corners, axis=0)
-                image_points.append(center)
-                world_points.append(world_coords[marker_id])
+        # Use consistent specific corners per tag:
+        #   0: TL uses its top-left (index 0)
+        #   1: TR uses its top-right (index 1)
+        #   2: BR uses its bottom-right (index 2)
+        #   3: BL uses its bottom-left (index 3)
+        img_pts = np.float32([
+            id2corners[0][0],
+            id2corners[1][1],
+            id2corners[2][2],
+            id2corners[3][3],
+        ])
 
-        if len(image_points) >= 4:
-            image_points = np.array(image_points, dtype=np.float32)
-            world_points = np.array(world_points, dtype=np.float32)
+        # World points from known bench rectangle (mm)
+        # Expect marker_world_mm to contain these ids as exact world coordinates of those corners
+        wmap = self.data.marker_world_mm if self.data else None
+        if not wmap:
+            # Fallback: infer rectangle from bench dimensions with origin at (0,0)
+            raise RuntimeError("CalibrationData.marker_world_mm not set. Load or set before computing H.")
+        world_pts = np.float32([
+            wmap["0"], wmap["1"], wmap["2"], wmap["3"]
+        ])
 
-            homography, _ = cv2.findHomography(image_points, world_points, cv2.RANSAC, 5.0)
-            self.homography = homography
+        H, status = cv2.findHomography(img_pts, world_pts, cv2.RANSAC, 3.0)
+        if H is None:
+            raise RuntimeError("findHomography failed.")
 
-            logger.info("Homography calculated successfully")
-            return homography
+        # Compute RMS reprojection error in mm using the same 4 correspondences
+        proj = cv2.perspectiveTransform(img_pts.reshape(-1,1,2), H).reshape(-1,2)
+        err = np.linalg.norm(proj - world_pts, axis=1)
+        rect_rms_mm = float(np.sqrt(np.mean(err**2)))
 
-        logger.error("Not enough matching markers for homography")
-        return None
+        # Derive pixels-per-mm (ppm) from H by projecting unit mm steps;
+        # Note: H maps image(px)->world(mm). For ppm, we can invert H to get world->image.
+        Hinv = np.linalg.inv(H)
+        world_pair_x = np.float32([[[0,0]], [[1,0]]])  # 1 mm in X
+        world_pair_y = np.float32([[[0,0]], [[0,1]]])  # 1 mm in Y
+        px_pair_x = cv2.perspectiveTransform(world_pair_x, Hinv).reshape(-1,2)
+        px_pair_y = cv2.perspectiveTransform(world_pair_y, Hinv).reshape(-1,2)
+        ppm_x = float(np.linalg.norm(px_pair_x[1]-px_pair_x[0]))
+        ppm_y = float(np.linalg.norm(px_pair_y[1]-px_pair_y[0]))
+        ppm = (ppm_x + ppm_y) / 2.0
+        pixel_to_mm = 1.0 / ppm if ppm > 1e-9 else 0.0
 
-    def save_calibration(self, output_file: str, additional_data: dict = None):
-        """Save calibration parameters to JSON file"""
+        # Store
+        self.data.homography = H.tolist()
+        self.data.ppm = float(ppm)
+        self.data.pixel_to_mm = float(pixel_to_mm)
+        self.data.rect_rms_mm = rect_rms_mm
+        return H, rect_rms_mm, ppm
 
-        calib_data = {
-            "camera_matrix": self.camera_matrix.tolist() if self.camera_matrix is not None else None,
-            "dist_coeff": self.dist_coeffs.tolist() if self.dist_coeffs is not None else None,
-            "homography": self.homography.tolist() if self.homography is not None else None,
-            "pixel_to_mm": 0.3  # Default value, should be calculated from homography
-        }
+    # --- Save/Load JSON ---
+    def save(self, path):
+        if not self.data:
+            raise RuntimeError("No calibration data to save.")
+        with open(path, "w") as f:
+            f.write(self.data.to_json())
 
-        if additional_data:
-            calib_data.update(additional_data)
+    def load(self, path):
+        with open(path, "r") as f:
+            js = json.load(f)
+        self.data = CalibrationData.from_json(js)
+        return self.data
 
-        with open(output_file, 'w') as f:
-            json.dump(calib_data, f, indent=2)
-
-        logger.info(f"Calibration saved to {output_file}")
-
-    def verify_calibration(self, image: np.ndarray, calib_file: str) -> bool:
-        """Verify calibration accuracy using a test image"""
-
-        with open(calib_file, 'r') as f:
-            calib = json.load(f)
-
-        camera_matrix = np.array(calib["camera_matrix"])
-        dist_coeffs = np.array(calib["dist_coeff"])
-        homography = np.array(calib.get("homography", np.eye(3)))
-
-        # Undistort
-        undistorted = cv2.undistort(image, camera_matrix, dist_coeffs)
-
-        # Apply homography
-        h, w = image.shape[:2]
-        rectified = cv2.warpPerspective(undistorted, homography, (w, h))
-
-        # Detect markers in rectified image
-        corners, ids = self.detect_aruco_markers(rectified)
-
-        if ids is not None:
-            # Check if markers are where expected
-            logger.info("Calibration verification: Markers detected in rectified image")
-            return True
-
-        logger.warning("Calibration verification: No markers found")
-        return False
-
-def generate_aruco_board(output_file: str, board_size: Tuple[int, int] = (4, 3),
-                         marker_size: int = 200, margin: int = 50):
-    """Generate an ArUco marker board for printing"""
-
-    # Handle different OpenCV versions
-    try:
-        dict_aruco = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
-    except AttributeError:
-        dict_aruco = cv2.aruco.Dictionary_get(cv2.aruco.DICT_6X6_250)
-
-    # Calculate board dimensions
-    board_width = board_size[0] * (marker_size + margin) + margin
-    board_height = board_size[1] * (marker_size + margin) + margin
-
-    # Create white background
-    board = np.ones((board_height, board_width), dtype=np.uint8) * 255
-
-    marker_id = 0
-    for row in range(board_size[1]):
-        for col in range(board_size[0]):
-            # Generate marker
-            try:
-                marker = cv2.aruco.generateImageMarker(dict_aruco, marker_id, marker_size)
-            except AttributeError:
-                marker = cv2.aruco.drawMarker(dict_aruco, marker_id, marker_size)
-
-            # Calculate position
-            x = margin + col * (marker_size + margin)
-            y = margin + row * (marker_size + margin)
-
-            # Place marker on board
-            board[y:y+marker_size, x:x+marker_size] = marker
-
-            marker_id += 1
-
-    cv2.imwrite(output_file, board)
-    logger.info(f"ArUco board saved to {output_file}")
-
-    return board
-
-def main():
-    """Main calibration workflow"""
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Camera Calibration Tool")
-    parser.add_argument("--mode", choices=["default", "checkerboard", "aruco", "generate", "verify"],
-                       default="default", help="Calibration mode")
-    parser.add_argument("--input", help="Input image or directory")
-    parser.add_argument("--output", default="calibration.json", help="Output calibration file")
-    parser.add_argument("--pattern", default="9,6", help="Checkerboard pattern size (cols,rows)")
-    parser.add_argument("--square-size", type=float, default=30.0, help="Square size in mm")
-
-    args = parser.parse_args()
-
-    tool = CalibrationTool()
-
-    if args.mode == "default":
-        # Create default calibration for testing
-        tool.create_default_calibration(args.output)
-
-    elif args.mode == "generate":
-        # Generate ArUco board for printing
-        output_file = args.output if args.output.endswith('.png') else "aruco_board.png"
-        generate_aruco_board(output_file)
-
-    elif args.mode == "checkerboard":
-        if not args.input:
-            logger.error("Input images required for checkerboard calibration")
-            return
-
-        # Load images
-        images = []
-        input_path = Path(args.input)
-
-        if input_path.is_file():
-            img = cv2.imread(str(input_path))
-            if img is not None:
-                images.append(img)
-        elif input_path.is_dir():
-            for img_file in input_path.glob("*.jpg") | input_path.glob("*.png"):
-                img = cv2.imread(str(img_file))
-                if img is not None:
-                    images.append(img)
-
-        if images:
-            pattern = tuple(map(int, args.pattern.split(',')))
-            if tool.calibrate_from_checkerboard(images, pattern, args.square_size):
-                tool.save_calibration(args.output)
-        else:
-            logger.error("No valid images found")
-
-    elif args.mode == "aruco":
-        if not args.input:
-            logger.error("Input image required for ArUco calibration")
-            return
-
-        img = cv2.imread(args.input)
-        if img is not None:
-            # Define world coordinates for markers (in mm)
-            # This should match your actual marker placement
-            world_coords = {
-                0: [0, 0],
-                1: [1100, 0],
-                2: [1100, 700],
-                3: [0, 700]
-            }
-
-            homography = tool.calculate_homography_from_markers(img, world_coords)
-            if homography is not None:
-                tool.save_calibration(args.output, {"fiducial_markers": world_coords})
-        else:
-            logger.error(f"Could not load image: {args.input}")
-
-    elif args.mode == "verify":
-        if not args.input or not args.output:
-            logger.error("Input image and calibration file required for verification")
-            return
-
-        img = cv2.imread(args.input)
-        if img is not None:
-            if tool.verify_calibration(img, args.output):
-                print("Calibration verified successfully!")
-            else:
-                print("Calibration verification failed")
-        else:
-            logger.error(f"Could not load image: {args.input}")
-
-if __name__ == "__main__":
-    main()
+    # --- Verify after rectification: scale sanity check using tag centers ---
+    def verify_rectified_scale(self, rectified_bgr, expected_dx_mm: float, id_left=0, id_right=1, tol_mm=2.0):
+        corners, ids = self.detect_aruco_markers(rectified_bgr)
+        if ids is None:
+            return False, "No ArUco detected on rectified image."
+        ids = ids.flatten().tolist()
+        id2corn = {int(i): c[0] for c, i in zip(corners, ids)}
+        if id_left not in id2corn or id_right not in id2corn:
+            return False, "Missing required ArUco ids for scale check."
+        pL = id2corn[id_left].mean(axis=0)
+        pR = id2corn[id_right].mean(axis=0)
+        dx_mm = float(np.linalg.norm(pR - pL) * self.data.pixel_to_mm)
+        ok = abs(dx_mm - expected_dx_mm) <= tol_mm
+        msg = f"Scale check: measured {dx_mm:.2f} mm vs expected {expected_dx_mm:.2f} mm, tol ±{tol_mm} mm"
+        return ok, msg

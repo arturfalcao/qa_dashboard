@@ -1,0 +1,38 @@
+# Core dependencies
+opencv-python>=4.8.0
+opencv-contrib-python>=4.8.0  # For ArUco markers
+numpy>=1.24.0
+Pillow>=10.0.0
+
+# ML Framework dependencies
+torch>=2.0.0,<2.2.0  # PyTorch for SAM and CLIP
+torchvision>=0.15.0,<0.17.0
+
+# ONNX Runtime for HRNet inference
+onnxruntime-gpu>=1.16.0 ; sys_platform != 'darwin'
+onnxruntime>=1.16.0 ; sys_platform == 'darwin'
+
+# Segment Anything Model (SAM)
+segment-anything @ git+https://github.com/facebookresearch/segment-anything.git
+
+# CLIP for zero-shot classification
+ftfy>=6.1.0
+regex>=2023.8.8
+clip @ git+https://github.com/openai/CLIP.git
+
+# Development tools
+pytest>=7.4.0
+pytest-mock>=3.11.0  # For mocking in tests
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.5.0
+
+# Logging and utilities
+tqdm>=4.65.0
+pyyaml>=6.0
+scipy>=1.11.0  # For advanced calculations
+
+# Optional: Web API
+# fastapi>=0.104.0
+# uvicorn>=0.24.0
+# pydantic>=2.4.0

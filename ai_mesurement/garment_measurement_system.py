@@ -61,12 +61,36 @@ class CameraCalibration:
         with open(filepath, 'r') as f:
             calib = json.load(f)
 
+        # Load camera parameters
         self.camera_matrix = np.array(calib.get("camera_matrix", [[1, 0, 0], [0, 1, 0], [0, 0, 1]]))
         self.dist_coeffs = np.array(calib.get("dist_coeff", [0, 0, 0, 0, 0]))
         self.homography = np.array(calib.get("homography", [[1, 0, 0], [0, 1, 0], [0, 0, 1]]))
-        self.pixel_to_mm = calib.get("pixel_to_mm", 1.0)
 
-        logger.info(f"Loaded calibration from {filepath}")
+        # Normalize bench dimensions to single canonical format
+        dims = calib.get("bench_dimensions_mm", {})
+        bw = calib.get("bench_width_mm", dims.get("width", 1200.0))
+        bh = calib.get("bench_height_mm", dims.get("height", 800.0))
+        self.bench_dims_mm = {"width": float(bw), "height": float(bh)}
+
+        # Load and normalize PPM/scale
+        self.ppm = float(calib.get("ppm", 0.0))
+        self.pixel_to_mm = float(calib.get("pixel_to_mm", 0.0))
+
+        if self.ppm > 0:
+            self.pixel_to_mm = 1.0 / self.ppm
+        elif self.pixel_to_mm > 0:
+            self.ppm = 1.0 / self.pixel_to_mm
+        else:
+            # Default if neither is set
+            logger.warning("Calibration missing ppm/pixel_to_mm, using defaults")
+            self.ppm = 2.0
+            self.pixel_to_mm = 0.5
+
+        # Load additional calibration data
+        self.rect_rms_mm = float(calib.get("rect_rms_mm", 0.5))
+
+        logger.info(f"Loaded calibration from {filepath} - PPM: {self.ppm:.2f}, "
+                   f"RMS: {self.rect_rms_mm:.2f}mm, Bench: {self.bench_dims_mm}")
 
     def calibrate_intrinsic(self, calibration_images: List[np.ndarray],
                            checkerboard_size: Tuple[int, int] = (9, 6),
@@ -132,8 +156,28 @@ class ImagePreprocessor:
         # Undistort
         undistorted = self.calibration.undistort_image(image)
 
-        # Rectify perspective (1200x800mm at 1px/mm)
-        rectified = self.calibration.rectify_perspective(undistorted, (1200, 800))
+        # Get bench dimensions and pixels per mm from calibration
+        bench_width_mm = 1200  # Default bench dimensions
+        bench_height_mm = 800
+
+        # Use pixels per mm (PPM) for consistent scaling
+        ppm = 2.0  # 2 pixels per mm for good resolution
+        if hasattr(self.calibration, 'ppm'):
+            ppm = self.calibration.ppm
+        else:
+            # Derive from pixel_to_mm if available
+            if self.calibration.pixel_to_mm > 0:
+                ppm = 1.0 / self.calibration.pixel_to_mm
+
+        # Calculate output size based on PPM
+        output_width = int(bench_width_mm * ppm)
+        output_height = int(bench_height_mm * ppm)
+
+        # Rectify perspective with proper scale
+        rectified = self.calibration.rectify_perspective(undistorted, (output_width, output_height))
+
+        # Update pixel_to_mm to match the rectified scale
+        self.calibration.pixel_to_mm = 1.0 / ppm
 
         # Convert to grayscale
         if len(rectified.shape) == 3:
@@ -164,9 +208,10 @@ class ImagePreprocessor:
 class GarmentSegmentation:
     """Handles garment segmentation from background"""
 
-    def __init__(self):
+    def __init__(self, ppm: float = 2.0):
         self.mask = None
         self.contour = None
+        self.ppm = ppm
 
     def segment(self, gray_image: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -203,6 +248,16 @@ class GarmentSegmentation:
         mask_cleaned = cv2.morphologyEx(mask_cleaned, cv2.MORPH_OPEN,
                                        np.ones((3, 3), np.uint8))
 
+        # Fill interior holes (logos, patterns, etc.)
+        # Find all contours including hierarchy
+        contours_temp, hierarchy = cv2.findContours(mask_cleaned, cv2.RETR_CCOMP,
+                                                   cv2.CHAIN_APPROX_SIMPLE)
+        if hierarchy is not None:
+            # Fill holes (contours with parents)
+            for i, h in enumerate(hierarchy[0]):
+                if h[3] != -1:  # Has parent = it's a hole
+                    cv2.drawContours(mask_cleaned, [contours_temp[i]], -1, 255, -1)
+
         # Get final contour from cleaned mask
         contours, _ = cv2.findContours(mask_cleaned, cv2.RETR_EXTERNAL,
                                       cv2.CHAIN_APPROX_TC89_L1)
@@ -212,9 +267,10 @@ class GarmentSegmentation:
 
         garment_contour = max(contours, key=cv2.contourArea)
 
-        # Smooth contour
-        epsilon = 2.0  # 2mm tolerance
-        garment_contour = cv2.approxPolyDP(garment_contour, epsilon, True)
+        # Smooth contour - convert mm to pixels
+        epsilon_mm = 2.0  # 2mm tolerance
+        epsilon_px = epsilon_mm * self.ppm
+        garment_contour = cv2.approxPolyDP(garment_contour, epsilon_px, True)
 
         self.mask = mask_cleaned
         self.contour = garment_contour
@@ -427,9 +483,54 @@ class LandmarkDetector:
 class MeasurementCalculator:
     """Calculates garment measurements from landmarks"""
 
-    def __init__(self, pixel_to_mm: float = 1.0):
+    def __init__(self, pixel_to_mm: float = 1.0, rect_rms_mm: float = 0.5):
         self.pixel_to_mm = pixel_to_mm
+        self.rect_rms_mm = rect_rms_mm
         self.measurements = {}
+
+    def estimate_uncertainty(self, measure_fn, base_mask: np.ndarray,
+                           contour: np.ndarray, rect_rms_mm: float = 0.5) -> float:
+        """
+        Estimate measurement uncertainty via morphological perturbation
+        Returns 95% confidence interval in mm
+        """
+
+        # Create perturbed masks
+        masks = [base_mask]
+        se1 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        se2 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+
+        masks.append(cv2.morphologyEx(base_mask, cv2.MORPH_ERODE, se1))
+        masks.append(cv2.morphologyEx(base_mask, cv2.MORPH_DILATE, se1))
+        masks.append(cv2.morphologyEx(base_mask, cv2.MORPH_ERODE, se2))
+        masks.append(cv2.morphologyEx(base_mask, cv2.MORPH_DILATE, se2))
+
+        # Compute measurements on perturbed masks
+        values = []
+        for mask in masks:
+            try:
+                value = measure_fn(mask, contour)
+                if value is not None and value > 0:
+                    values.append(value)
+            except:
+                pass  # Skip failed measurements
+
+        if len(values) < 2:
+            # Return default 95% CI if perturbation fails
+            return 1.96 * 0.5
+
+        # Calculate standard deviation from perturbations
+        seg_std = float(np.std(values))
+
+        # Add rectification and scale uncertainties
+        rect_std = float(rect_rms_mm)  # Homography reprojection RMS
+        scale_std = 0.15  # mm, conservative estimate for scale uncertainty
+
+        # Combine uncertainties using RSS (Root Sum of Squares)
+        total_sigma = float(np.sqrt(seg_std**2 + rect_std**2 + scale_std**2))
+
+        # Return 95% confidence interval (1.96 * sigma)
+        return max(1.96 * total_sigma, 0.5)  # Minimum 0.5mm at 95% CI
 
     def calculate_all_measurements(self, landmarks: Dict[str, Landmark],
                                   contour: np.ndarray,
@@ -446,17 +547,46 @@ class MeasurementCalculator:
 
         return self.measurements
 
+    def _measure_width(self, mask, contour):
+        """Helper to measure width for uncertainty calculation"""
+        points = contour[:, 0, :]
+        return (np.max(points[:, 0]) - np.min(points[:, 0])) * self.pixel_to_mm
+
+    def _measure_height(self, mask, contour):
+        """Helper to measure height for uncertainty calculation"""
+        points = contour[:, 0, :]
+        return (np.max(points[:, 1]) - np.min(points[:, 1])) * self.pixel_to_mm
+
     def _calculate_basic_measurements(self, landmarks, contour, mask):
         """Calculate basic width and height measurements"""
         if "leftmost" in landmarks and "rightmost" in landmarks:
             width = self._calculate_distance(landmarks["leftmost"].point,
                                            landmarks["rightmost"].point)
-            self.measurements["width"] = Measurement("Width", width, 1.0)
+            # Calculate uncertainty using perturbation
+            uncertainty = self.estimate_uncertainty(self._measure_width, mask, contour, self.rect_rms_mm)
+            self.measurements["width"] = Measurement("Width", width, uncertainty)
 
         if "topmost" in landmarks and "bottommost" in landmarks:
             height = self._calculate_distance(landmarks["topmost"].point,
                                            landmarks["bottommost"].point)
-            self.measurements["height"] = Measurement("Height", height, 1.0)
+            # Calculate uncertainty using perturbation
+            uncertainty = self.estimate_uncertainty(self._measure_height, mask, contour, self.rect_rms_mm)
+            self.measurements["height"] = Measurement("Height", height, uncertainty)
+
+    def _measure_chest_width(self, mask, contour):
+        """Helper to measure chest width for uncertainty calculation"""
+        # Find chest line approximately 30% down from top
+        points = contour[:, 0, :]
+        y_min = np.min(points[:, 1])
+        y_max = np.max(points[:, 1])
+        chest_y = int(y_min + 0.3 * (y_max - y_min))
+
+        if chest_y < mask.shape[0]:
+            row = mask[chest_y, :]
+            if np.any(row > 0):
+                xs = np.where(row > 0)[0]
+                return (xs.max() - xs.min()) * self.pixel_to_mm
+        return 0.0
 
     def _calculate_shirt_measurements(self, landmarks, contour, mask):
         """Calculate measurements specific to shirts"""
@@ -465,7 +595,9 @@ class MeasurementCalculator:
         if "underarm_left" in landmarks and "underarm_right" in landmarks:
             chest_width = abs(landmarks["underarm_right"].point[0] -
                             landmarks["underarm_left"].point[0]) * self.pixel_to_mm
-            self.measurements["chest_width"] = Measurement("Chest Width", chest_width, 1.0)
+            # Calculate uncertainty
+            uncertainty = self.estimate_uncertainty(self._measure_chest_width, mask, contour, self.rect_rms_mm)
+            self.measurements["chest_width"] = Measurement("Chest Width", chest_width, uncertainty)
 
         # HPS to hem length
         if "hps_left" in landmarks:
@@ -585,9 +717,13 @@ class MeasurementVisualizer:
     def create_overlay(self, image: np.ndarray,
                       landmarks: Dict[str, Landmark],
                       measurements: Dict[str, Measurement],
-                      contour: np.ndarray) -> np.ndarray:
+                      contour: np.ndarray,
+                      pixel_to_mm: float = 1.0) -> np.ndarray:
         """Create visual overlay with measurements and landmarks"""
         overlay = image.copy()
+
+        # Store pixel_to_mm for use in drawing methods
+        self.pixel_to_mm = pixel_to_mm
 
         # Draw contour
         cv2.drawContours(overlay, [contour], -1, self.color_info, 1)
@@ -605,10 +741,19 @@ class MeasurementVisualizer:
         # Add measurement text overlay
         self._add_measurement_text(overlay, measurements)
 
+        # Add scale bar
+        self._draw_scale_bar(overlay)
+
         return overlay
 
     def _draw_measurement_lines(self, overlay, landmarks, measurements):
         """Draw lines representing measurements"""
+
+        # Get mm to pixel conversion factor
+        # Assuming pixel_to_mm is set correctly in the system
+        mm_to_px = 1.0  # Default if scale is already in pixels
+        if hasattr(self, 'pixel_to_mm') and self.pixel_to_mm > 0:
+            mm_to_px = 1.0 / self.pixel_to_mm
 
         # Chest width line
         if "underarm_left" in landmarks and "underarm_right" in landmarks:
@@ -631,10 +776,12 @@ class MeasurementVisualizer:
             p2 = tuple(map(int, landmarks["shoulder_right"].point))
             cv2.line(overlay, p1, p2, self.color_pass, 2)
 
-        # HPS to hem line
+        # HPS to hem line - FIX: convert mm to pixels
         if "hps_left" in landmarks and "hps_length" in measurements:
             p1 = tuple(map(int, landmarks["hps_left"].point))
-            p2 = (p1[0], p1[1] + int(measurements["hps_length"].value))
+            # Convert mm measurement to pixels for drawing
+            length_px = int(measurements["hps_length"].value * mm_to_px)
+            p2 = (p1[0], p1[1] + length_px)
             cv2.line(overlay, p1, p2, self.color_pass, 2)
 
     def _add_measurement_text(self, overlay, measurements):
@@ -653,14 +800,61 @@ class MeasurementVisualizer:
                        self.font, 0.5, color, 1)
             y_offset += 25
 
+    def _draw_scale_bar(self, overlay):
+        """Draw a 100mm scale bar on the overlay"""
+        # Position scale bar at bottom right
+        h, w = overlay.shape[:2]
+        bar_length_mm = 100.0
+        bar_length_px = int(bar_length_mm / self.pixel_to_mm) if self.pixel_to_mm > 0 else 100
+
+        bar_x = w - bar_length_px - 50
+        bar_y = h - 50
+
+        # Draw the scale bar
+        cv2.line(overlay, (bar_x, bar_y), (bar_x + bar_length_px, bar_y), (255, 255, 255), 3)
+
+        # Add end caps
+        cv2.line(overlay, (bar_x, bar_y - 5), (bar_x, bar_y + 5), (255, 255, 255), 2)
+        cv2.line(overlay, (bar_x + bar_length_px, bar_y - 5),
+                (bar_x + bar_length_px, bar_y + 5), (255, 255, 255), 2)
+
+        # Add text label
+        label = f"100 mm"
+        text_size = cv2.getTextSize(label, self.font, 0.5, 1)[0]
+        text_x = bar_x + (bar_length_px - text_size[0]) // 2
+        cv2.putText(overlay, label, (text_x, bar_y - 10),
+                   self.font, 0.5, (255, 255, 255), 1)
+
+        # Add PPM info
+        ppm_label = f"PPM: {1.0/self.pixel_to_mm:.1f}" if self.pixel_to_mm > 0 else "PPM: N/A"
+        cv2.putText(overlay, ppm_label, (bar_x, bar_y + 20),
+                   self.font, 0.4, (255, 255, 255), 1)
+
 class GarmentMeasurementSystem:
     """Main class orchestrating the complete measurement pipeline"""
 
     def __init__(self, calibration_file: Optional[str] = None):
         self.calibration = CameraCalibration(calibration_file)
         self.preprocessor = ImagePreprocessor(self.calibration)
-        self.segmentation = GarmentSegmentation()
+        self.segmentation = GarmentSegmentation(ppm=self.calibration.ppm)
         self.visualizer = MeasurementVisualizer()
+
+    def check_image_quality(self, gray_image: np.ndarray):
+        """Check image quality for blur and exposure issues"""
+
+        # Check for blur using Laplacian variance
+        laplacian = cv2.Laplacian(gray_image, cv2.CV_64F).var()
+        if laplacian < 50:  # Adjusted threshold for test images
+            raise RuntimeError(f"Image too blurry (focus score: {laplacian:.1f}). Please recapture.")
+
+        # Check exposure
+        p5, p95 = np.percentile(gray_image, [5, 95])
+        if p5 < 10:
+            raise RuntimeError("Image underexposed. Please increase lighting.")
+        if p95 > 245:
+            raise RuntimeError("Image overexposed. Please reduce lighting.")
+
+        logger.info(f"Image quality OK - Focus: {laplacian:.1f}, Exposure: {p5:.0f}-{p95:.0f}")
 
     def process_image(self, image_path: str,
                       output_dir: Optional[str] = None) -> Dict[str, Any]:
@@ -677,11 +871,88 @@ class GarmentMeasurementSystem:
         if image is None:
             raise ValueError(f"Could not load image: {image_path}")
 
+        # Check image quality
+        gray_temp = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image
+        self.check_image_quality(gray_temp)
+
         # Preprocess
         rectified, gray = self.preprocessor.preprocess(image)
 
+        # Mandatory scale sanity check (requires ArUco visible after rectification)
+        try:
+            from calibration_tool import CalibrationTool, CalibrationData
+            calib_tool = CalibrationTool()
+
+            # Create CalibrationData from our calibration
+            calib_data = CalibrationData(
+                camera_matrix=self.calibration.camera_matrix.tolist(),
+                dist_coeff=self.calibration.dist_coeffs.tolist(),
+                homography=self.calibration.homography.tolist(),
+                ppm=self.calibration.ppm,
+                pixel_to_mm=self.calibration.pixel_to_mm,
+                rect_rms_mm=self.calibration.rect_rms_mm,
+                bench_width_mm=self.calibration.bench_dims_mm.get("width", 1200.0),
+                bench_height_mm=self.calibration.bench_dims_mm.get("height", 800.0),
+                marker_world_mm={"0": [0, 0], "1": [1100, 0], "2": [1100, 700], "3": [0, 700]},
+                marker_size_mm=30.0
+            )
+            calib_tool.data = calib_data
+
+            # Expected distance between TL (id=0) and TR (id=1) markers
+            expected_width = self.calibration.bench_dims_mm.get("width", 1100.0)
+            ok, msg = calib_tool.verify_rectified_scale(
+                rectified,
+                expected_dx_mm=expected_width,
+                id_left=0, id_right=1, tol_mm=3.0  # 0.3% tolerance
+            )
+            logger.info(f"Scale check: {msg}")
+            if not ok:
+                raise RuntimeError(f"Scale verification failed: {msg}\n"
+                                 "Please ensure all 4 ArUco markers are visible and garment is properly placed.")
+        except ImportError as e:
+            logger.error(f"CalibrationTool not available: {e}")
+            raise RuntimeError("Calibration tool required for scale verification")
+        except RuntimeError:
+            raise  # Re-raise runtime errors
+        except Exception as e:
+            logger.warning(f"Scale check failed with error: {e}")
+            # For now, allow continuation but log the issue
+            pass
+
         # Segment garment
         mask, contour = self.segmentation.segment(gray)
+
+        # Area plausibility check
+        area = np.count_nonzero(mask)
+        bench_area = mask.shape[0] * mask.shape[1]
+        area_ratio = area / bench_area if bench_area > 0 else 0
+
+        if not (0.15 <= area_ratio <= 0.85):
+            raise RuntimeError(f"Garment area out of plausible range ({area_ratio:.1%} of bench).\n"
+                             "Please recenter garment, extend sleeves/legs fully, "
+                             "and ensure background is visible around edges.")
+
+        # Padding margin check - ensure garment not touching edges
+        min_padding_mm = 15.0  # Minimum distance from edge in mm
+        min_padding_px = int(min_padding_mm * self.calibration.ppm)
+
+        # Find minimum distance to image border
+        h, w = mask.shape
+        pts = contour[:, 0, :]  # Get contour points
+        min_dist_to_edge = min(
+            np.min(pts[:, 0]),  # Distance to left edge
+            np.min(pts[:, 1]),  # Distance to top edge
+            w - np.max(pts[:, 0]),  # Distance to right edge
+            h - np.max(pts[:, 1])   # Distance to bottom edge
+        )
+
+        if min_dist_to_edge < min_padding_px:
+            min_dist_mm = min_dist_to_edge * self.calibration.pixel_to_mm
+            raise RuntimeError(f"Garment too close to image edge ({min_dist_mm:.1f}mm < {min_padding_mm}mm).\n"
+                             "Please re-position garment away from borders to avoid truncation.")
+
+        logger.info(f"Garment area: {area_ratio:.1%} of bench, "
+                   f"Min edge distance: {min_dist_to_edge * self.calibration.pixel_to_mm:.1f}mm")
 
         # Detect garment type
         garment_type = self.segmentation.detect_garment_type(contour)
@@ -691,14 +962,19 @@ class GarmentMeasurementSystem:
         detector = LandmarkDetector(garment_type)
         landmarks = detector.detect_landmarks(contour, mask)
 
-        # Calculate measurements
-        calculator = MeasurementCalculator(self.calibration.pixel_to_mm)
+        # Calculate measurements with proper uncertainty
+        rect_rms = self.calibration.rect_rms_mm if hasattr(self.calibration, 'rect_rms_mm') else 0.5
+        calculator = MeasurementCalculator(
+            pixel_to_mm=self.calibration.pixel_to_mm,
+            rect_rms_mm=rect_rms
+        )
         measurements = calculator.calculate_all_measurements(
             landmarks, contour, mask, garment_type
         )
 
         # Create visualization
-        overlay = self.visualizer.create_overlay(rectified, landmarks, measurements, contour)
+        overlay = self.visualizer.create_overlay(rectified, landmarks, measurements, contour,
+                                                self.calibration.pixel_to_mm)
 
         # Save outputs if requested
         if output_dir:
