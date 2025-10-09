@@ -11,6 +11,7 @@ import {
   Users as UsersIcon,
   Building2 as ClientsIcon,
   ShieldCheckIcon,
+  FileTextIcon,
 } from 'lucide-react'
 import { AppShell } from '@/components/navigation/app-shell'
 import { SidebarItem } from '@/components/ui/sidebar'
@@ -58,18 +59,25 @@ export default function ClientLayout({
   const navigation: SidebarItem[] = [
     { label: 'Live Feed', href: `${basePath}/feed`, icon: ActivityIcon },
     { label: 'Lots', href: `${basePath}/lots`, icon: PackageIcon },
-    { label: 'Analytics', href: `${basePath}/analytics`, icon: BarChart3Icon },
-    { label: 'Exports', href: `${basePath}/exports`, icon: DownloadIcon },
   ]
 
   // Add Quality Control for Quality Directors
   if (isQualityDirector || canManage) {
-    navigation.splice(2, 0, { label: 'Quality Control', href: `${basePath}/quality-control`, icon: ShieldCheckIcon })
+    navigation.push({ label: 'Quality Control', href: `${basePath}/quality-control`, icon: ShieldCheckIcon })
   }
 
+  // Add management items
   if (canManage) {
-    navigation.splice(isQualityDirector ? 3 : 2, 0, { label: 'Clients', href: `${basePath}/clients`, icon: ClientsIcon })
-    navigation.splice(isQualityDirector ? 4 : 3, 0, { label: 'Factories', href: `${basePath}/factories`, icon: FactoryIcon })
+    navigation.push({ label: 'Clients', href: `${basePath}/clients`, icon: ClientsIcon })
+    navigation.push({ label: 'Factories', href: `${basePath}/factories`, icon: FactoryIcon })
+  }
+
+  // Add remaining items
+  navigation.push({ label: 'Analytics', href: `${basePath}/analytics`, icon: BarChart3Icon })
+  navigation.push({ label: 'Reports', href: `${basePath}/reports`, icon: FileTextIcon })
+  navigation.push({ label: 'Exports', href: `${basePath}/exports`, icon: DownloadIcon })
+
+  if (canManage) {
     navigation.push({ label: 'User Access', href: `${basePath}/users`, icon: UsersIcon })
   }
 
@@ -115,9 +123,17 @@ export default function ClientLayout({
       tenantLabel={user.tenantName || resolvedTenantSlug}
       breadcrumbTrail={breadcrumbs}
       sidebarFooter={
-        <p>
-          Observability endpoint: <span className="font-mono text-xs text-neutral-600">/metrics</span>
-        </p>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            <div className="flex-shrink-0 w-6 h-6 rounded bg-primary-100 flex items-center justify-center text-primary-600 font-bold text-xs">
+              P&amp;P
+            </div>
+            <span>Powered by Pack &amp; Polish</span>
+          </div>
+          <p className="text-xs text-gray-400">
+            Quality Assurance Dashboard • v1.0
+          </p>
+        </div>
       }
     >
       {children}

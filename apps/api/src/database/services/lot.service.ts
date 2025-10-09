@@ -177,6 +177,11 @@ export class LotService {
         issuer?: string;
       }>;
       dppMetadata?: Record<string, any>;
+      sizeSpecifications?: Array<{
+        size: string;
+        quantity?: number;
+        measurements?: Record<string, number>;
+      }>;
     },
   ): Promise<any> {
     const { suppliers, primaryFactoryId } = await this.normalizeSuppliers(tenantId, payload);
@@ -194,6 +199,7 @@ export class LotService {
       dyeLot: payload.dyeLot || null,
       certifications: payload.certifications || null,
       dppMetadata: payload.dppMetadata || null,
+      sizeSpecifications: payload.sizeSpecifications || null,
     });
 
     const saved = await this.lotRepository.save(lot);
@@ -225,6 +231,15 @@ export class LotService {
         issuer?: string;
       }>;
       dppMetadata?: Record<string, any>;
+      techPackFileKey?: string;
+      techPackStatus?: "pending" | "processing" | "completed" | "failed";
+      techPackUploadedAt?: Date;
+      techPackData?: Record<string, any>;
+      sizeSpecifications?: Array<{
+        size: string;
+        quantity?: number;
+        measurements?: Record<string, number>;
+      }>;
     },
   ): Promise<any> {
     const lot = await this.lotRepository.findOne({ where: { id: lotId, tenantId } });
@@ -290,6 +305,27 @@ export class LotService {
 
     if (payload.dppMetadata !== undefined) {
       lot.dppMetadata = payload.dppMetadata || null;
+    }
+
+    // Handle tech pack fields
+    if (payload.techPackFileKey !== undefined) {
+      lot.techPackFileKey = payload.techPackFileKey;
+    }
+
+    if (payload.techPackStatus !== undefined) {
+      lot.techPackStatus = payload.techPackStatus;
+    }
+
+    if (payload.techPackUploadedAt !== undefined) {
+      lot.techPackUploadedAt = payload.techPackUploadedAt;
+    }
+
+    if (payload.techPackData !== undefined) {
+      lot.techPackData = payload.techPackData;
+    }
+
+    if (payload.sizeSpecifications !== undefined) {
+      lot.sizeSpecifications = payload.sizeSpecifications;
     }
 
     await this.lotRepository.save(lot);

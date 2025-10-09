@@ -1,0 +1,31 @@
+{
+  "garment_type": "jacket",
+  "measurements": {
+    "body_length_cm": 13.665228113440197,
+    "body_length_points": {
+      "hps": [
+        1424,
+        1119
+      ],
+      "bottom": [
+        1424,
+        2549
+      ]
+    },
+    "chest_width_cm": 4.816276202219481,
+    "chest_circumference_cm": 9.632552404438963,
+    "chest_y": 1600,
+    "waist_width_cm": 0.9842786683107274,
+    "waist_y": 1974,
+    "hem_width_cm": 8.0462392108508,
+    "hem_y": 2490,
+    "shoulder_width_cm": 1.567200986436498
+  },
+  "size_estimate": "Unable to estimate",
+  "confidence": 0.7490679895877839,
+  "ruler_confidence": 0.9,
+  "classification_confidence": 0.29689329862594604,
+  "timestamp": "2025-10-06T16:48:54.248496",
+  "image_path": "test.jpg",
+  "system": "IntelligentGarmentMeasurement v1.0"
+}

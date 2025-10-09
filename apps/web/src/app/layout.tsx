@@ -5,8 +5,21 @@ import { AuthProvider } from '@/components/providers/auth-provider'
 import { ToastProvider } from '@/components/ui/toast'
 
 export const metadata: Metadata = {
-  title: 'Pack and Polish QC Dashboard',
-  description: 'AI-driven textile quality control dashboard for \'Made in Portugal\' brands',
+  title: 'QA Dashboard',
+  description: 'Quality assurance operations platform for textile manufacturing',
+  keywords: ['quality assurance', 'QA dashboard', 'textile manufacturing', 'defect tracking', 'supply chain'],
+  creator: 'Pack & Polish',
+  publisher: 'Pack & Polish',
+  icons: {
+    icon: [
+      { url: '/logo/PackPolish_icon_128.png', sizes: '128x128', type: 'image/png' },
+      { url: '/logo/PackPolish_icon_256.png', sizes: '256x256', type: 'image/png' },
+      { url: '/logo/PackPolish_icon_512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/logo/PackPolish_icon_256.png', sizes: '256x256', type: 'image/png' },
+    ],
+  },
 }
 
 export default function RootLayout({

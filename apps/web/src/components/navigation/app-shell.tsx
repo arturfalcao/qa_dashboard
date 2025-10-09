@@ -73,7 +73,7 @@ export function AppShell({
         isMobileNavOpen={mobileNavOpen}
       />
 
-      <div className="flex w-full pt-16">
+      <div className="flex w-full">
         <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-72 shrink-0 lg:block">
           <Sidebar items={navigation} footer={sidebarFooter} className="h-full overflow-y-auto" />
         </aside>

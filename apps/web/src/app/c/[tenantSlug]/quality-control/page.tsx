@@ -97,8 +97,8 @@ export default function QualityControlPage() {
   return (
     <div className="space-y-8">
       <PageHeader
-        title="Quality Control Dashboard"
-        description="Monitor quality metrics, approvals, and non-conformities"
+        title="Quality Control"
+        description="Review and approve/reject lots, monitor critical quality issues requiring immediate action"
       />
 
       {/* Key Metrics */}

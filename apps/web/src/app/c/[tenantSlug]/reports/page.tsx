@@ -13,6 +13,16 @@ import {
   AlertCircleIcon,
   PlusIcon,
   FilterIcon,
+  BarChart3Icon,
+  ClipboardCheckIcon,
+  RulerIcon,
+  PackageIcon,
+  FactoryIcon,
+  AlertTriangleIcon,
+  CheckSquareIcon,
+  LeafIcon,
+  FileIcon,
+  CalendarIcon,
 } from 'lucide-react'
 import { ReportType, ReportStatus, ReportLanguage } from '@qa-dashboard/shared'
 import { ReportGenerationModal } from '@/components/reports/report-generation-modal'
@@ -23,26 +33,100 @@ import { Select, SelectOption } from '@/components/ui/select'
 import { EmptyState } from '@/components/ui/empty-state'
 import { useToast } from '@/components/ui/toast'
 
-const REPORT_TYPE_LABELS: Record<ReportType, string> = {
-  [ReportType.EXECUTIVE_QUALITY_SUMMARY]: 'Executive Quality Summary',
-  [ReportType.LOT_INSPECTION_REPORT]: 'Lot Inspection Report',
-  [ReportType.MEASUREMENT_COMPLIANCE_SHEET]: 'Measurement Compliance Sheet',
-  [ReportType.PACKAGING_READINESS_REPORT]: 'Packaging & Readiness Report',
-  [ReportType.SUPPLIER_PERFORMANCE_SNAPSHOT]: 'Supplier Performance Snapshot',
-  [ReportType.CAPA_REPORT]: 'CAPA Report',
-  [ReportType.INLINE_QC_CHECKPOINTS]: 'Inline QC Checkpoints',
-  [ReportType.DPP_SUMMARY]: 'DPP Summary',
-  [ReportType.MONTHLY_SCORECARD]: 'Monthly Scorecard',
-  [ReportType.LOT]: 'Lot Report',
+const REPORT_TYPE_META: Record<ReportType, { label: string; icon: any; color: string; bgColor: string }> = {
+  [ReportType.EXECUTIVE_QUALITY_SUMMARY]: {
+    label: 'Executive Quality Summary',
+    icon: BarChart3Icon,
+    color: 'text-purple-600',
+    bgColor: 'bg-purple-50'
+  },
+  [ReportType.LOT_INSPECTION_REPORT]: {
+    label: 'Lot Inspection Report',
+    icon: ClipboardCheckIcon,
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-50'
+  },
+  [ReportType.MEASUREMENT_COMPLIANCE_SHEET]: {
+    label: 'Measurement Compliance Sheet',
+    icon: RulerIcon,
+    color: 'text-green-600',
+    bgColor: 'bg-green-50'
+  },
+  [ReportType.PACKAGING_READINESS_REPORT]: {
+    label: 'Packaging & Readiness',
+    icon: PackageIcon,
+    color: 'text-orange-600',
+    bgColor: 'bg-orange-50'
+  },
+  [ReportType.SUPPLIER_PERFORMANCE_SNAPSHOT]: {
+    label: 'Supplier Performance',
+    icon: FactoryIcon,
+    color: 'text-indigo-600',
+    bgColor: 'bg-indigo-50'
+  },
+  [ReportType.CAPA_REPORT]: {
+    label: 'CAPA Report',
+    icon: AlertTriangleIcon,
+    color: 'text-red-600',
+    bgColor: 'bg-red-50'
+  },
+  [ReportType.INLINE_QC_CHECKPOINTS]: {
+    label: 'Inline QC Checkpoints',
+    icon: CheckSquareIcon,
+    color: 'text-teal-600',
+    bgColor: 'bg-teal-50'
+  },
+  [ReportType.DPP_SUMMARY]: {
+    label: 'DPP Summary',
+    icon: LeafIcon,
+    color: 'text-emerald-600',
+    bgColor: 'bg-emerald-50'
+  },
+  [ReportType.MONTHLY_SCORECARD]: {
+    label: 'Monthly Scorecard',
+    icon: CalendarIcon,
+    color: 'text-pink-600',
+    bgColor: 'bg-pink-50'
+  },
+  [ReportType.LOT]: {
+    label: 'Lot Report',
+    icon: FileIcon,
+    color: 'text-gray-600',
+    bgColor: 'bg-gray-50'
+  },
 }
 
-const REPORT_STATUS_META: Record<ReportStatus, { label: string; icon: any; color: string }> = {
-  [ReportStatus.PENDING]: { label: 'Pending', icon: ClockIcon, color: 'text-warning-600' },
-  [ReportStatus.GENERATING]: { label: 'Generating', icon: ClockIcon, color: 'text-primary-600' },
-  [ReportStatus.READY]: { label: 'Ready', icon: CheckCircleIcon, color: 'text-success-600' },
-  [ReportStatus.COMPLETED]: { label: 'Completed', icon: CheckCircleIcon, color: 'text-success-600' },
-  [ReportStatus.FAILED]: { label: 'Failed', icon: XCircleIcon, color: 'text-danger-600' },
-  [ReportStatus.EXPIRED]: { label: 'Expired', icon: AlertCircleIcon, color: 'text-neutral-500' },
+const REPORT_STATUS_META: Record<ReportStatus, { label: string; icon: any; badge: string }> = {
+  [ReportStatus.PENDING]: {
+    label: 'Pending',
+    icon: ClockIcon,
+    badge: 'bg-yellow-100 text-yellow-800 border-yellow-200'
+  },
+  [ReportStatus.GENERATING]: {
+    label: 'Generating',
+    icon: ClockIcon,
+    badge: 'bg-blue-100 text-blue-800 border-blue-200'
+  },
+  [ReportStatus.READY]: {
+    label: 'Ready',
+    icon: CheckCircleIcon,
+    badge: 'bg-green-100 text-green-800 border-green-200'
+  },
+  [ReportStatus.COMPLETED]: {
+    label: 'Completed',
+    icon: CheckCircleIcon,
+    badge: 'bg-green-100 text-green-800 border-green-200'
+  },
+  [ReportStatus.FAILED]: {
+    label: 'Failed',
+    icon: XCircleIcon,
+    badge: 'bg-red-100 text-red-800 border-red-200'
+  },
+  [ReportStatus.EXPIRED]: {
+    label: 'Expired',
+    icon: AlertCircleIcon,
+    badge: 'bg-gray-100 text-gray-600 border-gray-200'
+  },
 }
 
 export default function ReportsPage() {
@@ -109,7 +193,7 @@ export default function ReportsPage() {
   const filterOptions = useMemo<SelectOption<string>[]>(
     () => [
       { value: '', label: 'All report types' },
-      ...Object.entries(REPORT_TYPE_LABELS).map(([type, label]) => ({ value: type, label })),
+      ...Object.entries(REPORT_TYPE_META).map(([type, meta]) => ({ value: type, label: meta.label })),
     ],
     [],
   )
@@ -135,6 +219,11 @@ export default function ReportsPage() {
     )
   }
 
+  const totalReports = reports.length
+  const completedReports = reports.filter((r: any) => r.status === ReportStatus.COMPLETED || r.status === ReportStatus.READY).length
+  const failedReports = reports.filter((r: any) => r.status === ReportStatus.FAILED).length
+  const generatingReports = reports.filter((r: any) => r.status === ReportStatus.GENERATING).length
+
   return (
     <div className="space-y-8">
       <PageHeader
@@ -147,15 +236,66 @@ export default function ReportsPage() {
         }
       />
 
-      <Card>
-        <CardContent className="flex flex-col gap-4 p-6">
-          <div className="flex items-center gap-3 text-sm text-neutral-600">
-            <FilterIcon className="h-4 w-4 text-neutral-400" />
-            <span>Filter by type</span>
+      {totalReports > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Reports</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{totalReports}</p>
+              </div>
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <FileTextIcon className="h-6 w-6 text-blue-600" />
+              </div>
+            </div>
           </div>
-          <Select value={selectedType} onChange={(value) => setSelectedType(value as string)} options={filterOptions} />
-        </CardContent>
-      </Card>
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Completed</p>
+                <p className="text-2xl font-bold text-green-600 mt-1">{completedReports}</p>
+              </div>
+              <div className="p-3 bg-green-50 rounded-lg">
+                <CheckCircleIcon className="h-6 w-6 text-green-600" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Generating</p>
+                <p className="text-2xl font-bold text-blue-600 mt-1">{generatingReports}</p>
+              </div>
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <ClockIcon className="h-6 w-6 text-blue-600" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Failed</p>
+                <p className="text-2xl font-bold text-red-600 mt-1">{failedReports}</p>
+              </div>
+              <div className="p-3 bg-red-50 rounded-lg">
+                <XCircleIcon className="h-6 w-6 text-red-600" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <FilterIcon className="h-5 w-5 text-gray-500" />
+            <span className="text-sm font-medium text-gray-700">Filter reports</span>
+          </div>
+          <div className="sm:w-80">
+            <Select value={selectedType} onChange={(value) => setSelectedType(value as string)} options={filterOptions} />
+          </div>
+        </div>
+      </div>
 
       {Object.keys(groupedReports).length === 0 ? (
         <EmptyState
@@ -165,61 +305,86 @@ export default function ReportsPage() {
           action={{ label: 'Generate report', onClick: () => setShowGenerateModal(true) }}
         />
       ) : (
-        <div className="space-y-6">
-          {Object.entries(groupedReports).map(([type, typeReports]) => (
-            <Card key={type}>
-              <CardHeader className="flex items-center justify-between">
-                <div>
-                  <CardTitle>{REPORT_TYPE_LABELS[type as ReportType] || type}</CardTitle>
-                  <CardDescription>{typeReports.length} report{typeReports.length === 1 ? '' : 's'} generated.</CardDescription>
-                </div>
-              </CardHeader>
-              <CardContent className="divide-y divide-neutral-200">
-                {typeReports.map((report: any) => {
-                  const statusMeta = REPORT_STATUS_META[report.status as ReportStatus]
-                  const StatusIcon = statusMeta.icon
-                  const canDownload =
-                    report.status === ReportStatus.COMPLETED || report.status === ReportStatus.READY
+        <div className="grid grid-cols-1 gap-6">
+          {Object.entries(groupedReports).map(([type, typeReports]) => {
+            const typeMeta = REPORT_TYPE_META[type as ReportType]
+            const TypeIcon = typeMeta?.icon || FileTextIcon
 
-                  return (
-                    <div key={report.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex items-start gap-3">
-                        <StatusIcon className={`mt-1 h-5 w-5 ${statusMeta.color}`} />
-                        <div>
-                          <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                            {report.fileName}
-                          </p>
-                          <div className="flex flex-wrap items-center gap-3 text-xs text-neutral-500">
-                            <span>Created {formatDate(report.createdAt)}</span>
-                            {report.generatedAt && <span>Generated {formatDate(report.generatedAt)}</span>}
-                            <span>Status: {statusMeta.label}</span>
-                            {report.language && (
-                              <span>
-                                Language: {report.language === ReportLanguage.EN ? 'English' : report.language}
+            return (
+              <Card key={type} className="overflow-hidden">
+                <div className={`px-6 py-4 border-b ${typeMeta?.bgColor || 'bg-gray-50'}`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${typeMeta?.bgColor || 'bg-white'} border border-gray-200`}>
+                      <TypeIcon className={`h-5 w-5 ${typeMeta?.color || 'text-gray-600'}`} />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">{typeMeta?.label || type}</h3>
+                      <p className="text-sm text-gray-600">{typeReports.length} report{typeReports.length === 1 ? '' : 's'}</p>
+                    </div>
+                  </div>
+                </div>
+                <CardContent className="p-0">
+                  <div className="divide-y divide-gray-100">
+                    {typeReports.map((report: any) => {
+                      const statusMeta = REPORT_STATUS_META[report.status as ReportStatus]
+                      const StatusIcon = statusMeta.icon
+                      const canDownload =
+                        report.status === ReportStatus.COMPLETED || report.status === ReportStatus.READY
+
+                      return (
+                        <div key={report.id} className="p-6 hover:bg-gray-50 transition-colors">
+                          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                            <div className="flex-1 space-y-3">
+                              <div className="flex items-start gap-3">
+                                <FileTextIcon className="h-5 w-5 text-gray-400 mt-0.5" />
+                                <div className="flex-1">
+                                  <p className="font-medium text-gray-900">{report.fileName}</p>
+                                  <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-gray-600">
+                                    <span className="flex items-center gap-1">
+                                      <CalendarIcon className="h-4 w-4" />
+                                      {formatDate(report.createdAt)}
+                                    </span>
+                                    {report.language && (
+                                      <span className="px-2 py-0.5 bg-gray-100 rounded-md text-xs font-medium">
+                                        {report.language === ReportLanguage.EN ? '🇬🇧 English' :
+                                         report.language === ReportLanguage.PT ? '🇵🇹 Portuguese' :
+                                         report.language === ReportLanguage.ES ? '🇪🇸 Spanish' : report.language}
+                                      </span>
+                                    )}
+                                    {report.fileSize && (
+                                      <span className="text-gray-500">
+                                        {(report.fileSize / 1024).toFixed(1)} KB
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${statusMeta.badge}`}>
+                                <StatusIcon className="h-3.5 w-3.5" />
+                                {statusMeta.label}
                               </span>
-                            )}
-                            {report.fileSize && (
-                              <span>{(report.fileSize / 1024).toFixed(1)} KB</span>
-                            )}
+                              <Button
+                                variant={canDownload ? "primary" : "secondary"}
+                                size="sm"
+                                onClick={() => handleDownload(report.id)}
+                                disabled={!canDownload || downloadMutation.isPending}
+                                className="whitespace-nowrap"
+                              >
+                                <DownloadIcon className="mr-2 h-4 w-4" />
+                                Download
+                              </Button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => handleDownload(report.id)}
-                          disabled={!canDownload || downloadMutation.isPending}
-                        >
-                          <DownloadIcon className="mr-2 h-4 w-4" /> Download
-                        </Button>
-                      </div>
-                    </div>
-                  )
-                })}
-              </CardContent>
-            </Card>
-          ))}
+                      )
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
       )}
 

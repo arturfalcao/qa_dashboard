@@ -12,11 +12,17 @@ import {
   MeasurementComplianceSheetData,
   PackagingReadinessReportData,
   DppSummaryReportData,
+  SupplierPerformanceSnapshotData,
+  CapaReportData,
+  InlineQcCheckpointsData,
   ExecutiveQualitySummaryParams,
   LotInspectionReportParams,
   MeasurementComplianceSheetParams,
   PackagingReadinessReportParams,
   DppSummaryParams,
+  SupplierPerformanceSnapshotParams,
+  CapaReportParams,
+  InlineQcCheckpointsParams,
 } from './report-types';
 import { AnalyticsService } from '../database/services/analytics.service';
 import { ClientService } from '../database/services/client.service';
@@ -52,6 +58,7 @@ export class ReportService {
       const report = this.reportRepository.create({
         tenantId: request.tenantId,
         userId: request.userId,
+        lotId: request.parameters?.lotId || null,
         type: request.type,
         language: request.language || ReportLanguage.EN,
         status: ReportStatus.GENERATING,
@@ -120,9 +127,14 @@ export class ReportService {
         return await this.generateMeasurementComplianceSheet(report);
       case ReportType.PACKAGING_READINESS_REPORT:
         return await this.generatePackagingReadinessReport(report);
+      case ReportType.SUPPLIER_PERFORMANCE_SNAPSHOT:
+        return await this.generateSupplierPerformanceSnapshot(report);
+      case ReportType.CAPA_REPORT:
+        return await this.generateCapaReport(report);
+      case ReportType.INLINE_QC_CHECKPOINTS:
+        return await this.generateInlineQcCheckpoints(report);
       case ReportType.DPP_SUMMARY:
         return await this.generateDppSummaryReport(report);
-      // Add other report types here
       default:
         throw new BadRequestException(`Unsupported report type: ${report.type}`);
     }
@@ -223,6 +235,78 @@ export class ReportService {
     return key;
   }
 
+  private async generateSupplierPerformanceSnapshot(report: Report): Promise<string> {
+    const params = report.parameters as SupplierPerformanceSnapshotParams;
+
+    // Get supplier performance data
+    const data: SupplierPerformanceSnapshotData = await this.getSupplierPerformanceSnapshotData(
+      report.tenantId,
+      params
+    );
+
+    // Generate HTML content
+    const htmlContent = this.renderSupplierPerformanceSnapshotTemplate(data, report.language);
+
+    // Convert to PDF
+    const key = await this.generatePDF(htmlContent, report.fileName, report.tenantId, {
+      format: 'A4',
+      margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' },
+      displayHeaderFooter: true,
+      headerTemplate: this.getHeaderTemplate(data.client, report.language),
+      footerTemplate: this.getFooterTemplate(report.language),
+    });
+
+    return key;
+  }
+
+  private async generateCapaReport(report: Report): Promise<string> {
+    const params = report.parameters as CapaReportParams;
+
+    // Get CAPA data
+    const data: CapaReportData = await this.getCapaReportData(
+      report.tenantId,
+      params
+    );
+
+    // Generate HTML content
+    const htmlContent = this.renderCapaReportTemplate(data, report.language);
+
+    // Convert to PDF
+    const key = await this.generatePDF(htmlContent, report.fileName, report.tenantId, {
+      format: 'A4',
+      margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' },
+      displayHeaderFooter: true,
+      headerTemplate: this.getHeaderTemplate({ name: data.capa.title }, report.language),
+      footerTemplate: this.getFooterTemplate(report.language),
+    });
+
+    return key;
+  }
+
+  private async generateInlineQcCheckpoints(report: Report): Promise<string> {
+    const params = report.parameters as InlineQcCheckpointsParams;
+
+    // Get inline QC checkpoints data
+    const data: InlineQcCheckpointsData = await this.getInlineQcCheckpointsData(
+      report.tenantId,
+      params
+    );
+
+    // Generate HTML content
+    const htmlContent = this.renderInlineQcCheckpointsTemplate(data, report.language);
+
+    // Convert to PDF
+    const key = await this.generatePDF(htmlContent, report.fileName, report.tenantId, {
+      format: 'A4',
+      margin: { top: '60px', right: '20px', bottom: '60px', left: '20px' },
+      displayHeaderFooter: true,
+      headerTemplate: this.getHeaderTemplate(data.lot, report.language),
+      footerTemplate: this.getFooterTemplate(report.language),
+    });
+
+    return key;
+  }
+
   private async generatePDF(htmlContent: string, fileName: string, tenantId: string, options: any): Promise<string> {
     const browser = await launchPuppeteer({
       headless: true,
@@ -259,14 +343,31 @@ export class ReportService {
   }
 
 
+  private getLogoBase64(): string {
+    // Pack & Polish logo in base64 format (transparent PNG)
+    const fs = require('fs');
+    const path = require('path');
+    try {
+      const logoPath = path.join(process.cwd(), 'public', 'logo', 'PackPolish_logo_transparent.png');
+      const logoBuffer = fs.readFileSync(logoPath);
+      return `data:image/png;base64,${logoBuffer.toString('base64')}`;
+    } catch (error) {
+      // Fallback to a minimal logo if file not found
+      return '';
+    }
+  }
+
   private getHeaderTemplate(clientData: any, language: ReportLanguage): string {
+    const logo = this.getLogoBase64();
     return `
-      <div style="font-size: 10px; padding: 5px; width: 100%; display: flex; justify-content: space-between;">
-        <div style="flex: 1;">
-          ${clientData.name || clientData.factory?.name || 'QA Dashboard'}
+      <div style="font-size: 10px; padding: 10px 20px; width: 100%; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e5e7eb;">
+        <div style="flex: 1; display: flex; align-items: center; gap: 12px;">
+          ${logo ? `<img src="${logo}" style="height: 24px; object-fit: contain;" />` : '<strong>Pack & Polish</strong>'}
+          <span style="color: #6b7280;">|</span>
+          <span style="color: #6b7280;">${clientData.name || clientData.factory?.name || 'QA Dashboard'}</span>
         </div>
-        <div style="flex: 1; text-align: right;">
-          <span class="pageNumber"></span> / <span class="totalPages"></span>
+        <div style="flex: 1; text-align: right; color: #6b7280;">
+          Page <span class="pageNumber"></span> / <span class="totalPages"></span>
         </div>
       </div>
     `;
@@ -3345,6 +3446,126 @@ export class ReportService {
     };
   }
 
+  private async getSupplierPerformanceSnapshotData(
+    tenantId: string,
+    params: SupplierPerformanceSnapshotParams
+  ): Promise<SupplierPerformanceSnapshotData> {
+    // Fetch client data
+    const client = await this.tenantService.findById(tenantId);
+
+    // TODO: Implement actual data fetching from database
+    // For now, returning sample data
+    return {
+      client: {
+        name: client?.name || 'Client Name',
+        logo: client?.logoUrl
+      },
+      period: params.period,
+      suppliers: [
+        {
+          id: 'supplier-1',
+          name: 'Sample Supplier A',
+          location: 'China',
+          metrics: {
+            totalLots: 25,
+            defectRate: 2.3,
+            onTimeDelivery: 95,
+            qualityScore: 88,
+            trend: 'improving'
+          },
+          recentIssues: [],
+          strengths: ['Consistent quality', 'Good communication'],
+          areasForImprovement: ['Delivery time could be improved']
+        }
+      ],
+      summary: {
+        totalSuppliers: 1,
+        averageDefectRate: 2.3,
+        averageOnTimeDelivery: 95,
+        topPerformer: 'Sample Supplier A',
+        needsAttention: []
+      }
+    };
+  }
+
+  private async getCapaReportData(
+    tenantId: string,
+    params: CapaReportParams
+  ): Promise<CapaReportData> {
+    // TODO: Implement actual data fetching from database
+    // For now, returning sample data
+    return {
+      capa: {
+        id: params.capaId,
+        title: 'Sample CAPA - Defect Investigation',
+        type: 'corrective',
+        status: 'in_progress',
+        priority: 'high',
+        openedDate: new Date().toISOString(),
+        targetDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      issue: {
+        description: 'Sample issue description',
+        rootCause: 'Sample root cause analysis',
+        impactAssessment: 'Medium impact on quality metrics',
+        affectedLots: [],
+        affectedProducts: []
+      },
+      actions: [],
+      timeline: [
+        {
+          date: new Date().toISOString(),
+          event: 'CAPA Opened',
+          user: 'System',
+          details: 'CAPA investigation initiated'
+        }
+      ],
+      effectiveness: {
+        verified: false,
+        outcome: 'Pending verification',
+        followUpRequired: true
+      },
+      attachments: []
+    };
+  }
+
+  private async getInlineQcCheckpointsData(
+    tenantId: string,
+    params: InlineQcCheckpointsParams
+  ): Promise<InlineQcCheckpointsData> {
+    // Fetch lot data
+    const lot = await this.lotService.getLot(tenantId, params.lotId);
+
+    if (!lot) {
+      throw new NotFoundException(`Lot ${params.lotId} not found`);
+    }
+
+    // TODO: Implement actual checkpoint data fetching from database
+    // For now, returning sample data
+    return {
+      lot: {
+        id: lot.id,
+        styleRef: lot.styleRef,
+        quantity: lot.quantity,
+        factory: {
+          name: lot.factory?.name || 'Unknown Factory',
+          location: lot.factory?.location || 'Unknown Location'
+        }
+      },
+      phase: params.phase || 'All Phases',
+      checkpoints: [],
+      defectsFound: [],
+      summary: {
+        totalCheckpoints: 0,
+        completedCheckpoints: 0,
+        passedCheckpoints: 0,
+        failedCheckpoints: 0,
+        overallStatus: 'on_track',
+        completionPercentage: 0
+      }
+    };
+  }
+
   private async renderDppSummaryReportTemplate(
     data: DppSummaryReportData,
     language: ReportLanguage
@@ -3906,6 +4127,833 @@ export class ReportService {
           </div>
         </div>
 
+      </body>
+      </html>
+    `;
+  }
+
+  private renderSupplierPerformanceSnapshotTemplate(
+    data: SupplierPerformanceSnapshotData,
+    language: ReportLanguage
+  ): string {
+    const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Supplier Performance Snapshot</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #1f2937;
+            padding: 40px;
+            background: #ffffff;
+          }
+          .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            border-radius: 12px;
+            margin-bottom: 40px;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+          }
+          .header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            letter-spacing: -0.5px;
+          }
+          .header .period {
+            font-size: 16px;
+            opacity: 0.95;
+            font-weight: 400;
+          }
+          .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 40px;
+          }
+          .summary-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 24px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+          }
+          .summary-card .label {
+            font-size: 13px;
+            color: #6b7280;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+          }
+          .summary-card .value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1f2937;
+          }
+          .section {
+            margin-bottom: 40px;
+          }
+          .section-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 24px;
+            padding-bottom: 12px;
+            border-bottom: 3px solid #667eea;
+          }
+          table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+          }
+          thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+          }
+          th {
+            padding: 16px 20px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          tbody tr {
+            border-bottom: 1px solid #e5e7eb;
+            transition: background-color 0.2s;
+          }
+          tbody tr:last-child {
+            border-bottom: none;
+          }
+          tbody tr:hover {
+            background-color: #f9fafb;
+          }
+          td {
+            padding: 16px 20px;
+            font-size: 14px;
+          }
+          .trend {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+          }
+          .trend.improving {
+            background: #d1fae5;
+            color: #065f46;
+          }
+          .trend.stable {
+            background: #dbeafe;
+            color: #1e40af;
+          }
+          .trend.declining {
+            background: #fee2e2;
+            color: #991b1b;
+          }
+          .metric-good {
+            color: #059669;
+            font-weight: 600;
+          }
+          .metric-warning {
+            color: #d97706;
+            font-weight: 600;
+          }
+          .metric-bad {
+            color: #dc2626;
+            font-weight: 600;
+          }
+          .footer {
+            margin-top: 60px;
+            padding-top: 20px;
+            border-top: 2px solid #e5e7eb;
+            text-align: center;
+            color: #6b7280;
+            font-size: 12px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>📊 Supplier Performance Snapshot</h1>
+          <div class="period">${formatDate(data.period.startDate)} - ${formatDate(data.period.endDate)}</div>
+        </div>
+
+        <div class="summary-grid">
+          <div class="summary-card">
+            <div class="label">Total Suppliers</div>
+            <div class="value">${data.summary.totalSuppliers}</div>
+          </div>
+          <div class="summary-card">
+            <div class="label">Avg Defect Rate</div>
+            <div class="value">${data.summary.averageDefectRate.toFixed(1)}%</div>
+          </div>
+          <div class="summary-card">
+            <div class="label">Avg On-Time Delivery</div>
+            <div class="value">${data.summary.averageOnTimeDelivery.toFixed(0)}%</div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2 class="section-title">Supplier Performance Details</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Supplier</th>
+                <th>Location</th>
+                <th>Total Lots</th>
+                <th>Defect Rate</th>
+                <th>On-Time Delivery</th>
+                <th>Quality Score</th>
+                <th>Trend</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.suppliers.map(supplier => `
+                <tr>
+                  <td><strong>${supplier.name}</strong></td>
+                  <td>${supplier.location}</td>
+                  <td>${supplier.metrics.totalLots}</td>
+                  <td class="${supplier.metrics.defectRate < 2 ? 'metric-good' : supplier.metrics.defectRate < 5 ? 'metric-warning' : 'metric-bad'}">
+                    ${supplier.metrics.defectRate.toFixed(1)}%
+                  </td>
+                  <td class="${supplier.metrics.onTimeDelivery >= 95 ? 'metric-good' : supplier.metrics.onTimeDelivery >= 85 ? 'metric-warning' : 'metric-bad'}">
+                    ${supplier.metrics.onTimeDelivery.toFixed(0)}%
+                  </td>
+                  <td>${supplier.metrics.qualityScore}/100</td>
+                  <td><span class="trend ${supplier.metrics.trend}">${supplier.metrics.trend}</span></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="footer">
+          Generated by Pack & Polish QA Dashboard • ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  private renderCapaReportTemplate(
+    data: CapaReportData,
+    language: ReportLanguage
+  ): string {
+    const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+    const priorityColor = {
+      critical: '#dc2626',
+      high: '#ea580c',
+      medium: '#d97706',
+      low: '#65a30d'
+    }[data.capa.priority] || '#6b7280';
+
+    const statusBadge = {
+      open: { bg: '#dbeafe', color: '#1e40af' },
+      in_progress: { bg: '#fef3c7', color: '#92400e' },
+      completed: { bg: '#d1fae5', color: '#065f46' },
+      closed: { bg: '#e5e7eb', color: '#374151' }
+    }[data.capa.status] || { bg: '#e5e7eb', color: '#374151' };
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>CAPA Report - ${data.capa.title}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #1f2937;
+            padding: 40px;
+            background: #ffffff;
+          }
+          .header {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+            padding: 40px;
+            border-radius: 12px;
+            margin-bottom: 40px;
+            box-shadow: 0 10px 30px rgba(239, 68, 68, 0.2);
+          }
+          .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            letter-spacing: -0.5px;
+          }
+          .header-meta {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-top: 20px;
+          }
+          .meta-item {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 12px;
+            border-radius: 8px;
+          }
+          .meta-item .label {
+            font-size: 11px;
+            text-transform: uppercase;
+            opacity: 0.8;
+            letter-spacing: 0.5px;
+          }
+          .meta-item .value {
+            font-size: 16px;
+            font-weight: 600;
+            margin-top: 4px;
+          }
+          .status-badge {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: capitalize;
+          }
+          .priority-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+          }
+          .section {
+            background: #f9fafb;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 1px solid #e5e7eb;
+          }
+          .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+          }
+          .section-title::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: #ef4444;
+            margin-right: 12px;
+            border-radius: 2px;
+          }
+          .info-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+          }
+          .info-item strong {
+            color: #6b7280;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: block;
+            margin-bottom: 6px;
+          }
+          .info-item p {
+            color: #1f2937;
+            font-size: 15px;
+            line-height: 1.7;
+          }
+          table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+          }
+          thead {
+            background: #f3f4f6;
+          }
+          th {
+            padding: 14px 16px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #6b7280;
+          }
+          tbody tr {
+            border-top: 1px solid #e5e7eb;
+          }
+          td {
+            padding: 14px 16px;
+            font-size: 14px;
+          }
+          .action-status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+          }
+          .action-status.pending { background: #fef3c7; color: #92400e; }
+          .action-status.in_progress { background: #dbeafe; color: #1e40af; }
+          .action-status.completed { background: #d1fae5; color: #065f46; }
+          .timeline {
+            position: relative;
+            padding-left: 30px;
+          }
+          .timeline::before {
+            content: '';
+            position: absolute;
+            left: 8px;
+            top: 8px;
+            bottom: 8px;
+            width: 2px;
+            background: #e5e7eb;
+          }
+          .timeline-item {
+            position: relative;
+            margin-bottom: 24px;
+          }
+          .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -26px;
+            top: 6px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ef4444;
+            border: 3px solid white;
+            box-shadow: 0 0 0 2px #e5e7eb;
+          }
+          .timeline-date {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 4px;
+          }
+          .timeline-event {
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 2px;
+          }
+          .timeline-user {
+            font-size: 13px;
+            color: #6b7280;
+          }
+          .footer {
+            margin-top: 60px;
+            padding-top: 20px;
+            border-top: 2px solid #e5e7eb;
+            text-align: center;
+            color: #6b7280;
+            font-size: 12px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>⚠️ CAPA Report: ${data.capa.title}</h1>
+          <div class="header-meta">
+            <div class="meta-item">
+              <div class="label">Type</div>
+              <div class="value">${data.capa.type === 'corrective' ? 'Corrective' : 'Preventive'}</div>
+            </div>
+            <div class="meta-item">
+              <div class="label">Status</div>
+              <div class="value" style="background: ${statusBadge.bg}; color: ${statusBadge.color}; padding: 4px 12px; border-radius: 12px; display: inline-block;">
+                ${data.capa.status.replace('_', ' ')}
+              </div>
+            </div>
+            <div class="meta-item">
+              <div class="label">Priority</div>
+              <div class="value">
+                <span class="priority-indicator" style="background: ${priorityColor};"></span>
+                ${data.capa.priority}
+              </div>
+            </div>
+            <div class="meta-item">
+              <div class="label">Opened</div>
+              <div class="value">${formatDate(data.capa.openedDate)}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2 class="section-title">Issue Details</h2>
+          <div class="info-grid">
+            <div class="info-item">
+              <strong>Description</strong>
+              <p>${data.issue.description}</p>
+            </div>
+            <div class="info-item">
+              <strong>Root Cause Analysis</strong>
+              <p>${data.issue.rootCause}</p>
+            </div>
+            <div class="info-item">
+              <strong>Impact Assessment</strong>
+              <p>${data.issue.impactAssessment}</p>
+            </div>
+          </div>
+        </div>
+
+        ${data.actions.length > 0 ? `
+          <div class="section">
+            <h2 class="section-title">Corrective Actions</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Action</th>
+                  <th>Type</th>
+                  <th>Assigned To</th>
+                  <th>Due Date</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.actions.map(action => `
+                  <tr>
+                    <td>${action.description}</td>
+                    <td style="text-transform: capitalize;">${action.type.replace('_', ' ')}</td>
+                    <td><strong>${action.assignedTo}</strong></td>
+                    <td>${formatDate(action.dueDate)}</td>
+                    <td><span class="action-status ${action.status}">${action.status.replace('_', ' ')}</span></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        ` : ''}
+
+        ${data.timeline.length > 0 ? `
+          <div class="section">
+            <h2 class="section-title">Activity Timeline</h2>
+            <div class="timeline">
+              ${data.timeline.map(event => `
+                <div class="timeline-item">
+                  <div class="timeline-date">${formatDate(event.date)}</div>
+                  <div class="timeline-event">${event.event}</div>
+                  <div class="timeline-user">by ${event.user}</div>
+                  ${event.details ? `<div style="font-size: 13px; color: #6b7280; margin-top: 4px;">${event.details}</div>` : ''}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        <div class="footer">
+          Generated by Pack & Polish QA Dashboard • ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  private renderInlineQcCheckpointsTemplate(
+    data: InlineQcCheckpointsData,
+    language: ReportLanguage
+  ): string {
+    const statusColors = {
+      on_track: { bg: '#d1fae5', color: '#065f46' },
+      at_risk: { bg: '#fef3c7', color: '#92400e' },
+      failed: { bg: '#fee2e2', color: '#991b1b' }
+    };
+
+    const statusColor = statusColors[data.summary.overallStatus] || statusColors.on_track;
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Inline QC Checkpoints - ${data.lot.styleRef}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #1f2937;
+            padding: 40px;
+            background: #ffffff;
+          }
+          .header {
+            background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+            color: white;
+            padding: 40px;
+            border-radius: 12px;
+            margin-bottom: 40px;
+            box-shadow: 0 10px 30px rgba(20, 184, 166, 0.2);
+          }
+          .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            letter-spacing: -0.5px;
+          }
+          .header-info {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-top: 20px;
+          }
+          .info-item {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 12px;
+            border-radius: 8px;
+          }
+          .info-item .label {
+            font-size: 11px;
+            text-transform: uppercase;
+            opacity: 0.8;
+            letter-spacing: 0.5px;
+          }
+          .info-item .value {
+            font-size: 16px;
+            font-weight: 600;
+            margin-top: 4px;
+          }
+          .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 40px;
+          }
+          .summary-card {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 24px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+          }
+          .summary-card .label {
+            font-size: 13px;
+            color: #6b7280;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+          }
+          .summary-card .value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #1f2937;
+          }
+          .summary-card .percentage {
+            font-size: 14px;
+            color: #6b7280;
+            margin-top: 4px;
+          }
+          .status-banner {
+            padding: 20px 30px;
+            border-radius: 10px;
+            margin-bottom: 40px;
+            font-size: 16px;
+            font-weight: 600;
+            text-align: center;
+            background: ${statusColor.bg};
+            color: ${statusColor.color};
+            border: 2px solid ${statusColor.color};
+          }
+          .section {
+            margin-bottom: 40px;
+          }
+          .section-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 24px;
+            padding-bottom: 12px;
+            border-bottom: 3px solid #14b8a6;
+          }
+          table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+          }
+          thead {
+            background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+            color: white;
+          }
+          th {
+            padding: 16px 20px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          tbody tr {
+            border-bottom: 1px solid #e5e7eb;
+          }
+          tbody tr:last-child {
+            border-bottom: none;
+          }
+          td {
+            padding: 16px 20px;
+            font-size: 14px;
+          }
+          .severity-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+          }
+          .severity-badge.critical {
+            background: #fee2e2;
+            color: #991b1b;
+          }
+          .severity-badge.major {
+            background: #fed7aa;
+            color: #9a3412;
+          }
+          .severity-badge.minor {
+            background: #fef3c7;
+            color: #92400e;
+          }
+          .progress-bar {
+            width: 100%;
+            height: 24px;
+            background: #e5e7eb;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+          }
+          .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #14b8a6 0%, #0d9488 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+          }
+          .footer {
+            margin-top: 60px;
+            padding-top: 20px;
+            border-top: 2px solid #e5e7eb;
+            text-align: center;
+            color: #6b7280;
+            font-size: 12px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>✅ Inline QC Checkpoints Report</h1>
+          <div class="header-info">
+            <div class="info-item">
+              <div class="label">Lot</div>
+              <div class="value">${data.lot.styleRef}</div>
+            </div>
+            <div class="info-item">
+              <div class="label">Quantity</div>
+              <div class="value">${data.lot.quantity.toLocaleString()}</div>
+            </div>
+            <div class="info-item">
+              <div class="label">Factory</div>
+              <div class="value">${data.lot.factory.name}</div>
+            </div>
+            <div class="info-item">
+              <div class="label">Phase</div>
+              <div class="value">${data.phase}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="status-banner">
+          Overall Status: ${data.summary.overallStatus.replace('_', ' ').toUpperCase()}
+        </div>
+
+        <div class="summary-grid">
+          <div class="summary-card">
+            <div class="label">Total Checkpoints</div>
+            <div class="value">${data.summary.totalCheckpoints}</div>
+          </div>
+          <div class="summary-card">
+            <div class="label">Completed</div>
+            <div class="value" style="color: #059669;">${data.summary.completedCheckpoints}</div>
+            <div class="percentage">${data.summary.totalCheckpoints > 0 ? Math.round((data.summary.completedCheckpoints / data.summary.totalCheckpoints) * 100) : 0}%</div>
+          </div>
+          <div class="summary-card">
+            <div class="label">Pass Rate</div>
+            <div class="value" style="color: ${data.summary.failedCheckpoints > 0 ? '#dc2626' : '#059669'};">
+              ${data.summary.completedCheckpoints > 0 ? Math.round((data.summary.passedCheckpoints / data.summary.completedCheckpoints) * 100) : 0}%
+            </div>
+            <div class="percentage">${data.summary.passedCheckpoints} / ${data.summary.completedCheckpoints} passed</div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2 class="section-title">Completion Progress</h2>
+          <div class="progress-bar">
+            <div class="progress-bar-fill" style="width: ${data.summary.completionPercentage}%;">
+              ${data.summary.completionPercentage.toFixed(0)}% Complete
+            </div>
+          </div>
+        </div>
+
+        ${data.defectsFound.length > 0 ? `
+          <div class="section">
+            <h2 class="section-title">Defects Found</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Checkpoint</th>
+                  <th>Defect Type</th>
+                  <th>Severity</th>
+                  <th>Count</th>
+                  <th>Action Taken</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.defectsFound.map(defect => `
+                  <tr>
+                    <td><strong>${defect.checkpoint}</strong></td>
+                    <td>${defect.defectType}</td>
+                    <td><span class="severity-badge ${defect.severity}">${defect.severity}</span></td>
+                    <td><strong>${defect.count}</strong></td>
+                    <td>${defect.actionTaken}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        ` : `
+          <div class="section">
+            <div style="text-align: center; padding: 40px; background: #f0fdf4; border-radius: 10px; border: 2px solid #86efac;">
+              <div style="font-size: 48px; margin-bottom: 16px;">✨</div>
+              <div style="font-size: 18px; font-weight: 600; color: #065f46; margin-bottom: 8px;">No Defects Found</div>
+              <div style="font-size: 14px; color: #059669;">All checkpoints passed successfully!</div>
+            </div>
+          </div>
+        `}
+
+        <div class="footer">
+          Generated by Pack & Polish QA Dashboard • ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+        </div>
       </body>
       </html>
     `;

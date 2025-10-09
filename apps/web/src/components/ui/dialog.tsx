@@ -27,19 +27,18 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
           <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
         </Transition.Child>
 
-        <div className="fixed inset-0 flex items-center justify-center p-4">
-          <Transition.Child
-            as={React.Fragment}
-            enter="ease-out duration-300"
-            enterFrom="opacity-0 scale-95"
-            enterTo="opacity-100 scale-100"
-            leave="ease-in duration-200"
-            leaveFrom="opacity-100 scale-100"
-            leaveTo="opacity-0 scale-95"
-          >
-            {children}
-          </Transition.Child>
-        </div>
+        <Transition.Child
+          as="div"
+          className="fixed inset-0 flex items-center justify-center p-4"
+          enter="ease-out duration-300"
+          enterFrom="opacity-0 scale-95"
+          enterTo="opacity-100 scale-100"
+          leave="ease-in duration-200"
+          leaveFrom="opacity-100 scale-100"
+          leaveTo="opacity-0 scale-95"
+        >
+          {children}
+        </Transition.Child>
       </HeadlessDialog>
     </Transition>
   )

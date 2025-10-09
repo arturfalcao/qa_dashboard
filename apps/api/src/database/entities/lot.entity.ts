@@ -115,6 +115,53 @@ export class Lot {
   })
   dppMetadata: Record<string, any> | null;
 
+  // Tech Pack Fields
+  @Column({
+    name: "tech_pack_file_key",
+    type: "varchar",
+    length: 500,
+    nullable: true,
+    comment: "Storage key for the uploaded tech pack file",
+  })
+  techPackFileKey: string | null;
+
+  @Column({
+    name: "tech_pack_data",
+    type: "jsonb",
+    nullable: true,
+    comment: "AI-extracted structured data from tech pack",
+  })
+  techPackData: Record<string, any> | null;
+
+  @Column({
+    name: "size_specifications",
+    type: "jsonb",
+    nullable: true,
+    comment: "Size specifications with quantities and measurements per size",
+  })
+  sizeSpecifications: Array<{
+    size: string;
+    quantity?: number;
+    measurements?: Record<string, number>;
+  }> | null;
+
+  @Column({
+    name: "tech_pack_status",
+    type: "varchar",
+    length: 50,
+    nullable: true,
+    comment: "Status of tech pack processing: pending, processing, completed, failed",
+  })
+  techPackStatus: "pending" | "processing" | "completed" | "failed" | null;
+
+  @Column({
+    name: "tech_pack_uploaded_at",
+    type: "timestamp",
+    nullable: true,
+    comment: "Timestamp when tech pack was uploaded",
+  })
+  techPackUploadedAt: Date | null;
+
   @CreateDateColumn({ name: "created_at" })
   createdAt: Date;
 

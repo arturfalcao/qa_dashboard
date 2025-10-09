@@ -206,13 +206,39 @@ export function LotTable({ lots }: LotTableProps) {
               return (
                 <TableRow key={lot.id} className="align-top">
                   <TableCell className="align-top">
-                    <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">
-                      {lot.styleRef}
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">
+                        {lot.styleRef}
+                      </div>
+                      {(lot as any).techPackStatus === 'completed' && (
+                        <span className="inline-flex items-center rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700" title="Tech pack processed">
+                          TP
+                        </span>
+                      )}
                     </div>
                     <div className="text-xs text-neutral-500">#{lot.id.slice(0, 8)}</div>
                     <div className="mt-1 text-xs text-neutral-500">
                       {formatNumber(lot.quantityTotal)} units · {snapshot.primaryFactory}
                     </div>
+                    {(lot as any).materialComposition && (lot as any).materialComposition.length > 0 && (
+                      <div className="mt-1 text-xs text-neutral-600">
+                        {(lot as any).materialComposition.map((m: any) => `${m.percentage}% ${m.fiber}`).join(', ')}
+                      </div>
+                    )}
+                    {(lot as any).sizeSpecifications && (lot as any).sizeSpecifications.length > 0 && (
+                      <div className="mt-1 text-xs text-neutral-500">
+                        {(() => {
+                          const specs = (lot as any).sizeSpecifications
+                          const sizeNames = specs.map((s: any) => s.size).join(', ')
+                          const sizesWithQty = specs.filter((s: any) => s.quantity && s.quantity > 0)
+                          if (sizesWithQty.length > 0) {
+                            const totalFromSizes = sizesWithQty.reduce((sum: number, s: any) => sum + (s.quantity || 0), 0)
+                            return `Sizes: ${sizeNames} (${formatNumber(totalFromSizes)} units)`
+                          }
+                          return `Sizes: ${sizeNames}`
+                        })()}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell className="align-top">
                     <span className={cn('inline-flex items-center rounded-full px-3 py-1 text-xs font-medium', statusBadge)}>
@@ -285,10 +311,38 @@ export function LotTable({ lots }: LotTableProps) {
           return (
             <Card key={lot.id}>
               <CardHeader className="space-y-1">
-                <CardTitle className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-                  {lot.styleRef}
-                </CardTitle>
-                <CardDescription>#{lot.id.slice(0, 8)} · {formatNumber(lot.quantityTotal)} units</CardDescription>
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+                    {lot.styleRef}
+                  </CardTitle>
+                  {(lot as any).techPackStatus === 'completed' && (
+                    <span className="inline-flex items-center rounded bg-violet-100 px-2 py-1 text-xs font-medium text-violet-700" title="Tech pack processed">
+                      Tech Pack
+                    </span>
+                  )}
+                </div>
+                <CardDescription>
+                  #{lot.id.slice(0, 8)} · {formatNumber(lot.quantityTotal)} units
+                </CardDescription>
+                {(lot as any).sizeSpecifications && (lot as any).sizeSpecifications.length > 0 && (
+                  <CardDescription>
+                    {(() => {
+                      const specs = (lot as any).sizeSpecifications
+                      const sizeNames = specs.map((s: any) => s.size).join(', ')
+                      const sizesWithQty = specs.filter((s: any) => s.quantity && s.quantity > 0)
+                      if (sizesWithQty.length > 0) {
+                        const totalFromSizes = sizesWithQty.reduce((sum: number, s: any) => sum + (s.quantity || 0), 0)
+                        return `Sizes: ${sizeNames} (${formatNumber(totalFromSizes)} units)`
+                      }
+                      return `Sizes: ${sizeNames}`
+                    })()}
+                  </CardDescription>
+                )}
+                {(lot as any).materialComposition && (lot as any).materialComposition.length > 0 && (
+                  <CardDescription className="text-neutral-600">
+                    {(lot as any).materialComposition.map((m: any) => `${m.percentage}% ${m.fiber}`).join(', ')}
+                  </CardDescription>
+                )}
                 <span className={cn('w-fit rounded-full px-3 py-1 text-xs font-semibold', statusBadge)}>
                   {formatLotStatus(lot.status)}
                 </span>

@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { useAuth } from '@/components/providers/auth-provider'
 import { apiClient } from '@/lib/api'
 import { storeUser } from '@/lib/auth'
@@ -25,49 +26,14 @@ const featureHighlights = [
   },
 ]
 
-const demoAccounts = [
-  {
-    name: 'Carlos Martins',
-    email: 'carlos.martins@paco.example',
-    focus: 'Production Quality Lead',
-  },
-  {
-    name: 'Inês Azevedo',
-    email: 'ines.azevedo@paco.example',
-    focus: 'Supplier Performance',
-  },
-  {
-    name: 'Joana Costa',
-    email: 'joana.costa@paco.example',
-    focus: 'Customer Care Feedback',
-  },
-  {
-    name: 'Miguel Lopes',
-    email: 'miguel.lopes@paco.example',
-    focus: 'Factory Operations',
-  },
-]
-
-const sharedPassword = 'demo1234'
-
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [copiedUser, setCopiedUser] = useState<string | null>(null)
   const { setUser } = useAuth()
   const router = useRouter()
-  const copyTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-
-  useEffect(() => {
-    return () => {
-      if (copyTimeoutRef.current) {
-        clearTimeout(copyTimeoutRef.current)
-      }
-    }
-  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -126,26 +92,6 @@ export default function LoginPage() {
     }
   }
 
-  const handleCopyCredential = async (accountEmail: string) => {
-    if (copyTimeoutRef.current) {
-      clearTimeout(copyTimeoutRef.current)
-    }
-
-    try {
-      if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        await navigator.clipboard.writeText(`${accountEmail}\t${sharedPassword}`)
-      }
-      setCopiedUser(accountEmail)
-    } catch (copyError) {
-      console.error('Failed to copy demo credentials', copyError)
-      setCopiedUser(accountEmail)
-    } finally {
-      copyTimeoutRef.current = setTimeout(() => {
-        setCopiedUser(null)
-      }, 2000)
-    }
-  }
-
   return (
     <div className="relative min-h-screen overflow-hidden bg-slate-950">
       <div className="absolute inset-0 -z-10">
@@ -154,11 +100,15 @@ export default function LoginPage() {
 
       <div className="relative mx-auto flex min-h-screen max-w-7xl flex-col justify-center px-6 py-12 sm:px-8 lg:grid lg:grid-cols-12 lg:gap-12 lg:px-12">
         <section className="relative hidden overflow-hidden rounded-3xl bg-gradient-to-br from-primary-700 via-slate-900 to-slate-950 p-12 text-white shadow-2xl lg:col-span-6 xl:col-span-7 lg:flex lg:flex-col">
-          <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.3em] text-primary-100">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-lg font-bold">
-              QA
-            </span>
-            <span>Quality Assurance Platform</span>
+          <div className="flex items-center gap-4">
+            <Image
+              src="/logo/PackPolish_logo_white.png"
+              alt="Pack & Polish"
+              width={180}
+              height={50}
+              className="object-contain"
+              priority
+            />
           </div>
 
           <div className="mt-12 max-w-xl">
@@ -206,12 +156,16 @@ export default function LoginPage() {
         </section>
 
         <section className="relative z-10 col-span-12 mx-auto w-full max-w-xl lg:col-span-6 xl:col-span-5 lg:ml-auto">
-          <div className="mb-10 flex items-center gap-3 lg:hidden">
-            <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-primary-600/10 text-lg font-bold text-primary-600">
-              QA
-            </span>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-600">QA Dashboard</p>
+          <div className="mb-10 flex flex-col items-center gap-4 lg:hidden">
+            <Image
+              src="/logo/PackPolish_logo_transparent.png"
+              alt="Pack & Polish"
+              width={180}
+              height={50}
+              className="object-contain"
+              priority
+            />
+            <div className="text-center">
               <p className="text-base font-semibold text-white">Sign in to orchestrate your quality strategy</p>
             </div>
           </div>
@@ -321,58 +275,6 @@ export default function LoginPage() {
                 )}
               </button>
             </form>
-          </div>
-
-          <div className="mt-8 rounded-3xl border border-primary-100/80 bg-primary-50/70 p-6 shadow-inner">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-primary-700">Demo credentials</h3>
-                <p className="mt-1 text-xs text-primary-700/80">
-                  Explore the workspace using any of the curated sample accounts below.
-                </p>
-              </div>
-              <span className="rounded-full bg-white/70 px-3 py-1 text-xs font-semibold text-primary-600">
-                Password: {sharedPassword}
-              </span>
-            </div>
-
-            <ul className="mt-6 space-y-4">
-              {demoAccounts.map((account) => (
-                <li
-                  key={account.email}
-                  className="rounded-2xl bg-white/90 p-4 shadow-sm ring-1 ring-primary-100/70 backdrop-blur-sm"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">{account.name}</p>
-                      <p className="text-xs text-slate-500">{account.focus}</p>
-                      <p className="mt-1 text-xs font-medium text-slate-600">{account.email}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleCopyCredential(account.email)}
-                      className="inline-flex items-center gap-2 rounded-xl border border-primary-200 bg-white px-3 py-1.5 text-xs font-semibold text-primary-600 transition hover:border-primary-300 hover:bg-primary-50 focus:outline-none focus:ring-2 focus:ring-primary-200"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        className="h-4 w-4"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M8.25 7.5V6A2.25 2.25 0 0110.5 3.75h7.5A2.25 2.25 0 0120.25 6v9a2.25 2.25 0 01-2.25 2.25H16.5m-4.5 0H6.75A2.25 2.25 0 014.5 15V9.75A2.25 2.25 0 016.75 7.5H12a2.25 2.25 0 012.25 2.25V15a2.25 2.25 0 01-2.25 2.25z"
-                        />
-                      </svg>
-                      {copiedUser === account.email ? 'Copied!' : 'Copy login'}
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
           </div>
         </section>
       </div>
