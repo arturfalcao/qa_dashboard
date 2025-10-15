@@ -142,17 +142,6 @@ export default function LoginPage() {
               </li>
             ))}
           </ul>
-
-          <div className="mt-auto pt-12">
-            <div className="rounded-2xl border border-white/10 bg-white/10 p-6 backdrop-blur">
-              <p className="text-sm font-medium uppercase tracking-[0.2em] text-primary-100/70">Case study</p>
-              <p className="mt-3 text-base font-semibold text-white">
-                “After centralising quality data with QA Dashboard we reduced incident response time by 36% and gave every plant
-                access to the same insights.”
-              </p>
-              <p className="mt-4 text-sm text-primary-100/70">Ana Ribeiro — Director of Quality, PA&amp;CO</p>
-            </div>
-          </div>
         </section>
 
         <section className="relative z-10 col-span-12 mx-auto w-full max-w-xl lg:col-span-6 xl:col-span-5 lg:ml-auto">
