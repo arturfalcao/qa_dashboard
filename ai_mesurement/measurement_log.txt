@@ -1,0 +1,26 @@
+INFO:garment_measurement_system:Loaded calibration from calibration.json - PPM: 2.00, RMS: 0.50mm, Bench: {'width': 1200.0, 'height': 800.0}
+INFO:__main__:Initializing background removal with model: u2net_cloth_seg
+INFO:background_removal:Initializing rembg session with model: u2net_cloth_seg
+[1;31m2025-10-10 02:26:47.091874411 [E:onnxruntime:Default, provider_bridge_ort.cc:2251 TryGetProviderInfo_CUDA] /onnxruntime_src/onnxruntime/core/session/provider_bridge_ort.cc:1844 onnxruntime::Provider& onnxruntime::ProviderLibrary::Get() [ONNXRuntimeError] : 1 : FAIL : Failed to load library libonnxruntime_providers_cuda.so with error: libcublasLt.so.12: cannot open shared object file: No such file or directory
+[m
+INFO:background_removal:Background removal session ready
+INFO:__main__:Processing image: test.jpg
+INFO:__main__:Applying background removal...
+INFO:background_removal:Processing image of size: (4056, 3040)
+INFO:__main__:Saved background-removed image: measurement_results/test_bg_removed.png
+INFO:garment_measurement_system:Processing image: temp_test.jpg
+ERROR:__main__:Error processing image: Image too blurry (focus score: 1.8). Please recapture.
+Traceback (most recent call last):
+  File "/home/celso/projects/qa_dashboard/ai_mesurement/enhanced_measurement_system.py", line 386, in <module>
+    main()
+  File "/home/celso/projects/qa_dashboard/ai_mesurement/enhanced_measurement_system.py", line 356, in main
+    results = system.process_image(
+              ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/celso/projects/qa_dashboard/ai_mesurement/enhanced_measurement_system.py", line 158, in process_image
+    results = super().process_image(str(temp_path), output_dir)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/celso/projects/qa_dashboard/ai_mesurement/garment_measurement_system.py", line 876, in process_image
+    self.check_image_quality(gray_temp)
+  File "/home/celso/projects/qa_dashboard/ai_mesurement/garment_measurement_system.py", line 848, in check_image_quality
+    raise RuntimeError(f"Image too blurry (focus score: {laplacian:.1f}). Please recapture.")
+RuntimeError: Image too blurry (focus score: 1.8). Please recapture.

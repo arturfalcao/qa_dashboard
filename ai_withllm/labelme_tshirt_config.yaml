@@ -1,0 +1,59 @@
+# Labelme configuration for t-shirt keypoint annotation
+# Usage: labelme tshirt_dataset/images --config labelme_tshirt_config.yaml
+
+# Labels
+labels:
+  - tshirt
+
+# Keypoints configuration
+default_shape_color: [0, 255, 0]  # Green
+shape_color: auto
+shift_auto_shape_color: 0
+
+# Point names for keypoint annotation
+# These will appear when annotating keypoints
+point_labels:
+  # Collar (4 points)
+  - collar_left
+  - collar_right
+  - collar_top
+  - collar_bottom
+
+  # Shoulders (4 points)
+  - shoulder_left_outer
+  - shoulder_left_inner
+  - shoulder_right_inner
+  - shoulder_right_outer
+
+  # Sleeves (6 points)
+  - sleeve_left_top
+  - sleeve_left_bottom
+  - sleeve_left_end
+  - sleeve_right_top
+  - sleeve_right_bottom
+  - sleeve_right_end
+
+  # Body (7 points)
+  - armpit_left
+  - armpit_right
+  - waist_left
+  - waist_right
+  - hem_left
+  - hem_center
+  - hem_right
+
+# Display options
+show_label_text_field: true
+keep_prev: false
+keep_prev_mode: false
+epsilon: 10.0
+
+# Auto-save
+auto_save: false
+store_data: false
+
+# File extensions
+file_search:
+  - "*.jpg"
+  - "*.jpeg"
+  - "*.png"

@@ -8,7 +8,7 @@ import {
   UpdateDateColumn,
   JoinColumn,
 } from "typeorm";
-import { LotStatus } from "@qa-dashboard/shared";
+import { LotStatus, GarmentType } from "@qa-dashboard/shared";
 import { Tenant } from "./tenant.entity";
 import { Client } from "./client.entity";
 import { Factory } from "./factory.entity";
@@ -40,6 +40,14 @@ export class Lot {
 
   @Column({ name: "style_ref", length: 120 })
   styleRef: string;
+
+  @Column({
+    name: "garment_type",
+    type: "enum",
+    enum: GarmentType,
+    nullable: true,
+  })
+  garmentType: GarmentType | null;
 
   @Column({ name: "quantity_total", type: "int" })
   quantityTotal: number;
@@ -161,6 +169,84 @@ export class Lot {
     comment: "Timestamp when tech pack was uploaded",
   })
   techPackUploadedAt: Date | null;
+
+  @Column({
+    name: "labels",
+    type: "jsonb",
+    nullable: true,
+    comment: "Label specifications from tech pack",
+  })
+  labels: Array<{
+    type: string;
+    width?: string;
+    height?: string;
+    material?: string;
+    placement?: string;
+    colors?: string[];
+    artworkUrl?: string;
+    imageUrl?: string;
+    notes?: string;
+  }> | null;
+
+  @Column({
+    name: "hang_tags",
+    type: "jsonb",
+    nullable: true,
+    comment: "Hang tag specifications from tech pack",
+  })
+  hangTags: Array<{
+    width?: string;
+    height?: string;
+    material?: string;
+    colors?: string[];
+    artworkUrl?: string;
+    imageUrl?: string;
+    notes?: string;
+  }> | null;
+
+  @Column({
+    name: "packaging",
+    type: "jsonb",
+    nullable: true,
+    comment: "Packaging specifications from tech pack",
+  })
+  packaging: Array<{
+    type: string;
+    width?: string;
+    height?: string;
+    material?: string;
+    artworkUrl?: string;
+    imageUrl?: string;
+    notes?: string;
+  }> | null;
+
+  @Column({
+    name: "folding_instructions",
+    type: "jsonb",
+    nullable: true,
+    comment: "Folding instructions from tech pack",
+  })
+  foldingInstructions: Array<{
+    step: number;
+    description: string;
+    imageUrl?: string;
+  }> | null;
+
+  @Column({
+    name: "bill_of_materials",
+    type: "jsonb",
+    nullable: true,
+    comment: "Bill of materials from tech pack",
+  })
+  billOfMaterials: Array<{
+    category: string;
+    description: string;
+    supplier?: string;
+    color?: string;
+    size?: string;
+    imageUrl?: string;
+    notes?: string;
+  }> | null;
 
   @CreateDateColumn({ name: "created_at" })
   createdAt: Date;

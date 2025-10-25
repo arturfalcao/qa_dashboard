@@ -1,0 +1,217 @@
+[
+  {
+    "image": "/home/celso/projects/qa_dashboard/ai_withllm/shirt.jpg",
+    "category_detected": "vest",
+    "expected_category": "short_sleeved_shirt",
+    "num_landmarks": 291,
+    "total_possible": 294,
+    "detection_rate": 98.9795918367347,
+    "measurements": {
+      "shoulder_width": 986.154146165801,
+      "chest_width": 422.0
+    },
+    "category_correct": false,
+    "confidence_stats": {
+      "mean": 0.6992028616752821,
+      "std": 0.1911913715548685,
+      "min": 0.3003131151199341,
+      "max": 1.0419542789459229,
+      "median": 0.7248897552490234
+    },
+    "landmark_distribution": {
+      "short_sleeved_shirt": {
+        "detected": 25,
+        "expected": 25,
+        "rate": 100.0
+      },
+      "long_sleeved_shirt": {
+        "detected": 33,
+        "expected": 33,
+        "rate": 100.0
+      },
+      "short_sleeved_outwear": {
+        "detected": 31,
+        "expected": 31,
+        "rate": 100.0
+      },
+      "long_sleeved_outwear": {
+        "detected": 39,
+        "expected": 39,
+        "rate": 100.0
+      },
+      "vest": {
+        "detected": 15,
+        "expected": 15,
+        "rate": 100.0
+      },
+      "sling": {
+        "detected": 15,
+        "expected": 15,
+        "rate": 100.0
+      },
+      "shorts": {
+        "detected": 8,
+        "expected": 10,
+        "rate": 80.0
+      },
+      "trousers": {
+        "detected": 13,
+        "expected": 14,
+        "rate": 92.85714285714286
+      },
+      "skirt": {
+        "detected": 8,
+        "expected": 8,
+        "rate": 100.0
+      },
+      "short_sleeved_dress": {
+        "detected": 29,
+        "expected": 29,
+        "rate": 100.0
+      },
+      "long_sleeved_dress": {
+        "detected": 37,
+        "expected": 37,
+        "rate": 100.0
+      },
+      "vest_dress": {
+        "detected": 19,
+        "expected": 19,
+        "rate": 100.0
+      },
+      "sling_dress": {
+        "detected": 19,
+        "expected": 19,
+        "rate": 100.0
+      }
+    },
+    "threshold_analysis": {
+      "0.1": {
+        "num_detected": 294,
+        "category": "vest"
+      },
+      "0.2": {
+        "num_detected": 294,
+        "category": "vest"
+      },
+      "0.3": {
+        "num_detected": 291,
+        "category": "vest"
+      },
+      "0.4": {
+        "num_detected": 259,
+        "category": "vest"
+      },
+      "0.5": {
+        "num_detected": 233,
+        "category": "skirt"
+      }
+    }
+  },
+  {
+    "image": "/home/celso/projects/qa_dashboard/ai_withllm/jeans.jpg",
+    "category_detected": "skirt",
+    "expected_category": "trousers",
+    "num_landmarks": 170,
+    "total_possible": 294,
+    "detection_rate": 57.82312925170068,
+    "measurements": {},
+    "category_correct": false,
+    "confidence_stats": {
+      "mean": 0.6683709474170909,
+      "std": 0.21631422226499872,
+      "min": 0.31292715668678284,
+      "max": 1.1368976831436157,
+      "median": 0.6863650679588318
+    },
+    "landmark_distribution": {
+      "short_sleeved_shirt": {
+        "detected": 13,
+        "expected": 25,
+        "rate": 52.0
+      },
+      "long_sleeved_shirt": {
+        "detected": 17,
+        "expected": 33,
+        "rate": 51.515151515151516
+      },
+      "short_sleeved_outwear": {
+        "detected": 17,
+        "expected": 31,
+        "rate": 54.83870967741935
+      },
+      "long_sleeved_outwear": {
+        "detected": 20,
+        "expected": 39,
+        "rate": 51.28205128205128
+      },
+      "vest": {
+        "detected": 7,
+        "expected": 15,
+        "rate": 46.666666666666664
+      },
+      "sling": {
+        "detected": 6,
+        "expected": 15,
+        "rate": 40.0
+      },
+      "shorts": {
+        "detected": 10,
+        "expected": 10,
+        "rate": 100.0
+      },
+      "trousers": {
+        "detected": 14,
+        "expected": 14,
+        "rate": 100.0
+      },
+      "skirt": {
+        "detected": 7,
+        "expected": 8,
+        "rate": 87.5
+      },
+      "short_sleeved_dress": {
+        "detected": 17,
+        "expected": 29,
+        "rate": 58.620689655172406
+      },
+      "long_sleeved_dress": {
+        "detected": 21,
+        "expected": 37,
+        "rate": 56.75675675675676
+      },
+      "vest_dress": {
+        "detected": 11,
+        "expected": 19,
+        "rate": 57.89473684210527
+      },
+      "sling_dress": {
+        "detected": 10,
+        "expected": 19,
+        "rate": 52.63157894736842
+      }
+    },
+    "threshold_analysis": {
+      "0.1": {
+        "num_detected": 247,
+        "category": "skirt"
+      },
+      "0.2": {
+        "num_detected": 206,
+        "category": "skirt"
+      },
+      "0.3": {
+        "num_detected": 170,
+        "category": "skirt"
+      },
+      "0.4": {
+        "num_detected": 146,
+        "category": "skirt"
+      },
+      "0.5": {
+        "num_detected": 119,
+        "category": "vest"
+      }
+    }
+  }
+]

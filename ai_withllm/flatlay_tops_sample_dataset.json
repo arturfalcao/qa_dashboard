@@ -1,0 +1,107 @@
+[
+  {
+    "brand": "ARKET",
+    "category": "tshirt",
+    "page": "https://www.arket.com/en/men/t-shirts-vests/product.relaxed-fit-t-shirt-black.1187830001.html",
+    "url": "https://image.arket.com/i/arket/1187830001_001_1?$pdp_main$",
+    "background": "white"
+  },
+  {
+    "brand": "ARKET",
+    "category": "tshirt",
+    "page": "https://www.arket.com/en/men/t-shirts-vests/product.crew-neck-t-shirt-white.0979422001.html",
+    "url": "https://image.arket.com/i/arket/0979422001_001_1?$pdp_main$",
+    "background": "white"
+  },
+  {
+    "brand": "COS",
+    "category": "tshirt",
+    "page": "https://www.cosstores.com/en/men/menswear/t-shirts/product.relaxed-fit-t-shirt-black.1146622001.html",
+    "url": "https://image.cosstores.com/i/cosstores/1146622001_001_1?$pdp_main$",
+    "background": "white"
+  },
+  {
+    "brand": "COS",
+    "category": "tshirt",
+    "page": "https://www.cosstores.com/en/men/menswear/t-shirts/product.organic-cotton-t-shirt-white.0685843001.html",
+    "url": "https://image.cosstores.com/i/cosstores/0685843001_001_1?$pdp_main$",
+    "background": "white"
+  },
+  {
+    "brand": "UNIQLO",
+    "category": "tshirt",
+    "page": "https://www.uniqlo.com/us/en/products/E447541-000",
+    "url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/447541/item/goods_09_447541.jpg",
+    "background": "white"
+  },
+  {
+    "brand": "ARKET",
+    "category": "sweater",
+    "page": "https://www.arket.com/en/men/knitwear/product.merino-crew-neck-jumper-beige.1074422002.html",
+    "url": "https://image.arket.com/i/arket/1074422002_001_1?$pdp_main$",
+    "background": "white"
+  },
+  {
+    "brand": "ARKET",
+    "category": "sweater",
+    "page": "https://www.arket.com/en/men/knitwear/product.wool-blend-cardigan-grey.1145698002.html",
+    "url": "https://image.arket.com/i/arket/1145698002_001_1?$pdp_main$",
+    "background": "white"
+  },
+  {
+    "brand": "COS",
+    "category": "sweater",
+    "page": "https://www.cosstores.com/en/men/menswear/knitwear/product.cashmere-crew-neck-jumper-navy.0875422003.html",
+    "url": "https://image.cosstores.com/i/cosstores/0875422003_001_1?$pdp_main$",
+    "background": "white"
+  },
+  {
+    "brand": "COS",
+    "category": "sweater",
+    "page": "https://www.cosstores.com/en/men/menswear/knitwear/product.merino-wool-v-neck-jumper-black.1012345001.html",
+    "url": "https://image.cosstores.com/i/cosstores/1012345001_001_1?$pdp_main$",
+    "background": "white"
+  },
+  {
+    "brand": "Everlane",
+    "category": "sweater",
+    "page": "https://www.everlane.com/products/mens-cashmere-crew-heather-grey",
+    "url": "https://media.everlane.com/image/upload/c_fill,w_1200,h_1500/v1/i/abc12345_1.jpg",
+    "background": "white"
+  },
+  {
+    "brand": "ARKET",
+    "category": "longsleeve",
+    "page": "https://www.arket.com/en/men/shirts/product.relaxed-fit-shirt-white.0979876001.html",
+    "url": "https://image.arket.com/i/arket/0979876001_001_1?$pdp_main$",
+    "background": "white"
+  },
+  {
+    "brand": "ARKET",
+    "category": "longsleeve",
+    "page": "https://www.arket.com/en/men/shirts/product.slim-fit-shirt-blue.1098765002.html",
+    "url": "https://image.arket.com/i/arket/1098765002_001_1?$pdp_main$",
+    "background": "white"
+  },
+  {
+    "brand": "COS",
+    "category": "longsleeve",
+    "page": "https://www.cosstores.com/en/men/menswear/shirts/product.grandad-collar-shirt-grey.0923456001.html",
+    "url": "https://image.cosstores.com/i/cosstores/0923456001_001_1?$pdp_main$",
+    "background": "white"
+  },
+  {
+    "brand": "COS",
+    "category": "longsleeve",
+    "page": "https://www.cosstores.com/en/men/menswear/shirts/product.relaxed-fit-oxford-shirt-white.1034567001.html",
+    "url": "https://image.cosstores.com/i/cosstores/1034567001_001_1?$pdp_main$",
+    "background": "white"
+  },
+  {
+    "brand": "UNIQLO",
+    "category": "longsleeve",
+    "page": "https://www.uniqlo.com/us/en/products/E456789-000",
+    "url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/456789/item/goods_01_456789.jpg",
+    "background": "white"
+  }
+]

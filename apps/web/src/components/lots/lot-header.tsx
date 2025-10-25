@@ -29,6 +29,11 @@ export function LotHeader({ lot, canApprove, onApprove, onReject, onEdit, canEdi
         <div className="flex-1 min-w-0">
           <div className="flex items-center flex-wrap gap-2 mb-3">
             <h1 className="text-xl font-bold text-gray-900">{lot.styleRef}</h1>
+            {lot.garmentType && (
+              <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                {lot.garmentType.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())}
+              </span>
+            )}
             <span className={cn('px-2.5 py-0.5 text-xs font-medium rounded-full', getLotStatusColor(lot.status))}>
               {lot.status.replace('_', ' ')}
             </span>
@@ -58,6 +63,18 @@ export function LotHeader({ lot, canApprove, onApprove, onReject, onEdit, canEdi
                 </div>
               )}
             </div>
+
+            {lot.status === LotStatus.INSPECTION && (
+              <div className="col-span-2 md:col-span-1">
+                <div className="text-xs text-gray-500">QA Approval Required</div>
+                <div className="font-medium text-gray-900 text-sm">
+                  {(lot as any).client?.name ? `${(lot as any).client.name} or Tenant QA` : 'Tenant or Client QA'}
+                </div>
+                <div className="mt-1 inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 border border-amber-200">
+                  Awaiting Approval
+                </div>
+              </div>
+            )}
 
             <div>
               <div className="text-xs text-gray-500">Quantity</div>

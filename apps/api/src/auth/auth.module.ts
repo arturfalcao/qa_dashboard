@@ -22,7 +22,7 @@ import { Tenant } from "../database/entities/tenant.entity";
         console.log('🔐 JWT Module - Using JWT_SECRET for signing:', secret);
         return {
           secret: secret,
-          signOptions: { expiresIn: "15m" },
+          signOptions: { expiresIn: "24h" },
         };
       },
     }),

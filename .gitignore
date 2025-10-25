@@ -7,6 +7,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+ai_withllm/fashion_env/
 # Production builds
 .next/
 dist/
@@ -61,3 +62,15 @@ seed-images/*.png
 # Database data
 postgres_data/
 minio_data/appspec.yaml
+
+# Machine Learning Models and Large Files
+*.pth
+*.pkl
+*.h5
+*.onnx
+*.pb
+*.caffemodel
+ai_withllm/models/
+ai_withllm/fashion_keypoint_model_package/
+ai_mesurement/models/
+*.weights

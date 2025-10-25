@@ -241,6 +241,107 @@ export default function LotDetailPage() {
       <section className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="px-4 py-3 border-b border-gray-200 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
+            <h3 className="text-base font-semibold text-gray-900">Supply Chain Progress</h3>
+            <p className="text-xs text-gray-500">
+              Track each factory stage and advance as production hands off
+            </p>
+            {currentStage && (
+              <p className="mt-1 text-xs text-gray-500">
+                Current stage: <span className="font-medium text-gray-800">{currentStage.roleName}</span> @{' '}
+                {currentStage.supplierName}
+              </p>
+            )}
+          </div>
+          {canManage && supplyChainTimeline.length > 0 && !supplyChainComplete && (
+            <button
+              onClick={() => advanceMutation.mutate()}
+              disabled={advanceMutation.isPending}
+              className="inline-flex items-center rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-primary-700 disabled:opacity-60"
+            >
+              {advanceMutation.isPending
+                ? 'Advancing…'
+                : `Advance to ${nextStage?.roleName ?? 'completion'}`}
+            </button>
+          )}
+        </div>
+        <div className="p-4">
+          {advanceMutation.isError && (
+            <div className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              Failed to advance stage. Try again.
+            </div>
+          )}
+          {supplyChainTimeline.length === 0 ? (
+            <div>
+              {suppliers.length > 0 ? (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-500 mb-4">
+                    Factories assigned to this lot. Configure roles for each factory to track production stages.
+                  </p>
+                  <div className="space-y-2">
+                    {suppliers.map((supplier, index) => (
+                      <div key={supplier.factoryId} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium text-gray-600">
+                          {index + 1}
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-900">{supplier.factory?.name || 'Unknown factory'}</p>
+                          {supplier.factory?.city && (
+                            <p className="text-xs text-gray-500">
+                              {supplier.factory.city}, {supplier.factory.country}
+                            </p>
+                          )}
+                        </div>
+                        {supplier.isPrimary && (
+                          <span className="inline-flex items-center rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700">
+                            Primary
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">
+                  No factories assigned yet. Edit the lot to assign factories and configure supply-chain roles.
+                </p>
+              )}
+            </div>
+          ) : (
+            <ol className="relative ml-3 border-l border-gray-200">
+              {supplyChainTimeline.map((stage) => {
+                const meta = SUPPLY_CHAIN_STATUS_META[stage.status];
+                return (
+                  <li key={stage.id} className="relative mb-8 ml-4 last:mb-0">
+                    <span
+                      className={`absolute -left-6 top-1 h-4 w-4 rounded-full border ${meta.dot}`}
+                    ></span>
+                    <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                      <div>
+                        <h4 className="text-sm font-semibold text-gray-900">{stage.roleName}</h4>
+                        <p className="text-xs text-gray-500">{stage.supplierName}</p>
+                      </div>
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${meta.badge}`}>
+                        {meta.label}
+                      </span>
+                    </div>
+                    <div className="mt-2 space-y-1 text-xs text-gray-500">
+                      {stage.startedAt && <p>Started {formatDate(stage.startedAt)}</p>}
+                      {stage.completedAt && <p>Completed {formatDate(stage.completedAt)}</p>}
+                      {typeof stage.co2Kg === 'number' && stage.co2Kg > 0 && (
+                        <p>CO₂ contribution · {stage.co2Kg.toFixed(2)} kg</p>
+                      )}
+                    </div>
+                  </li>
+                )
+              })}
+            </ol>
+          )}
+        </div>
+      </section>
+
+      <section className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="px-4 py-3 border-b border-gray-200 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
             <h3 className="text-base font-semibold text-gray-900">Tech Pack</h3>
             <p className="text-xs text-gray-500">Product specifications and size measurements</p>
           </div>
@@ -462,6 +563,171 @@ export default function LotDetailPage() {
                   )}
                 </div>
               )}
+
+              {/* Labels */}
+              {lot?.labels && lot.labels.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Labels</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {lot.labels.map((label, index) => (
+                      <div key={index} className="bg-gray-50 rounded-lg p-3">
+                        <div className="flex items-start justify-between mb-2">
+                          <h5 className="text-sm font-medium text-gray-900">{label.type}</h5>
+                        </div>
+                        <div className="space-y-1 text-xs text-gray-600">
+                          {label.width && label.height && (
+                            <p>Dimensions: {label.width} × {label.height}</p>
+                          )}
+                          {label.material && <p>Material: {label.material}</p>}
+                          {label.placement && <p>Placement: {label.placement}</p>}
+                          {label.colors && label.colors.length > 0 && (
+                            <p>Colors: {label.colors.join(', ')}</p>
+                          )}
+                          {label.notes && <p className="text-gray-500 mt-1">{label.notes}</p>}
+                        </div>
+                        {label.imageUrl && (
+                          <img src={label.imageUrl} alt={label.type} className="mt-2 rounded border border-gray-200 max-h-32 object-contain" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Hang Tags */}
+              {lot?.hangTags && lot.hangTags.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Hang Tags</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {lot.hangTags.map((tag, index) => (
+                      <div key={index} className="bg-gray-50 rounded-lg p-3">
+                        <div className="space-y-1 text-xs text-gray-600">
+                          {tag.width && tag.height && (
+                            <p>Dimensions: {tag.width} × {tag.height}</p>
+                          )}
+                          {tag.material && <p>Material: {tag.material}</p>}
+                          {tag.colors && tag.colors.length > 0 && (
+                            <p>Colors: {tag.colors.join(', ')}</p>
+                          )}
+                          {tag.notes && <p className="text-gray-500 mt-1">{tag.notes}</p>}
+                        </div>
+                        {tag.imageUrl && (
+                          <img src={tag.imageUrl} alt="Hang tag" className="mt-2 rounded border border-gray-200 max-h-32 object-contain" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Packaging */}
+              {lot?.packaging && lot.packaging.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Packaging</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {lot.packaging.map((pkg, index) => (
+                      <div key={index} className="bg-gray-50 rounded-lg p-3">
+                        <h5 className="text-sm font-medium text-gray-900 mb-2">{pkg.type}</h5>
+                        <div className="space-y-1 text-xs text-gray-600">
+                          {pkg.width && pkg.height && (
+                            <p>Dimensions: {pkg.width} × {pkg.height}</p>
+                          )}
+                          {pkg.material && <p>Material: {pkg.material}</p>}
+                          {pkg.notes && <p className="text-gray-500 mt-1">{pkg.notes}</p>}
+                        </div>
+                        {pkg.imageUrl && (
+                          <img src={pkg.imageUrl} alt={pkg.type} className="mt-2 rounded border border-gray-200 max-h-32 object-contain" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Folding Instructions */}
+              {lot?.foldingInstructions && lot.foldingInstructions.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Folding Instructions</h4>
+                  <div className="space-y-2">
+                    {lot.foldingInstructions.map((instruction, index) => (
+                      <div key={index} className="bg-gray-50 rounded-lg p-3">
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-xs font-medium">
+                            {instruction.step}
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm text-gray-700">{instruction.description}</p>
+                            {instruction.imageUrl && (
+                              <img src={instruction.imageUrl} alt={`Step ${instruction.step}`} className="mt-2 rounded border border-gray-200 max-h-48 object-contain" />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Bill of Materials */}
+              {lot?.billOfMaterials && lot.billOfMaterials.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Bill of Materials</h4>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead>
+                        <tr>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Category
+                          </th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Description
+                          </th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Supplier
+                          </th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Color
+                          </th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Size
+                          </th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Image
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200 bg-white">
+                        {lot.billOfMaterials.map((item, index) => (
+                          <tr key={index} className="hover:bg-gray-50">
+                            <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {item.category}
+                            </td>
+                            <td className="px-3 py-2 text-sm text-gray-600">
+                              {item.description}
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-600">
+                              {item.supplier || '—'}
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-600">
+                              {item.color || '—'}
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-600">
+                              {item.size || '—'}
+                            </td>
+                            <td className="px-3 py-2">
+                              {item.imageUrl ? (
+                                <img src={item.imageUrl} alt={item.description} className="h-10 w-10 object-cover rounded border border-gray-200" />
+                              ) : (
+                                <span className="text-xs text-gray-400">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -568,173 +834,6 @@ export default function LotDetailPage() {
               <p className="text-gray-500">Add supplier certifications to unlock the DPP.</p>
             )}
           </div>
-        </div>
-      </section>
-
-      <section className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="px-4 py-3 border-b border-gray-200 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h3 className="text-base font-semibold text-gray-900">Supply Chain Progress</h3>
-            <p className="text-xs text-gray-500">
-              Track each factory stage and advance as production hands off
-            </p>
-            {currentStage && (
-              <p className="mt-1 text-xs text-gray-500">
-                Current stage: <span className="font-medium text-gray-800">{currentStage.roleName}</span> @{' '}
-                {currentStage.supplierName}
-              </p>
-            )}
-          </div>
-          {canManage && supplyChainTimeline.length > 0 && !supplyChainComplete && (
-            <button
-              onClick={() => advanceMutation.mutate()}
-              disabled={advanceMutation.isPending}
-              className="inline-flex items-center rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-primary-700 disabled:opacity-60"
-            >
-              {advanceMutation.isPending
-                ? 'Advancing…'
-                : `Advance to ${nextStage?.roleName ?? 'completion'}`}
-            </button>
-          )}
-        </div>
-        <div className="p-4">
-          {advanceMutation.isError && (
-            <div className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-              Failed to advance stage. Try again.
-            </div>
-          )}
-          {supplyChainTimeline.length === 0 ? (
-            <div>
-              {suppliers.length > 0 ? (
-                <div className="space-y-3">
-                  <p className="text-sm text-gray-500 mb-4">
-                    Factories assigned to this lot. Configure roles for each factory to track production stages.
-                  </p>
-                  <div className="space-y-2">
-                    {suppliers.map((supplier, index) => (
-                      <div key={supplier.factoryId} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium text-gray-600">
-                          {index + 1}
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-900">{supplier.factory?.name || 'Unknown factory'}</p>
-                          {supplier.factory?.city && (
-                            <p className="text-xs text-gray-500">
-                              {supplier.factory.city}, {supplier.factory.country}
-                            </p>
-                          )}
-                        </div>
-                        {supplier.isPrimary && (
-                          <span className="inline-flex items-center rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700">
-                            Primary
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <p className="text-sm text-gray-500">
-                  No factories assigned yet. Edit the lot to assign factories and configure supply-chain roles.
-                </p>
-              )}
-            </div>
-          ) : (
-            <ol className="relative ml-3 border-l border-gray-200">
-              {supplyChainTimeline.map((stage) => {
-                const meta = SUPPLY_CHAIN_STATUS_META[stage.status];
-                return (
-                  <li key={stage.id} className="relative mb-8 ml-4 last:mb-0">
-                    <span
-                      className={`absolute -left-6 top-1 h-4 w-4 rounded-full border ${meta.dot}`}
-                    ></span>
-                    <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                      <div>
-                        <h4 className="text-sm font-semibold text-gray-900">{stage.roleName}</h4>
-                        <p className="text-xs text-gray-500">{stage.supplierName}</p>
-                      </div>
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${meta.badge}`}>
-                        {meta.label}
-                      </span>
-                    </div>
-                    <div className="mt-2 space-y-1 text-xs text-gray-500">
-                      {stage.startedAt && <p>Started {formatDate(stage.startedAt)}</p>}
-                      {stage.completedAt && <p>Completed {formatDate(stage.completedAt)}</p>}
-                      {typeof stage.co2Kg === 'number' && stage.co2Kg > 0 && (
-                        <p>CO₂ contribution · {stage.co2Kg.toFixed(2)} kg</p>
-                      )}
-                    </div>
-                  </li>
-                )
-              })}
-            </ol>
-          )}
-        </div>
-      </section>
-
-      <section className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="px-4 py-3 border-b border-gray-200">
-          <h3 className="text-base font-semibold text-gray-900">Inspection Timeline</h3>
-          <p className="text-xs text-gray-500">Full history of inspections and defects</p>
-        </div>
-        <div className="divide-y divide-gray-200">
-          {inspections.length === 0 && (
-            <div className="p-4 text-sm text-gray-500">No inspections recorded yet.</div>
-          )}
-          {inspections.map((inspection) => (
-            <div key={inspection.id} className="p-4">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
-                <div>
-                  <h4 className="text-md font-semibold text-gray-900">Inspection {inspection.id.substring(0, 8)}</h4>
-                  <p className="text-sm text-gray-500">
-                    {inspection.inspectorId
-                      ? `Inspector: ${inspection.inspectorId}`
-                      : 'Inspector pending assignment'}
-                  </p>
-                </div>
-                <div className="text-sm text-gray-500">
-                  Started {inspection.startedAt ? formatDate(inspection.startedAt) : 'N/A'}
-                  {inspection.finishedAt && ` · Finished ${formatDate(inspection.finishedAt)}`}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {(inspection.defects || []).map((defect) => (
-                  <div key={defect.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <span className="text-sm font-medium text-gray-900">{defect.defectTypeId || 'Observation'}</span>
-                        {defect.pieceCode && (
-                          <p className="text-xs text-gray-500">Piece: {defect.pieceCode}</p>
-                        )}
-                      </div>
-                      <span className="text-xs text-gray-500">{formatDate(defect.createdAt)}</span>
-                    </div>
-                    {defect.note && <p className="text-sm text-gray-700 mb-3">{defect.note}</p>}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {(defect.photos || []).map((photo) => (
-                        <figure key={photo.id} className="bg-white rounded border border-gray-200 overflow-hidden">
-                          <Image
-                            src={photo.url}
-                            alt="Inspection evidence"
-                            className="w-full h-40 object-cover"
-                            width={400}
-                            height={160}
-                            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-                          />
-                          {photo.annotation && (
-                            <figcaption className="px-3 py-2 text-xs text-gray-600">
-                              {photo.annotation.comment}
-                            </figcaption>
-                          )}
-                        </figure>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
         </div>
       </section>
 

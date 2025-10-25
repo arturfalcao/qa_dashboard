@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api'
-import { Lot, Factory, LotStatus, UserRole, SupplyChainRole } from '@qa-dashboard/shared'
+import { Lot, Factory, LotStatus, UserRole, SupplyChainRole, GarmentType } from '@qa-dashboard/shared'
 import { useAuth } from '@/components/providers/auth-provider'
 import { formatLotStatus } from '@/lib/utils'
 
@@ -59,9 +59,11 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
   const [suppliers, setSuppliers] = useState<SupplierDraft[]>([])
   const [selectedClientId, setSelectedClientId] = useState<string>('')
   const [styleRef, setStyleRef] = useState('')
+  const [garmentType, setGarmentType] = useState<GarmentType | ''>('')
   const [quantityTotal, setQuantityTotal] = useState<number>(0)
   const [status, setStatus] = useState<LotStatus>(LotStatus.PLANNED)
   const [error, setError] = useState<string>('')
+  const [expandedFactory, setExpandedFactory] = useState<string | null>(null)
 
   // DPP Hub Data fields
   const [materialComposition, setMaterialComposition] = useState<Array<{fiber: string; percentage: number}>>([])
@@ -105,14 +107,26 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
       } else {
         setSuppliers([])
       }
+      setSelectedClientId(initialLot.clientId || '')
       setStyleRef(initialLot.styleRef)
+      setGarmentType(initialLot.garmentType || '')
       setQuantityTotal(initialLot.quantityTotal)
       setStatus(initialLot.status)
 
       // Load DPP hub data if available
-      setMaterialComposition((initialLot as any).materialComposition || [])
+      setMaterialComposition(
+        Array.isArray((initialLot as any).materialComposition)
+          ? (initialLot as any).materialComposition
+          : []
+      )
       setDyeLot((initialLot as any).dyeLot || '')
-      setCertifications(((initialLot as any).certifications || []).map((cert: any) => ({ type: cert.type })))
+      setCertifications(
+        ((initialLot as any).certifications || [])
+          .map((cert: any) => ({
+            type: typeof cert === 'string' ? cert : cert.type
+          }))
+          .filter((cert: any) => cert.type) // Filter out any undefined types
+      )
       setDppMetadata((initialLot as any).dppMetadata ? JSON.stringify((initialLot as any).dppMetadata, null, 2) : '')
 
       // Load size specifications if available
@@ -150,8 +164,11 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
   const factories = useMemo(() => {
     let targetTenantId: string | undefined
 
-    if (isAdmin && selectedClientId) {
-      // Admin selected a client, find the client's tenantId
+    // When editing an existing lot, use the lot's tenantId directly
+    if (initialLot?.tenantId) {
+      targetTenantId = initialLot.tenantId
+    } else if (isAdmin && selectedClientId) {
+      // Admin creating new lot, find the client's tenantId
       const selectedClient = clients.find((c) => c.id === selectedClientId)
       targetTenantId = selectedClient?.tenantId
     } else if (!isAdmin) {
@@ -164,7 +181,7 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
     }
 
     return allFactories.filter((factory) => factory.tenantId === targetTenantId)
-  }, [allFactories, isAdmin, selectedClientId, clients, user?.tenantId])
+  }, [allFactories, isAdmin, selectedClientId, clients, user?.tenantId, initialLot?.tenantId])
 
   const { data: supplyChainRoles = [], isLoading: rolesLoading } = useQuery<SupplyChainRole[]>({
     queryKey: ['supply-chain-roles'],
@@ -279,10 +296,7 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
           factoryId,
           isPrimary: current.length === 0,
           stage: undefined,
-          roles:
-            factories
-              .find((item) => item.id === factoryId)
-              ?.capabilities?.map((capability) => createRoleDraft(factoryId, capability.roleId)) ?? [],
+          roles: [], // Start with no roles selected - user must manually choose
         },
       ]
     })
@@ -297,8 +311,8 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
   }
 
   const toggleSupplierRole = (factoryId: string, roleId: string) => {
-    setSuppliers((current) =>
-      current.map((supplier) => {
+    setSuppliers((current) => {
+      const newSuppliers = current.map((supplier) => {
         if (supplier.factoryId !== factoryId) {
           return supplier
         }
@@ -311,12 +325,58 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
           }
         }
 
+        // Check sequence validation before adding
+        const roleToAdd = supplyChainRoleMap.get(roleId)
+        if (roleToAdd) {
+          const allSelectedRoles = current.flatMap(s => s.roles.map(r => supplyChainRoleMap.get(r.roleId)))
+            .filter((r): r is SupplyChainRole => Boolean(r))
+
+          const newRoleSequence = roleToAdd.defaultSequence
+          const minExistingSequence = Math.min(...allSelectedRoles.map(r => r.defaultSequence), Infinity)
+          const maxExistingSequence = Math.max(...allSelectedRoles.map(r => r.defaultSequence), -Infinity)
+
+          // Allow adding if it's within the range or extends it logically
+          // This allows multiple factories to work on the same or overlapping steps
+          const hasLaterSteps = allSelectedRoles.some(r => r.defaultSequence > newRoleSequence + 100)
+          const hasEarlierSteps = allSelectedRoles.some(r => r.defaultSequence < newRoleSequence - 100)
+
+          if (hasLaterSteps && hasEarlierSteps) {
+            // Adding a middle step is fine
+          } else if (allSelectedRoles.length > 0) {
+            // Check for major sequence violations (more than 100 step difference suggests different production phases)
+            const wouldSkipMajorPhase =
+              (newRoleSequence < minExistingSequence - 100) ||
+              (newRoleSequence > maxExistingSequence + 200)
+
+            if (wouldSkipMajorPhase) {
+              const violatingRole = allSelectedRoles.find(r =>
+                Math.abs(r.defaultSequence - newRoleSequence) > 200
+              )
+              if (violatingRole) {
+                alert(
+                  `Manufacturing Sequence Warning:\n\n` +
+                  `Cannot add "${roleToAdd.name}" (Step ${newRoleSequence}) because it would violate the manufacturing sequence.\n\n` +
+                  `You have already selected "${violatingRole.name}" (Step ${violatingRole.defaultSequence}).\n\n` +
+                  `Manufacturing steps must follow a logical order:\n` +
+                  `• Early stages (0-100): Fiber prep, cutting, sewing\n` +
+                  `• Mid stages (100-180): Printing, washing, QC\n` +
+                  `• Final stages (180-200): Packaging, logistics\n\n` +
+                  `You can select multiple factories for the same step, but cannot skip major production phases.`
+                )
+                return supplier
+              }
+            }
+          }
+        }
+
         return {
           ...supplier,
           roles: [...supplier.roles, createRoleDraft(factoryId, roleId)],
         }
-      }),
-    )
+      })
+
+      return newSuppliers
+    })
   }
 
   const updateSupplierRoleCo2 = (factoryId: string, roleId: string, value: string) => {
@@ -506,6 +566,7 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
               suppliers: submissionSuppliers,
               factoryId: primaryFactoryId,
               styleRef: trimmedStyleRef,
+              garmentType: garmentType || undefined,
               quantityTotal,
               status,
               // DPP Hub data
@@ -580,37 +641,76 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
                     return a.name.localeCompare(b.name)
                   })
 
+                  const isExpanded = expandedFactory === factory.id
+                  const toggleExpand = () => {
+                    // Toggle: if already expanded, collapse; otherwise expand this one
+                    setExpandedFactory(isExpanded ? null : factory.id)
+                  }
+
                   return (
-                    <div key={factory.id} className="rounded-md border border-gray-200 p-3">
-                      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                        <label className="flex items-center space-x-3 text-sm font-medium text-gray-700">
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 text-primary-600 focus:ring-primary-500"
-                            checked={isSelected}
-                            disabled={createMutation.isPending}
-                            onChange={() => toggleSupplier(factory.id)}
-                          />
-                          <span>
-                            {factory.name}
-                            {factory.city ? ` • ${factory.city}` : ''}
-                          </span>
-                        </label>
-                        {isSelected && (
-                          <label className="flex items-center space-x-2 text-xs text-gray-600">
+                    <div key={factory.id} className={`rounded-md border ${isSelected ? 'border-primary-300 bg-primary-50/50' : 'border-gray-200'} overflow-hidden`}>
+                      <div className="p-3">
+                        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                          <label className="flex items-center space-x-3 text-sm font-medium text-gray-700 flex-1">
                             <input
-                              type="radio"
-                              name="primarySupplier"
-                              className="h-3 w-3 text-primary-600 focus:ring-primary-500"
-                              checked={supplier?.isPrimary ?? false}
-                              onChange={() => setPrimarySupplier(factory.id)}
+                              type="checkbox"
+                              className="h-4 w-4 text-primary-600 focus:ring-primary-500"
+                              checked={isSelected}
                               disabled={createMutation.isPending}
+                              onChange={() => {
+                                toggleSupplier(factory.id)
+                                // Auto-expand when selecting
+                                if (!isSelected) {
+                                  setExpandedFactory(factory.id)
+                                }
+                              }}
                             />
-                            <span>Primary supplier</span>
+                            <span className="flex items-center gap-2 flex-1">
+                              <span>
+                                {factory.name}
+                                {factory.city ? ` • ${factory.city}` : ''}
+                              </span>
+                              {isSelected && supplier?.roles && supplier.roles.length > 0 && (
+                                <span className="inline-flex items-center rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700">
+                                  {supplier.roles.length} {supplier.roles.length === 1 ? 'role' : 'roles'}
+                                </span>
+                              )}
+                            </span>
                           </label>
-                        )}
+                          <div className="flex items-center gap-2">
+                            {isSelected && (
+                              <>
+                                <label className="flex items-center space-x-2 text-xs text-gray-600">
+                                  <input
+                                    type="radio"
+                                    name="primarySupplier"
+                                    className="h-3 w-3 text-primary-600 focus:ring-primary-500"
+                                    checked={supplier?.isPrimary ?? false}
+                                    onChange={() => setPrimarySupplier(factory.id)}
+                                    disabled={createMutation.isPending}
+                                  />
+                                  <span>Primary</span>
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={toggleExpand}
+                                  className="ml-2 text-gray-500 hover:text-gray-700"
+                                >
+                                  <svg
+                                    className={`h-5 w-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      {isSelected && (
+                      {isSelected && isExpanded && (
                         <div className="mt-3 space-y-4">
                           <div>
                             <label className="mb-1 block text-xs font-semibold text-gray-500">Production stage (optional)</label>
@@ -628,6 +728,9 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
                             <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                               Supply-chain roles for this supplier
                             </p>
+                            <p className="mt-1 text-[11px] text-gray-500">
+                              Roles are displayed in manufacturing sequence order. Selected roles will be automatically ordered by their production stage.
+                            </p>
                             {rolesLoading ? (
                               <div className="rounded-md border border-dashed border-gray-200 p-3 text-xs text-gray-500">
                                 Loading roles…
@@ -637,8 +740,29 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
                                 Assign capabilities to {factory.name} from the Factories panel first.
                               </div>
                             ) : (
-                              sortedCapabilityRoles.map((role) => {
+                              sortedCapabilityRoles.map((role, roleIndex) => {
                                 const roleDraft = supplier?.roles.find((item) => item.roleId === role.id)
+                                const sequenceNum = role.defaultSequence
+
+                                // Check if this role violates sequence with already selected roles
+                                const allSelectedRoles = suppliers
+                                  .flatMap(s => s.roles.map(r => supplyChainRoleMap.get(r.roleId)))
+                                  .filter((r): r is SupplyChainRole => r !== undefined && r.id !== role.id)
+
+                                let sequenceWarning = ''
+                                if (allSelectedRoles.length > 0 && !roleDraft) {
+                                  const minSequence = Math.min(...allSelectedRoles.map(r => r.defaultSequence))
+                                  const maxSequence = Math.max(...allSelectedRoles.map(r => r.defaultSequence))
+
+                                  const wouldViolate =
+                                    (sequenceNum < minSequence - 100 && maxSequence > sequenceNum + 200) ||
+                                    (sequenceNum > maxSequence + 200 && minSequence < sequenceNum - 200)
+
+                                  if (wouldViolate) {
+                                    sequenceWarning = 'May violate manufacturing sequence'
+                                  }
+                                }
+
                                 return (
                                   <div key={role.id} className="rounded-md border border-gray-200 px-3 py-2">
                                     <label className="flex items-start space-x-3 text-xs text-gray-700">
@@ -649,12 +773,30 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
                                         disabled={createMutation.isPending}
                                         onChange={() => toggleSupplierRole(factory.id, role.id)}
                                       />
-                                      <span>
-                                        <span className="font-medium text-gray-900">{role.name}</span>
+                                      <span className="flex-1">
+                                        <span className="flex items-center gap-2 flex-wrap">
+                                          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-[10px] font-bold text-blue-700">
+                                            {roleIndex + 1}
+                                          </span>
+                                          <span className="font-medium text-gray-900">{role.name}</span>
+                                          <span className="text-[10px] text-gray-400">
+                                            (Step {sequenceNum})
+                                          </span>
+                                          {sequenceWarning && (
+                                            <span className="rounded bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                                              ⚠ Sequence conflict
+                                            </span>
+                                          )}
+                                        </span>
                                         {role.description && (
-                                          <span className="block text-[11px] text-gray-500">{role.description}</span>
+                                          <span className="block text-[11px] text-gray-500 mt-1">{role.description}</span>
                                         )}
-                                        <span className="block text-[11px] text-gray-400">
+                                        {sequenceWarning && (
+                                          <span className="block text-[11px] text-amber-700 font-medium mt-1">
+                                            ⚠ {sequenceWarning}
+                                          </span>
+                                        )}
+                                        <span className="block text-[11px] text-gray-400 mt-1">
                                           Default CO₂: {Number(role.defaultCo2Kg ?? 0).toFixed(2)} kg
                                         </span>
                                       </span>
@@ -704,6 +846,42 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
             <p className="mt-1 text-xs text-gray-500">
               Select every factory that touched this lot. Mark the factory currently responsible as primary.
             </p>
+
+            {/* Manufacturing Flow Summary */}
+            {suppliers.some(s => s.roles && s.roles.length > 0) && (
+              <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-blue-900 mb-2">
+                  Manufacturing Flow (In Sequence Order)
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {suppliers
+                    .flatMap(supplier => {
+                      const factory = factories.find(f => f.id === supplier.factoryId)
+                      return supplier.roles.map(role => {
+                        const roleData = supplyChainRoleMap.get(role.roleId)
+                        return roleData ? {
+                          ...roleData,
+                          factoryName: factory?.name || 'Unknown Factory',
+                          order: supplyChainRoleOrder.get(role.roleId) ?? Number.MAX_SAFE_INTEGER
+                        } : null
+                      }).filter(Boolean)
+                    })
+                    .sort((a, b) => (a?.order ?? 0) - (b?.order ?? 0))
+                    .map((role, index) => role && (
+                      <div
+                        key={`${role.id}-${index}`}
+                        className="flex items-center gap-2 rounded-md bg-white px-3 py-1.5 text-xs shadow-sm border border-blue-300"
+                      >
+                        <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-[10px] font-bold text-white">
+                          {index + 1}
+                        </span>
+                        <span className="font-medium text-gray-900">{role.name}</span>
+                        <span className="text-[10px] text-gray-500">@ {role.factoryName}</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div>
@@ -717,6 +895,23 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
               placeholder="e.g. HM-SS24-001"
               required
             />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700">Garment type</label>
+            <select
+              value={garmentType}
+              onChange={(e) => setGarmentType(e.target.value as GarmentType | '')}
+              disabled={createMutation.isPending}
+              className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+            >
+              <option value="">Select a garment type (optional)</option>
+              {Object.values(GarmentType).map((type) => (
+                <option key={type} value={type}>
+                  {type.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -747,133 +942,6 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
               </option>
             ))}
           </select>
-        </div>
-
-        {/* DPP Hub Data Section */}
-        <div className="border-t pt-4">
-          <h4 className="mb-4 text-sm font-semibold text-gray-900">DPP Hub Data</h4>
-          <p className="mb-4 text-xs text-gray-500">
-            Digital Product Passport data for EU compliance and traceability
-          </p>
-
-          {/* Material Composition */}
-          <div className="mb-4">
-            <label className="mb-2 block text-sm font-medium text-gray-700">Material Composition</label>
-            <div className="space-y-2">
-              {materialComposition.map((material, index) => (
-                <div key={index} className="flex items-center space-x-3">
-                  <input
-                    type="text"
-                    placeholder="Fiber (e.g. Cotton)"
-                    value={material.fiber}
-                    onChange={(e) => {
-                      const updated = [...materialComposition]
-                      updated[index].fiber = e.target.value
-                      setMaterialComposition(updated)
-                    }}
-                    className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
-                  />
-                  <input
-                    type="number"
-                    placeholder="% (e.g. 80)"
-                    min={0}
-                    max={100}
-                    value={material.percentage || ''}
-                    onChange={(e) => {
-                      const updated = [...materialComposition]
-                      updated[index].percentage = Number(e.target.value)
-                      setMaterialComposition(updated)
-                    }}
-                    className="w-24 rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const updated = materialComposition.filter((_, i) => i !== index)
-                      setMaterialComposition(updated)
-                    }}
-                    className="text-red-600 hover:text-red-700"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => {
-                  setMaterialComposition([...materialComposition, { fiber: '', percentage: 0 }])
-                }}
-                className="text-sm text-primary-600 hover:text-primary-700"
-              >
-                + Add Material
-              </button>
-            </div>
-          </div>
-
-          {/* Dye Lot */}
-          <div className="mb-4">
-            <label className="mb-2 block text-sm font-medium text-gray-700">Dye Lot</label>
-            <input
-              type="text"
-              value={dyeLot}
-              onChange={(e) => setDyeLot(e.target.value)}
-              className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
-              placeholder="e.g. HM-SS25-517-D1"
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              Dye lot identifier for traceability
-            </p>
-          </div>
-
-          {/* Certifications */}
-          <div className="mb-4">
-            <label className="mb-2 block text-sm font-medium text-gray-700">Certifications</label>
-            <div className="space-y-2">
-              {[
-                'Global Organic Textile Standard (GOTS)',
-                'OEKO-TEX Standard 100',
-                'Global Recycled Standard (GRS)',
-                'Recycled Claim Standard (RCS)',
-                'ISO 14001',
-                'Bluesign',
-                'amfori BSCI'
-              ].map((certType) => (
-                <label key={certType} className="flex items-center space-x-3 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={certifications.some(cert => cert.type === certType)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setCertifications([...certifications, { type: certType }])
-                      } else {
-                        setCertifications(certifications.filter(cert => cert.type !== certType))
-                      }
-                    }}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500"
-                  />
-                  <span className="text-gray-700">{certType}</span>
-                </label>
-              ))}
-            </div>
-            <p className="mt-1 text-xs text-gray-500">
-              Select the certifications applicable to this lot
-            </p>
-          </div>
-
-          {/* DPP Metadata */}
-          <div className="mb-4">
-            <label className="mb-2 block text-sm font-medium text-gray-700">DPP Metadata</label>
-            <textarea
-              value={dppMetadata}
-              onChange={(e) => setDppMetadata(e.target.value)}
-              rows={4}
-              className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
-              placeholder='Additional metadata as JSON, e.g. {"origin": "Portugal", "sustainabilityScore": 95}'
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              Optional JSON metadata for additional DPP information
-            </p>
-          </div>
         </div>
 
         {/* Size Specifications Section */}
@@ -1030,6 +1098,133 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
           </p>
         </div>
 
+        {/* DPP Hub Data Section */}
+        <div className="border-t pt-4">
+          <h4 className="mb-4 text-sm font-semibold text-gray-900">DPP Hub Data</h4>
+          <p className="mb-4 text-xs text-gray-500">
+            Digital Product Passport data for EU compliance and traceability
+          </p>
+
+          {/* Material Composition */}
+          <div className="mb-4">
+            <label className="mb-2 block text-sm font-medium text-gray-700">Material Composition</label>
+            <div className="space-y-2">
+              {Array.isArray(materialComposition) && materialComposition.map((material, index) => (
+                <div key={index} className="flex items-center space-x-3">
+                  <input
+                    type="text"
+                    placeholder="Fiber (e.g. Cotton)"
+                    value={material.fiber}
+                    onChange={(e) => {
+                      const updated = [...materialComposition]
+                      updated[index].fiber = e.target.value
+                      setMaterialComposition(updated)
+                    }}
+                    className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+                  />
+                  <input
+                    type="number"
+                    placeholder="% (e.g. 80)"
+                    min={0}
+                    max={100}
+                    value={material.percentage || ''}
+                    onChange={(e) => {
+                      const updated = [...materialComposition]
+                      updated[index].percentage = Number(e.target.value)
+                      setMaterialComposition(updated)
+                    }}
+                    className="w-24 rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const updated = materialComposition.filter((_, i) => i !== index)
+                      setMaterialComposition(updated)
+                    }}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setMaterialComposition([...materialComposition, { fiber: '', percentage: 0 }])
+                }}
+                className="text-sm text-primary-600 hover:text-primary-700"
+              >
+                + Add Material
+              </button>
+            </div>
+          </div>
+
+          {/* Dye Lot */}
+          <div className="mb-4">
+            <label className="mb-2 block text-sm font-medium text-gray-700">Dye Lot</label>
+            <input
+              type="text"
+              value={dyeLot}
+              onChange={(e) => setDyeLot(e.target.value)}
+              className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+              placeholder="e.g. HM-SS25-517-D1"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Dye lot identifier for traceability
+            </p>
+          </div>
+
+          {/* Certifications */}
+          <div className="mb-4">
+            <label className="mb-2 block text-sm font-medium text-gray-700">Certifications</label>
+            <div className="space-y-2">
+              {[
+                'Global Organic Textile Standard (GOTS)',
+                'OEKO-TEX Standard 100',
+                'Global Recycled Standard (GRS)',
+                'Recycled Claim Standard (RCS)',
+                'ISO 14001',
+                'Bluesign',
+                'amfori BSCI'
+              ].map((certType) => (
+                <label key={certType} className="flex items-center space-x-3 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={certifications.some(cert => cert.type === certType)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setCertifications([...certifications, { type: certType }])
+                      } else {
+                        setCertifications(certifications.filter(cert => cert.type !== certType))
+                      }
+                    }}
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500"
+                  />
+                  <span className="text-gray-700">{certType}</span>
+                </label>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Select the certifications applicable to this lot
+            </p>
+          </div>
+
+          {/* DPP Metadata */}
+          <div className="mb-4">
+            <label className="mb-2 block text-sm font-medium text-gray-700">DPP Metadata</label>
+            <textarea
+              value={dppMetadata}
+              onChange={(e) => setDppMetadata(e.target.value)}
+              rows={4}
+              className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+              placeholder='Additional metadata as JSON, e.g. {"origin": "Portugal", "sustainabilityScore": 95}'
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Optional JSON metadata for additional DPP information
+            </p>
+          </div>
+        </div>
+
         {/* Tech Pack Upload Section */}
         <div className="border-t pt-4">
           <h4 className="mb-4 text-sm font-semibold text-gray-900">Tech Pack Upload</h4>
@@ -1109,7 +1304,11 @@ export function LotFormModal({ isOpen, onClose, initialLot }: LotFormModalProps)
                         setStyleRef(result.extractedData.styleRef)
                       }
                       if (result.extractedData.materialComposition) {
-                        setMaterialComposition(result.extractedData.materialComposition)
+                        setMaterialComposition(
+                          Array.isArray(result.extractedData.materialComposition)
+                            ? result.extractedData.materialComposition
+                            : []
+                        )
                       }
                       if (result.extractedData.dyeLot) {
                         setDyeLot(result.extractedData.dyeLot)

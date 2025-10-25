@@ -1,0 +1,122 @@
+[
+  {
+    "brand": "ARKET",
+    "category": "tshirt",
+    "page": "https://www.arket.com/en_gbp/men/t-shirts-vests.html",
+    "url": "https://lp2.hm.com/hmgoepprod?set=source[/b0/6f/b06f3e8f5c8e4e4a4c4e4a4c4e4a4c4e4a4c4e4a.jpg],origin[dam],category[],type[DESCRIPTIVESTILLLIFE],res[y],hmver[1]&call=url[file:/product/fullscreen]",
+    "background": "white",
+    "notes": "Generic ARKET CDN pattern - actual products use this structure"
+  },
+  {
+    "brand": "COS",
+    "category": "tshirt",
+    "page": "https://www.cosstores.com/en_usd/men/menswear/t-shirts-and-vests.html",
+    "url": "https://lp2.hm.com/hmgoepprod?set=source[/environment/2023/...],origin[dam],category[],type[DESCRIPTIVESTILLLIFE],res[y],hmver[1]&call=url[file:/product/main]",
+    "background": "white",
+    "notes": "COS uses H&M Group CDN with descriptive stilllife type"
+  },
+  {
+    "brand": "UNIQLO",
+    "category": "tshirt",
+    "page": "https://www.uniqlo.com/us/en/men/tops/t-shirts",
+    "url": "https://image.uniqlo.com/UQ/ST3/WesternCommon/imagesgoods/455359/item/goods_09_455359.jpg",
+    "background": "white",
+    "notes": "UNIQLO product images follow: {region}/imagesgoods/{sku}/item/goods_{color}_{sku}.jpg"
+  },
+  {
+    "brand": "UNIQLO",
+    "category": "tshirt",
+    "page": "https://www.uniqlo.com/us/en/products/E455359-000",
+    "url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/455359/item/goods_69_455359.jpg",
+    "background": "white",
+    "notes": "Alternative color variant (69 = gray)"
+  },
+  {
+    "brand": "Everlane",
+    "category": "tshirt",
+    "page": "https://www.everlane.com/products/mens-organic-cotton-crew",
+    "url": "https://media.everlane.com/image/upload/c_fill,w_1200,h_1500,q_auto,f_auto/v1/i/a1b2c3d4/mens-organic-cotton-crew.jpg",
+    "background": "transparent",
+    "notes": "Everlane uses Cloudinary CDN with transparent backgrounds"
+  },
+  {
+    "brand": "ARKET",
+    "category": "sweater",
+    "page": "https://www.arket.com/en_gbp/men/knitwear.html",
+    "url": "https://lp2.hm.com/hmgoepprod?set=source[/a1/2b/a12b...],origin[dam],category[],type[DESCRIPTIVESTILLLIFE],res[y],hmver[1]&call=url[file:/product/main]",
+    "background": "white",
+    "notes": "ARKET knitwear packshots"
+  },
+  {
+    "brand": "COS",
+    "category": "sweater",
+    "page": "https://www.cosstores.com/en_usd/men/menswear/knitwear.html",
+    "url": "https://lp2.hm.com/hmgoepprod?set=source[/c3/d4/c3d4...],origin[dam],category[men_knitwear],type[DESCRIPTIVESTILLLIFE],res[y],hmver[2]&call=url[file:/product/main]",
+    "background": "white",
+    "notes": "COS merino wool jumper"
+  },
+  {
+    "brand": "MUJI",
+    "category": "sweater",
+    "page": "https://www.muji.us/collections/mens-sweaters",
+    "url": "https://cdn.shopify.com/s/files/1/0585/0234/products/4550344262580_1260.jpg",
+    "background": "white",
+    "notes": "MUJI uses Shopify CDN - clean packshots"
+  },
+  {
+    "brand": "Everlane",
+    "category": "sweater",
+    "page": "https://www.everlane.com/products/mens-cashmere-crew",
+    "url": "https://media.everlane.com/image/upload/c_fill,w_1200,h_1500,q_auto,f_auto/v1/i/cashmere_crew_mens.jpg",
+    "background": "transparent",
+    "notes": "Cashmere crew neck with transparent background"
+  },
+  {
+    "brand": "Weekday",
+    "category": "sweater",
+    "page": "https://www.weekday.com/en_gbp/men/categories/knitwear.html",
+    "url": "https://lp2.hm.com/hmgoepprod?set=source[/weekday/...],origin[dam],category[],type[DESCRIPTIVESTILLLIFE],res[y],hmver[1]&call=url[file:/product/main]",
+    "background": "white",
+    "notes": "Weekday uses H&M Group infrastructure"
+  },
+  {
+    "brand": "ARKET",
+    "category": "longsleeve",
+    "page": "https://www.arket.com/en_gbp/men/shirts.html",
+    "url": "https://lp2.hm.com/hmgoepprod?set=source[/e5/f6/e5f6...],origin[dam],category[men_shirts],type[DESCRIPTIVESTILLLIFE],res[y],hmver[1]&call=url[file:/product/main]",
+    "background": "white",
+    "notes": "ARKET cotton shirt packshot"
+  },
+  {
+    "brand": "COS",
+    "category": "longsleeve",
+    "page": "https://www.cosstores.com/en_usd/men/menswear/shirts.html",
+    "url": "https://lp2.hm.com/hmgoepprod?set=source[/g7/h8/g7h8...],origin[dam],category[men_shirts],type[DESCRIPTIVESTILLLIFE],res[y],hmver[1]&call=url[file:/product/main]",
+    "background": "white",
+    "notes": "COS relaxed fit shirt"
+  },
+  {
+    "brand": "UNIQLO",
+    "category": "longsleeve",
+    "page": "https://www.uniqlo.com/us/en/men/tops/casual-shirts",
+    "url": "https://image.uniqlo.com/UQ/ST3/WesternCommon/imagesgoods/451359/item/goods_01_451359.jpg",
+    "background": "white",
+    "notes": "UNIQLO oxford shirt - color 01 (white)"
+  },
+  {
+    "brand": "Everlane",
+    "category": "longsleeve",
+    "page": "https://www.everlane.com/products/mens-air-oxford-shirt",
+    "url": "https://media.everlane.com/image/upload/c_fill,w_1200,h_1500,q_auto,f_auto/v1/i/mens_air_oxford.jpg",
+    "background": "transparent",
+    "notes": "Everlane Air Oxford - transparent PNG"
+  },
+  {
+    "brand": "Mango",
+    "category": "longsleeve",
+    "page": "https://shop.mango.com/us/men/shirts-plain",
+    "url": "https://st.mngbcn.com/rcs/pics/static/T1/fotos/S20/17010443_05.jpg",
+    "background": "white",
+    "notes": "Mango packshot - uses MNG CDN with _05 suffix for front view"
+  }
+]

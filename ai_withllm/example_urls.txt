@@ -1,0 +1,10 @@
+# Example flat-lay garment image URLs for testing
+# Add one URL per line (lines starting with # are ignored)
+
+# Uniqlo product images (examples - you'll need to add real URLs)
+https://image.uniqlo.com/UQ/ST3/WesternCommon/imagesgoods/422990/item/goods_09_422990.jpg
+https://image.uniqlo.com/UQ/ST3/WesternCommon/imagesgoods/455359/item/goods_00_455359.jpg
+
+# H&M product images (examples - you'll need to add real URLs)
+
+# Add your own URLs below:

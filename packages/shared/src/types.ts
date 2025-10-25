@@ -21,6 +21,30 @@ export enum FactoryCertificationType {
   AMFORI_BSCI = "AMFORI_BSCI",
 }
 
+export enum GarmentType {
+  T_SHIRT = "T_SHIRT",
+  POLO_SHIRT = "POLO_SHIRT",
+  DRESS_SHIRT = "DRESS_SHIRT",
+  BLOUSE = "BLOUSE",
+  DRESS = "DRESS",
+  SKIRT = "SKIRT",
+  PANTS = "PANTS",
+  JEANS = "JEANS",
+  SHORTS = "SHORTS",
+  JACKET = "JACKET",
+  COAT = "COAT",
+  SWEATER = "SWEATER",
+  HOODIE = "HOODIE",
+  SWEATSHIRT = "SWEATSHIRT",
+  UNDERWEAR = "UNDERWEAR",
+  SOCKS = "SOCKS",
+  ACTIVEWEAR = "ACTIVEWEAR",
+  SWIMWEAR = "SWIMWEAR",
+  JUMPSUIT = "JUMPSUIT",
+  ROMPER = "ROMPER",
+  OTHER = "OTHER",
+}
+
 export enum LotStatus {
   PLANNED = "PLANNED",
   IN_PRODUCTION = "IN_PRODUCTION",
@@ -223,6 +247,54 @@ export interface DppMetadata {
   [key: string]: any;
 }
 
+export interface TechPackLabel {
+  type: string;
+  width?: string;
+  height?: string;
+  material?: string;
+  placement?: string;
+  colors?: string[];
+  artworkUrl?: string;
+  imageUrl?: string;
+  notes?: string;
+}
+
+export interface TechPackHangTag {
+  width?: string;
+  height?: string;
+  material?: string;
+  colors?: string[];
+  artworkUrl?: string;
+  imageUrl?: string;
+  notes?: string;
+}
+
+export interface TechPackPackaging {
+  type: string;
+  width?: string;
+  height?: string;
+  material?: string;
+  artworkUrl?: string;
+  imageUrl?: string;
+  notes?: string;
+}
+
+export interface TechPackFoldingInstruction {
+  step: number;
+  description: string;
+  imageUrl?: string;
+}
+
+export interface TechPackBOMItem {
+  category: string;
+  description: string;
+  supplier?: string;
+  color?: string;
+  size?: string;
+  imageUrl?: string;
+  notes?: string;
+}
+
 export interface LotSupplier {
   id?: string;
   factoryId: string;
@@ -393,10 +465,12 @@ export interface LotSupplierRole {
 
 export interface Lot {
   id: string;
+  tenantId: string;
   clientId: string;
   factoryId: string;
   primaryFactoryId?: string;
   styleRef: string;
+  garmentType?: GarmentType | null;
   quantityTotal: number;
   status: LotStatus;
   defectRate: number;
@@ -414,6 +488,12 @@ export interface Lot {
   }> | null;
   techPackStatus?: "pending" | "processing" | "completed" | "failed" | null;
   techPackUploadedAt?: string | null;
+  // Tech Pack - Labels, Hang Tags, Packaging, Folding
+  labels?: TechPackLabel[] | null;
+  hangTags?: TechPackHangTag[] | null;
+  packaging?: TechPackPackaging[] | null;
+  foldingInstructions?: TechPackFoldingInstruction[] | null;
+  billOfMaterials?: TechPackBOMItem[] | null;
   createdAt: string;
   updatedAt: string;
   factory?: Factory;
