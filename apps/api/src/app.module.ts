@@ -18,6 +18,7 @@ import { MetricsInterceptor } from "./observability/metrics.interceptor";
 import { LoggerInterceptor } from "./observability/logger.interceptor";
 import { OperatorModule } from "./operator/operator.module";
 import { AdminModule } from "./admin/admin.module";
+import { TechPackModule } from "./tech-pack/tech-pack.module";
 
 import dataSourceOptions from "./database/typeorm.config";
 
@@ -36,6 +37,7 @@ import dataSourceOptions from "./database/typeorm.config";
     ReportsModule,
     OperatorModule,
     AdminModule,
+    TechPackModule,
   ],
   providers: [
     {

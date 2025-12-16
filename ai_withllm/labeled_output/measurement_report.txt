@@ -1,0 +1,41 @@
+============================================================
+GARMENT MEASUREMENT REPORT
+============================================================
+Image: shirt.jpg
+Category: vest
+Detected Landmarks: 292
+
+KEY MEASUREMENTS
+------------------------------------------------------------
+collar_width             :    152.0 px  (~  15.2 cm)
+shoulder_width           :   1090.3 px  (~ 109.0 cm)
+
+LANDMARK POSITIONS
+------------------------------------------------------------
+
+Collar:
+  left_collar_tip          : (1859,  886)
+  right_collar_tip         : (1985,  971)
+
+Shoulders:
+  left_shoulder            : (2070,  886)
+  right_shoulder           : (1436, 1773)
+
+Chest:
+  center_chest             : (2281,  971)
+
+Hem:
+  left_hem                 : (2450, 2237)
+  center_hem               : (2408, 1815)
+  right_hem                : (2366, 1520)
+
+Armhole:
+  left_armhole_top         : (1436, 1013)
+  left_armhole_bottom      : (1436, 1477)
+  right_armhole_top        : (1478, 2195)
+  right_armhole_bottom     : (1943, 2322)
+
+============================================================
+Note: For accurate measurements, calibration with a reference
+object of known size is required.
+============================================================

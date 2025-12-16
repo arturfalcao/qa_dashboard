@@ -8,6 +8,13 @@ yarn-debug.log*
 yarn-error.log*
 
 ai_withllm/fashion_env/
+ai_withllm/garmentiq_venv/
+ai_withllm/**.jpg
+ai_withllm/**.json
+ai_withllm/**.png
+ai_withllm/**/**.png
+ai_withllm/**/**.jpg
+ai_withllm/**/**.json
 # Production builds
 .next/
 dist/

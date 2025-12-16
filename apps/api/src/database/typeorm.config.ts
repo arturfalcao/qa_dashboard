@@ -16,7 +16,10 @@ const entities = [join(__dirname, "**/*.entity{.ts,.js}")];
 
 const migrations = [join(__dirname, "migrations/*{.ts,.js}")];
 
-const sslConfig = process.env.NODE_ENV === "production" || process.env.DB_SSLMODE === "require"
+// Always use SSL with rejectUnauthorized: false for DigitalOcean managed databases
+const dbUrl = process.env.DATABASE_URL || "";
+const isRemoteDb = dbUrl.includes("digitalocean") || dbUrl.includes("sslmode=require");
+const sslConfig = isRemoteDb || process.env.NODE_ENV === "production" || process.env.DB_SSLMODE === "require"
   ? { rejectUnauthorized: false }
   : false;
 

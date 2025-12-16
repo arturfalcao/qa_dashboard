@@ -1,7 +1,7 @@
 # Multi-stage build for production optimization
 FROM node:18-alpine AS base
 
-# Install system dependencies required for native modules and Puppeteer
+# Install system dependencies required for native modules, Puppeteer, and PDF processing
 RUN apk add --no-cache \
     chromium \
     nss \
@@ -12,7 +12,9 @@ RUN apk add --no-cache \
     ttf-freefont \
     python3 \
     make \
-    g++
+    g++ \
+    # PDF to image conversion (pdftoppm)
+    poppler-utils
 
 # Tell Puppeteer to use installed Chromium
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true

@@ -1,0 +1,260 @@
+{
+  "styleReference": "GLASS-KNITWEAR-001-1",
+  "productName": "Wide Fleece Sweat Shorts",
+  "season": "S/S 2025",
+  "designer": "GLASS FACTORY",
+  "sampleSize": "Medium",
+  "sizeRange": [
+    "XS",
+    "S",
+    "M",
+    "L",
+    "XL",
+    "XXL"
+  ],
+  "colorways": [
+    {
+      "name": "Unnamed",
+      "pantone": "16-4114 TCX",
+      "fabric": {
+        "name": "Cotton Fleece",
+        "weight": "300GSM",
+        "finish": "Potassium Sprayed"
+      },
+      "thread": {
+        "color": "DTM SELF",
+        "type": "Cotton"
+      },
+      "trim": {
+        "description": "Drawcords",
+        "color": "Same as self"
+      },
+      "isMain": true
+    },
+    {
+      "name": "Unnamed",
+      "pantone": "19-0303 TCX",
+      "fabric": {
+        "name": "Cotton Fleece",
+        "weight": "300GSM",
+        "finish": "Potassium Sprayed"
+      },
+      "thread": {
+        "color": "DTM SELF",
+        "type": "Cotton"
+      },
+      "trim": {
+        "description": "Drawcords",
+        "color": "Same as self"
+      },
+      "isMain": true
+    }
+  ],
+  "constructionDetails": [
+    {
+      "area": "Waistband",
+      "description": "Double needle edgestitch along waistband seam",
+      "stitchType": "Double needle",
+      "stitchCode": "A"
+    },
+    {
+      "area": "Center Front",
+      "description": "Single needle edgestitch on center front",
+      "stitchType": "Single needle",
+      "stitchCode": "K"
+    },
+    {
+      "area": "Hemline",
+      "description": "Hemline with double needle coverstitch 0.8” from edge",
+      "stitchType": "Double needle coverstitch",
+      "stitchCode": "C"
+    },
+    {
+      "area": "Welt Pockets",
+      "description": "Self-fabric welt pockets with single needle edgestitch",
+      "stitchType": "Single needle",
+      "stitchCode": "K"
+    },
+    {
+      "area": "Patch Pockets",
+      "description": "Patch pockets with single needle edgestitch",
+      "stitchType": "Single needle",
+      "stitchCode": "L"
+    },
+    {
+      "area": "Inside Seams",
+      "description": "Overlock stitch on CF seam, inseams, and waistband seam",
+      "stitchType": "Overlock"
+    }
+  ],
+  "sizeSpecifications": [
+    {
+      "size": "M",
+      "measurements": {
+        "waist": 14.5,
+        "frontRise": 12.8,
+        "backRise": 16,
+        "length": 22.5,
+        "thigh": 12.4,
+        "inseam": 8.9,
+        "legOpening": 11.5,
+        "waistbandHeight": 2,
+        "hemHeight": 1,
+        "backPocketWidth": 5.9,
+        "backPocketHeight": 6.3,
+        "weltPocketHeight": 6.3,
+        "weltPocketWidth": 0.9
+      }
+    }
+  ],
+  "measurementTolerances": {
+    "waist": 0.5,
+    "frontRise": 0.25,
+    "backRise": 0.25,
+    "length": 0.5,
+    "thigh": 0.5,
+    "inseam": 0.5,
+    "legOpening": 0.25,
+    "waistbandHeight": 0.5,
+    "hemHeight": 0.12,
+    "backPocketWidth": 0.12,
+    "backPocketHeight": 0.12,
+    "weltPocketHeight": 0.12,
+    "weltPocketWidth": 0.12
+  },
+  "artwork": [
+    {
+      "type": "Flockprint",
+      "placement": "Left thigh",
+      "technique": "Flock print detail"
+    }
+  ],
+  "fabricMap": [
+    {
+      "zone": "Main fabric",
+      "fabricType": "Cotton Fleece 300GSM",
+      "areas": [
+        "Body",
+        "Waistband"
+      ]
+    },
+    {
+      "zone": "Trim fabric",
+      "fabricType": "Self fabric",
+      "areas": [
+        "Drawcords"
+      ]
+    }
+  ],
+  "labels": [
+    {
+      "type": "Main label",
+      "width": "1.25 inch",
+      "height": "2.75 inch",
+      "material": "Black satin",
+      "placement": "Center back waistband",
+      "colors": [
+        "19-0303 TCX",
+        "11-0616 TCX"
+      ]
+    },
+    {
+      "type": "Care label",
+      "width": "3.40 inch",
+      "height": "1.25 inch",
+      "material": "Black satin",
+      "placement": "Waistband seam",
+      "colors": [
+        "19-3911 TCX",
+        "11-0601 TCX"
+      ]
+    }
+  ],
+  "hangTags": [
+    {
+      "width": "2.44 inch",
+      "height": "1.5 inch",
+      "material": "Textured cardstock paper, glossy embossed"
+    }
+  ],
+  "packaging": [
+    {
+      "type": "Polybag",
+      "material": "Clear plastic"
+    }
+  ],
+  "foldingInstructions": [
+    {
+      "step": 1,
+      "description": "Step 1 description"
+    },
+    {
+      "step": 2,
+      "description": "Step 2 description"
+    },
+    {
+      "step": 3,
+      "description": "Step 3 description"
+    },
+    {
+      "step": 4,
+      "description": "Step 4 description"
+    },
+    {
+      "step": 5,
+      "description": "Step 5 description"
+    }
+  ],
+  "careInstructions": [
+    {
+      "language": "English",
+      "instructions": [
+        "Machine wash cold",
+        "Do not bleach",
+        "Tumble dry low",
+        "Dry clean"
+      ]
+    },
+    {
+      "language": "French",
+      "instructions": [
+        "Lavage à la main à froid à lʼenvers",
+        "Sécher à plat",
+        "Nettoyage à sec"
+      ]
+    },
+    {
+      "language": "German",
+      "instructions": [
+        "Kalt von Hand waschen",
+        "Auf links drehen",
+        "Flach trocknen",
+        "Chemisch reinigen"
+      ]
+    },
+    {
+      "language": "Greek",
+      "instructions": [
+        "Χειρόπλυνο με κρύο νερό",
+        "Ανάποδα",
+        "Στρώστε σε επίπεδη επιφάνεια για στέγνωμα",
+        "Στεγνό καθάρισμα"
+      ]
+    },
+    {
+      "language": "Japanese",
+      "instructions": [
+        "冷水で手洗い",
+        "裏返して洗う",
+        "平干し",
+        "ドライクリーニング可"
+      ]
+    }
+  ],
+  "materialComposition": [
+    {
+      "fiber": "Cotton",
+      "percentage": 100
+    }
+  ]
+}

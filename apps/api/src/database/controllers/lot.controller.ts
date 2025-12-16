@@ -55,6 +55,8 @@ const createLotSchema = z
     styleRef: z.string().min(1),
     quantityTotal: z.number().int().positive(),
     status: z.nativeEnum(LotStatus).optional(),
+    // Tech Pack reference
+    techPackId: z.string().uuid().optional(),
     // DPP Hub fields
     materialComposition: z.array(materialCompositionSchema).optional(),
     dyeLot: z.string().optional(),
@@ -177,6 +179,7 @@ export class LotController {
       styleRef,
       quantityTotal,
       status,
+      techPackId: body.techPackId,
       materialComposition: body.materialComposition as any,
       dyeLot: body.dyeLot,
       certifications: body.certifications as any,

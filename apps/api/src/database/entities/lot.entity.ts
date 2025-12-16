@@ -18,6 +18,8 @@ import { Activity } from "./activity.entity";
 import { Report } from "./report.entity";
 import { LotFactory } from "./lot-factory.entity";
 import { LotUserAssignment } from "./lot-user-assignment.entity";
+import { InspectionSession } from "./inspection-session.entity";
+import { TechPack } from "./tech-pack.entity";
 
 const numericTransformer = {
   to: (value?: number | null) => value ?? 0,
@@ -248,6 +250,134 @@ export class Lot {
     notes?: string;
   }> | null;
 
+  // Extended Tech Pack Fields
+  @Column({
+    name: "season",
+    type: "varchar",
+    length: 50,
+    nullable: true,
+    comment: "Season/collection e.g. S/S 2025, F/W 2024",
+  })
+  season: string | null;
+
+  @Column({
+    name: "designer",
+    type: "varchar",
+    length: 120,
+    nullable: true,
+    comment: "Designer or brand name",
+  })
+  designer: string | null;
+
+  @Column({
+    name: "sample_size",
+    type: "varchar",
+    length: 50,
+    nullable: true,
+    comment: "Base sample size for measurements",
+  })
+  sampleSize: string | null;
+
+  @Column({
+    name: "product_name",
+    type: "varchar",
+    length: 255,
+    nullable: true,
+    comment: "Full product name/description",
+  })
+  productName: string | null;
+
+  @Column({
+    name: "colorways",
+    type: "jsonb",
+    nullable: true,
+    comment: "Color specifications with Pantone refs, fabric, thread, trim details",
+  })
+  colorways: Array<{
+    name: string;
+    pantone?: string;
+    fabric?: { name: string; weight?: string; finish?: string };
+    thread?: { color: string; type?: string };
+    trim?: { description: string; color?: string };
+    isMain?: boolean;
+  }> | null;
+
+  @Column({
+    name: "construction_details",
+    type: "jsonb",
+    nullable: true,
+    comment: "Construction and stitching specifications per garment area",
+  })
+  constructionDetails: Array<{
+    area: string;
+    description: string;
+    stitchType?: string;
+    stitchCode?: string;
+    needleType?: string;
+    seamsPerInch?: number;
+    notes?: string;
+  }> | null;
+
+  @Column({
+    name: "artwork",
+    type: "jsonb",
+    nullable: true,
+    comment: "Artwork, prints, embroidery specifications",
+  })
+  artwork: Array<{
+    type: string; // print, embroidery, flockprint, etc.
+    placement: string;
+    width?: string;
+    height?: string;
+    colors?: string[];
+    pantones?: string[];
+    technique?: string;
+    imageUrl?: string;
+    notes?: string;
+  }> | null;
+
+  @Column({
+    name: "fabric_map",
+    type: "jsonb",
+    nullable: true,
+    comment: "Fabric placement map showing main/sub/trim/lining zones",
+  })
+  fabricMap: Array<{
+    zone: string; // main, sub, trim, lining, etc.
+    fabricType: string;
+    areas: string[];
+  }> | null;
+
+  @Column({
+    name: "care_instructions",
+    type: "jsonb",
+    nullable: true,
+    comment: "Care and wash instructions in multiple languages",
+  })
+  careInstructions: Array<{
+    language: string;
+    instructions: string[];
+  }> | null;
+
+  @Column({
+    name: "measurement_tolerances",
+    type: "jsonb",
+    nullable: true,
+    comment: "Tolerance specifications per measurement point",
+  })
+  measurementTolerances: Record<string, number> | null;
+
+  @Column({
+    name: "grading",
+    type: "jsonb",
+    nullable: true,
+    comment: "Size grading specifications showing increments between sizes",
+  })
+  grading: Array<{
+    measurement: string;
+    sizes: Record<string, number>;
+  }> | null;
+
   @CreateDateColumn({ name: "created_at" })
   createdAt: Date;
 
@@ -268,6 +398,16 @@ export class Lot {
   @ManyToOne(() => Factory, (factory) => factory.lots, { onDelete: "CASCADE" })
   @JoinColumn({ name: "factory_id" })
   factory: Factory;
+
+  @Column({ name: "tech_pack_id", nullable: true })
+  techPackId?: string | null;
+
+  @ManyToOne(() => TechPack, (techPack) => techPack.lots, {
+    nullable: true,
+    onDelete: "SET NULL"
+  })
+  @JoinColumn({ name: "tech_pack_id" })
+  techPack?: TechPack | null;
 
   @OneToMany(() => Inspection, (inspection) => inspection.lot)
   inspections: Inspection[];

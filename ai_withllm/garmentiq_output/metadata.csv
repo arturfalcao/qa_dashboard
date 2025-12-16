@@ -1,0 +1,2 @@
+filename,class,mask_image,bg_modified_image,measurement_image,measurement_json
+img2.jpg,short sleeve top,garmentiq_output/mask_image/img2_mask.png,garmentiq_output/bg_modified_image/img2_bg_modified.png,garmentiq_output/measurement_image/img2_measurement.png,garmentiq_output/measurement_json/img2_measurement.json

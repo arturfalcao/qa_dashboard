@@ -32,6 +32,7 @@ import { InspectionSession } from "./entities/inspection-session.entity";
 import { ApparelPiece } from "./entities/apparel-piece.entity";
 import { PiecePhoto } from "./entities/piece-photo.entity";
 import { PieceDefect } from "./entities/piece-defect.entity";
+import { TechPack } from "./entities/tech-pack.entity";
 
 import { InspectionService } from "./services/inspection.service";
 import { LotService } from "./services/lot.service";
@@ -106,6 +107,7 @@ import { TechPackModule } from "../tech-pack/tech-pack.module";
       ApparelPiece,
       PiecePhoto,
       PieceDefect,
+      TechPack,
     ]),
     StorageModule,
     DppModule,

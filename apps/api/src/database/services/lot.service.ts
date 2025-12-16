@@ -169,6 +169,7 @@ export class LotService {
       styleRef: string;
       quantityTotal: number;
       status?: LotStatus;
+      techPackId?: string;
       materialComposition?: Array<{
         fiber: string;
         percentage: number;
@@ -201,6 +202,7 @@ export class LotService {
       status: payload.status ?? LotStatus.PLANNED,
       defectRate: 0,
       inspectedProgress: 0,
+      techPackId: payload.techPackId || null,
       materialComposition: payload.materialComposition || null,
       dyeLot: payload.dyeLot || null,
       certifications: payload.certifications || null,
@@ -223,6 +225,7 @@ export class LotService {
       styleRef?: string;
       quantityTotal?: number;
       status?: LotStatus;
+      techPackId?: string;
       materialComposition?: Array<{
         fiber: string;
         percentage: number;
@@ -313,7 +316,12 @@ export class LotService {
       lot.dppMetadata = payload.dppMetadata || null;
     }
 
-    // Handle tech pack fields
+    // Handle tech pack ID (reference to standalone TechPack entity)
+    if (payload.techPackId !== undefined) {
+      lot.techPackId = payload.techPackId || null;
+    }
+
+    // Handle tech pack fields (legacy inline fields)
     if (payload.techPackFileKey !== undefined) {
       lot.techPackFileKey = payload.techPackFileKey;
     }

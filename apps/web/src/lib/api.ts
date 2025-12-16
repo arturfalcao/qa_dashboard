@@ -733,6 +733,90 @@ class ApiClient {
     return this.request('/dashboard/feed/live')
   }
 
+  // Tech Packs (Standalone)
+  async getTechPacks(options?: {
+    status?: string
+    search?: string
+    page?: number
+    limit?: number
+  }): Promise<{
+    items: any[]
+    total: number
+    page: number
+    limit: number
+    totalPages: number
+  }> {
+    const params = new URLSearchParams()
+    if (options?.status) params.append('status', options.status)
+    if (options?.search) params.append('search', options.search)
+    if (options?.page) params.append('page', options.page.toString())
+    if (options?.limit) params.append('limit', options.limit.toString())
+    const query = params.toString() ? `?${params.toString()}` : ''
+    return this.request(`/tech-packs${query}`)
+  }
+
+  async getTechPack(id: string): Promise<any> {
+    return this.request(`/tech-packs/${id}`)
+  }
+
+  async createTechPack(data: {
+    styleRef: string
+    productName?: string
+    season?: string
+    designer?: string
+    sampleSize?: string
+  }): Promise<any> {
+    return this.request('/tech-packs', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateTechPack(id: string, data: Partial<any>): Promise<any> {
+    return this.request(`/tech-packs/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteTechPack(id: string): Promise<void> {
+    await this.request(`/tech-packs/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async uploadTechPackFile(file: File, styleRef?: string): Promise<any> {
+    const formData = new FormData()
+    formData.append('file', file)
+    if (styleRef) formData.append('styleRef', styleRef)
+
+    const url = `${API_BASE_URL}/tech-packs/upload`
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        ...this.getAuthHeader(),
+      },
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Upload failed' }))
+      throw new Error(error.message || `HTTP ${response.status}`)
+    }
+
+    return response.json()
+  }
+
+  async reprocessTechPack(id: string): Promise<any> {
+    return this.request(`/tech-packs/${id}/reprocess`, {
+      method: 'POST',
+    })
+  }
+
+  async getTechPackLots(id: string): Promise<any[]> {
+    return this.request(`/tech-packs/${id}/lots`)
+  }
+
   // ESG Reports
   async getESGImpactDashboard(startDate?: string, endDate?: string): Promise<any> {
     const params = new URLSearchParams()

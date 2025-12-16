@@ -12,6 +12,7 @@ import {
   Building2 as ClientsIcon,
   ShieldCheckIcon,
   FileTextIcon,
+  Sparkles,
 } from 'lucide-react'
 import { AppShell } from '@/components/navigation/app-shell'
 import { SidebarItem } from '@/components/ui/sidebar'
@@ -59,6 +60,7 @@ export default function ClientLayout({
   const navigation: SidebarItem[] = [
     { label: 'Live Feed', href: `${basePath}/feed`, icon: ActivityIcon },
     { label: 'Lots', href: `${basePath}/lots`, icon: PackageIcon },
+    { label: 'Tech Packs', href: `${basePath}/tech-packs`, icon: Sparkles },
   ]
 
   // Add Quality Control for Quality Directors

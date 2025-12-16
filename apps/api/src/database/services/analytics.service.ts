@@ -1,9 +1,9 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
-import { Inspection } from "../entities/inspection.entity";
+import { InspectionSession } from "../entities/inspection-session.entity";
 import { Approval } from "../entities/approval.entity";
-import { Defect } from "../entities/defect.entity";
+import { PieceDefect } from "../entities/piece-defect.entity";
 import {
   DefectRateAnalytics,
   ThroughputAnalytics,
@@ -14,12 +14,12 @@ import {
 @Injectable()
 export class AnalyticsService {
   constructor(
-    @InjectRepository(Inspection)
-    private inspectionRepository: Repository<Inspection>,
+    @InjectRepository(InspectionSession)
+    private inspectionSessionRepository: Repository<InspectionSession>,
     @InjectRepository(Approval)
     private approvalRepository: Repository<Approval>,
-    @InjectRepository(Defect)
-    private defectRepository: Repository<Defect>,
+    @InjectRepository(PieceDefect)
+    private pieceDefectRepository: Repository<PieceDefect>,
   ) {}
 
   async getDefectRate(
@@ -31,64 +31,77 @@ export class AnalyticsService {
     const since = new Date();
     since.setDate(since.getDate() - days);
 
-    let query = this.inspectionRepository
-      .createQueryBuilder("ins")
-      .innerJoin("ins.lot", "lot")
-      .where("lot.tenantId = :tenantId", { tenantId })
-      .andWhere("ins.createdAt >= :since", { since });
-
     if (groupBy === "factory") {
-      query = query
-        .leftJoin("lot.factory", "factory")
+      // Group by factory using lot_factories relationship
+      const results = await this.inspectionSessionRepository
+        .createQueryBuilder("session")
+        .innerJoin("session.lot", "lot")
+        .leftJoin("lot.lotFactories", "lf")
+        .leftJoin("lf.factory", "factory")
         .select([
-          "factory.name as name",
-          "COUNT(*) as totalInspected",
-          "SUM(CASE WHEN defects.count > 0 THEN 1 ELSE 0 END) as totalDefects",
+          "COALESCE(factory.name, 'Unknown') as name",
+          "SUM(session.piecesInspected) as totalInspected",
+          "SUM(session.piecesDefect) as totalDefects",
         ])
-        .leftJoin(
-          (qb) =>
-            qb
-              .select("defect.inspection_id", "inspectionId")
-              .addSelect("COUNT(defect.id)", "count")
-              .from(Defect, "defect")
-              .groupBy("defect.inspection_id"),
-          "defects",
-          "defects.\"inspectionId\" = ins.id",
-        )
-        .groupBy("factory.id, factory.name");
+        .where("lot.tenantId = :tenantId", { tenantId })
+        .andWhere("session.createdAt >= :since", { since })
+        .groupBy("factory.id, factory.name")
+        .getRawMany();
+
+      return {
+        groupBy,
+        data: results.map((row) => ({
+          name: row.name || "Unknown",
+          totalInspected: Number(row.totalinspected) || 0,
+          totalDefects: Number(row.totaldefects) || 0,
+          defectRate:
+            Number(row.totalinspected) > 0
+              ? (Number(row.totaldefects) / Number(row.totalinspected)) * 100
+              : 0,
+        })),
+      };
     } else if (groupBy === "style") {
-      query = query
+      // Group by style reference
+      const results = await this.inspectionSessionRepository
+        .createQueryBuilder("session")
+        .innerJoin("session.lot", "lot")
         .select([
           "lot.styleRef as name",
-          "COUNT(*) as totalInspected",
-          "SUM(CASE WHEN defects.count > 0 THEN 1 ELSE 0 END) as totalDefects",
+          "SUM(session.piecesInspected) as totalInspected",
+          "SUM(session.piecesDefect) as totalDefects",
         ])
-        .leftJoin(
-          (qb) =>
-            qb
-              .select("defect.inspection_id", "inspectionId")
-              .addSelect("COUNT(defect.id)", "count")
-              .from(Defect, "defect")
-              .groupBy("defect.inspection_id"),
-          "defects",
-          "defects.\"inspectionId\" = ins.id",
-        )
-        .groupBy("lot.styleRef");
-    } else {
-      const totalInspected = await this.inspectionRepository
-        .createQueryBuilder("ins")
-        .innerJoin("ins.lot", "lot")
         .where("lot.tenantId = :tenantId", { tenantId })
-        .andWhere("ins.createdAt >= :since", { since })
-        .getCount();
+        .andWhere("session.createdAt >= :since", { since })
+        .groupBy("lot.styleRef")
+        .getRawMany();
 
-      const totalDefects = await this.defectRepository
-        .createQueryBuilder("defect")
-        .innerJoin("defect.inspection", "inspection")
-        .innerJoin("inspection.lot", "lot")
+      return {
+        groupBy,
+        data: results.map((row) => ({
+          name: row.name || "Unknown",
+          totalInspected: Number(row.totalinspected) || 0,
+          totalDefects: Number(row.totaldefects) || 0,
+          defectRate:
+            Number(row.totalinspected) > 0
+              ? (Number(row.totaldefects) / Number(row.totalinspected)) * 100
+              : 0,
+        })),
+      };
+    } else {
+      // Overall metrics
+      const result = await this.inspectionSessionRepository
+        .createQueryBuilder("session")
+        .innerJoin("session.lot", "lot")
+        .select([
+          "SUM(session.piecesInspected) as totalInspected",
+          "SUM(session.piecesDefect) as totalDefects",
+        ])
         .where("lot.tenantId = :tenantId", { tenantId })
-        .andWhere("inspection.createdAt >= :since", { since })
-        .getCount();
+        .andWhere("session.createdAt >= :since", { since })
+        .getRawOne();
+
+      const totalInspected = Number(result?.totalinspected) || 0;
+      const totalDefects = Number(result?.totaldefects) || 0;
 
       return {
         groupBy,
@@ -103,21 +116,6 @@ export class AnalyticsService {
         ],
       };
     }
-
-    const results = await query.getRawMany();
-
-    return {
-      groupBy,
-      data: results.map((row) => ({
-        name: row.name || "Unknown",
-        totalInspected: Number(row.totalinspected) || 0,
-        totalDefects: Number(row.totaldefects) || 0,
-        defectRate:
-          Number(row.totalinspected) > 0
-            ? (Number(row.totaldefects) / Number(row.totalinspected)) * 100
-            : 0,
-      })),
-    };
   }
 
   async getThroughput(
@@ -131,16 +129,17 @@ export class AnalyticsService {
 
     const dateFormat = bucket === "day" ? "YYYY-MM-DD" : 'IYYY-"W"IW';
 
-    const query = this.inspectionRepository
-      .createQueryBuilder("ins")
+    const query = this.inspectionSessionRepository
+      .createQueryBuilder("session")
       .select([
-        `TO_CHAR(ins.createdAt, '${dateFormat}') as date`,
+        `TO_CHAR(session.createdAt, '${dateFormat}') as date`,
         "COUNT(*) as inspections",
+        "SUM(session.piecesInspected) as piecesInspected",
       ])
-      .innerJoin("ins.lot", "lot")
+      .innerJoin("session.lot", "lot")
       .where("lot.tenantId = :tenantId", { tenantId })
-      .andWhere("ins.createdAt >= :since", { since })
-      .groupBy(`TO_CHAR(ins.createdAt, '${dateFormat}')`)
+      .andWhere("session.createdAt >= :since", { since })
+      .groupBy(`TO_CHAR(session.createdAt, '${dateFormat}')`)
       .orderBy("date", "ASC");
 
     const results = await query.getRawMany();
@@ -149,6 +148,7 @@ export class AnalyticsService {
       data: results.map((row) => ({
         date: row.date,
         inspections: Number(row.inspections) || 0,
+        piecesInspected: Number(row.piecesinspected) || 0,
       })),
     };
   }
@@ -161,18 +161,20 @@ export class AnalyticsService {
     const since = new Date();
     since.setDate(since.getDate() - days);
 
-    const results = await this.defectRepository
+    // Extract defect types from audio transcripts
+    // Since piece_defects don't have defect_type_id, we'll categorize by status
+    const results = await this.pieceDefectRepository
       .createQueryBuilder("defect")
-      .leftJoin("defect.defectType", "type")
-      .innerJoin("defect.inspection", "inspection")
-      .innerJoin("inspection.lot", "lot")
+      .innerJoin("defect.piece", "piece")
+      .innerJoin("piece.session", "session")
+      .innerJoin("session.lot", "lot")
       .select([
-        "COALESCE(type.name, 'Unclassified') as type",
+        "defect.status as type",
         "COUNT(defect.id) as count",
       ])
       .where("lot.tenantId = :tenantId", { tenantId })
       .andWhere("defect.createdAt >= :since", { since })
-      .groupBy("type.name")
+      .groupBy("defect.status")
       .getRawMany();
 
     const totalDefects = results.reduce(
@@ -182,7 +184,7 @@ export class AnalyticsService {
 
     return {
       data: results.map((row) => ({
-        type: row.type,
+        type: row.type === "confirmed" ? "Confirmed Defects" : row.type === "pending_review" ? "Pending Review" : "Rejected",
         count: Number(row.count) || 0,
         percentage:
           totalDefects > 0 ? (Number(row.count || 0) / totalDefects) * 100 : 0,

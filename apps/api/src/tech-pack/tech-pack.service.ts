@@ -4,9 +4,369 @@ import OpenAI from "openai";
 import * as XLSX from "xlsx";
 import { PdfReader } from "pdfreader";
 import { StorageService } from "../storage/storage.service";
+import { File as NodeFile } from "node:buffer";
+import { execSync, spawnSync } from "child_process";
+import * as fs from "fs";
+import * as path from "path";
+import * as os from "os";
+import sharp from "sharp";
+
+// Polyfill File for Node.js < 20
+if (typeof globalThis.File === "undefined") {
+  (globalThis as any).File = NodeFile;
+}
+
+// Check if pdftoppm is available (from poppler-utils)
+let pdftoppmAvailable = false;
+try {
+  execSync("which pdftoppm", { stdio: "ignore" });
+  pdftoppmAvailable = true;
+  console.log("pdftoppm is available for PDF to image conversion");
+} catch (e) {
+  console.log("pdftoppm not available - PDF page image extraction may be limited");
+}
+
+export interface ExtractedImage {
+  base64: string;
+  mimeType: string;
+  pageNumber?: number;
+  description?: string;
+  type?: string; // 'product', 'colorway', 'artwork', 'label', 'construction', 'flatlay', 'other'
+}
+
+/** Region of interest identified in a tech pack page */
+export interface ImageRegion {
+  pageNumber: number;
+  type: 'folding_diagram' | 'hangtag' | 'label' | 'packaging' | 'fabric_swatch' |
+        'construction_detail' | 'artwork' | 'colorway' | 'measurement_diagram' | 'sketch' | 'other';
+  description: string;
+  // Bounding box as percentage of page dimensions (0-100)
+  boundingBox: {
+    x: number;      // Left edge percentage
+    y: number;      // Top edge percentage
+    width: number;  // Width percentage
+    height: number; // Height percentage
+  };
+  // Association info
+  associatedField?: string;  // e.g., 'foldingInstructions[0]', 'hangTags[0].front', 'labels[0]'
+  associatedStep?: number;   // For step-by-step diagrams
+}
+
+// ============================================
+// DEPARTMENT-BASED DATA STRUCTURES
+// ============================================
+
+/** DESIGN DEPARTMENT - Visual assets, colors, artwork */
+export interface DesignDepartmentData {
+  // Visual Assets
+  sketches?: {
+    frontUrl?: string;
+    backUrl?: string;
+    sideUrl?: string;
+  };
+  technicalDrawings?: Array<{
+    view: string; // 'front', 'back', 'detail'
+    imageUrl?: string;       // Cropped image of the technical drawing
+    callouts?: string[];
+  }>;
+
+  // Style Info
+  silhouette?: string;
+  fitType?: string; // 'slim', 'regular', 'relaxed', 'oversized'
+  garmentCategory?: string;
+
+  // Colorways
+  colorways?: Array<{
+    name: string;
+    colorCode?: string;
+    pantone?: string;
+    hex?: string;
+    isMain?: boolean;
+    swatchImageUrl?: string;  // Cropped image of the fabric swatch
+    fabric?: {
+      name: string;
+      weight?: string;
+      finish?: string;
+    };
+    thread?: {
+      color: string;
+      type?: string;
+    };
+  }>;
+
+  // Artwork/Graphics
+  artwork?: Array<{
+    type: string; // 'Print', 'Embroidery', 'Patch', 'Label'
+    placement: string;
+    width?: string;
+    height?: string;
+    colors?: string[];
+    pantones?: string[];
+    technique?: string;
+    artworkImageUrl?: string;  // Cropped image of the artwork/print
+    notes?: string;
+  }>;
+}
+
+/** PATTERN/GRADING DEPARTMENT - Measurements, grading, tolerances */
+export interface PatternDepartmentData {
+  // Base Pattern Info
+  baseSize?: string;
+  measurementUnit?: 'cm' | 'inches';
+
+  // Points of Measure (POMs)
+  pointsOfMeasure?: Array<{
+    code: string; // 'A', 'B', 'CHEST_1'
+    name: string;
+    description?: string;
+    measurementMethod?: string;
+    referencePoint?: string; // 'HPS', 'CB', 'CF'
+  }>;
+
+  // Size Chart
+  sizeChart?: Array<{
+    size: string;
+    measurements: Record<string, number>;
+  }>;
+
+  // Grade Rules
+  gradeRules?: Array<{
+    pom: string;
+    increment: number;
+    incrementLargeSizes?: number; // Different increment for XL+
+    breakPoint?: string; // Size where increment changes
+  }>;
+
+  // Tolerances
+  tolerances?: Record<string, {
+    plus: number;
+    minus: number;
+    critical?: boolean;
+  }>;
+
+  // Size Range
+  sizeRange?: string[];
+}
+
+/** PRODUCTION DEPARTMENT - Construction, stitching, assembly */
+export interface ProductionDepartmentData {
+  // Construction Details
+  constructionDetails?: Array<{
+    area: string;
+    description: string;
+    stitchType?: string;
+    stitchCode?: string;
+    seamsPerInch?: number;
+    needleType?: string;
+    seamAllowance?: string;
+    notes?: string;
+  }>;
+
+  // Fabric Map
+  fabricMap?: Array<{
+    zone: string;
+    fabricType: string; // 'Main', 'Lining', 'Contrast'
+    areas: string[];
+    fabricCode?: string;
+  }>;
+
+  // Assembly Sequence
+  assemblySequence?: Array<{
+    step: number;
+    operation: string;
+    machineType?: string;
+    timeEstimate?: string;
+  }>;
+
+  // Special Operations
+  specialOperations?: Array<{
+    type: string; // 'Washing', 'Dyeing', 'Finishing'
+    description: string;
+    parameters?: Record<string, any>;
+  }>;
+}
+
+/** SOURCING DEPARTMENT - Materials, suppliers, costs */
+export interface SourcingDepartmentData {
+  // Bill of Materials
+  billOfMaterials?: Array<{
+    category: string; // 'Main Fabric', 'Lining', 'Trim', 'Thread', 'Label'
+    itemCode?: string;
+    itemName: string;
+    description?: string;
+    supplier?: string;
+    supplierCode?: string;
+    color?: string;
+    size?: string;
+    quantityPerUnit?: number;
+    unit?: string; // 'yards', 'meters', 'pieces'
+    unitCost?: number;
+    currency?: string;
+    leadTimeDays?: number;
+    moq?: number;
+    swatchImageUrl?: string;  // Cropped image of material swatch
+  }>;
+
+  // Fabric Specifications
+  fabricSpecs?: Array<{
+    fabricCode?: string;
+    fabricName: string;
+    composition: string; // '100% Cotton'
+    weight?: string; // '300 GSM'
+    width?: string;
+    finish?: string;
+    supplier?: string;
+    certifications?: string[];
+    swatchImageUrl?: string;  // Cropped image of fabric swatch
+  }>;
+
+  // Trim Specifications
+  trimSpecs?: Array<{
+    trimCode?: string;
+    trimName: string;
+    type: string; // 'Button', 'Zipper', 'Elastic', 'Drawcord'
+    material?: string;
+    size?: string;
+    color?: string;
+    supplier?: string;
+    imageUrl?: string;  // Cropped image of trim
+  }>;
+}
+
+/** QC DEPARTMENT - Inspection points, tolerances, defect criteria */
+export interface QCDepartmentData {
+  // Inspection Points
+  inspectionPoints?: Array<{
+    pomCode: string;
+    pomName: string;
+    targetValue?: number;
+    tolerancePlus: number;
+    toleranceMinus: number;
+    criticalLevel: 'critical' | 'major' | 'minor';
+    inspectionMethod?: string;
+    defectIfFail?: string;
+  }>;
+
+  // AQL Settings
+  aqlSettings?: {
+    level: string; // '2.5', '4.0'
+    criticalDefects: string[];
+    majorDefects: string[];
+    minorDefects: string[];
+  };
+
+  // Visual Standards
+  visualStandards?: Array<{
+    area: string;
+    requirement: string;
+    acceptanceCriteria?: string;
+  }>;
+
+  // Testing Requirements
+  testingRequirements?: Array<{
+    testType: string;
+    standard?: string; // 'ASTM', 'ISO'
+    requirement: string;
+    frequency?: string;
+  }>;
+}
+
+/** PACKAGING DEPARTMENT - Labels, tags, packaging specs */
+export interface PackagingDepartmentData {
+  // Labels
+  labels?: Array<{
+    type: string; // 'Main Label', 'Care Label', 'Size Label', 'Content Label'
+    width?: string;
+    height?: string;
+    material?: string;
+    placement?: string;
+    content?: string;
+    imageUrl?: string;      // Cropped image of the label
+    colors?: string[];
+  }>;
+
+  // Hang Tags
+  hangTags?: Array<{
+    type?: string;
+    width?: string;
+    height?: string;
+    material?: string;
+    content?: string;
+    frontImageUrl?: string;  // Front side cropped image
+    backImageUrl?: string;   // Back side cropped image
+    attachmentMethod?: string;
+  }>;
+
+  // Care Instructions
+  careInstructions?: {
+    symbols?: string[];
+    instructions?: Array<{
+      language: string;
+      text: string[];
+    }>;
+  };
+
+  // Packaging Specs
+  packaging?: Array<{
+    type: string; // 'Polybag', 'Box', 'Tissue'
+    material?: string;
+    dimensions?: string;
+    printingDetails?: string;
+    quantity?: number;
+    frontImageUrl?: string;  // Front side cropped image
+    backImageUrl?: string;   // Back side cropped image
+  }>;
+
+  // Folding Instructions
+  foldingInstructions?: Array<{
+    step: number;
+    description: string;
+    imageUrl?: string;       // Cropped diagram for this step
+  }>;
+
+  // Carton Specs
+  cartonSpecs?: {
+    unitsPerCarton?: number;
+    cartonDimensions?: string;
+    grossWeight?: string;
+    netWeight?: string;
+  };
+}
+
+// ============================================
+// MAIN EXTRACTION RESULT
+// ============================================
 
 export interface TechPackExtractionResult {
+  // Basic Info (Header)
   styleRef?: string;
+  productName?: string;
+  productType?: string;
+  season?: string;
+  designer?: string;
+  brand?: string;
+
+  // Extracted Images (base64 to be uploaded to S3 later)
+  extractedImages?: ExtractedImage[];
+
+  // Image regions identified for cropping (bounding boxes)
+  imageRegions?: ImageRegion[];
+
+  // Page images with dimensions (for cropping regions)
+  pageImages?: Array<{ pageNumber: number; base64: string; width: number; height: number }>;
+
+  // Department-Organized Data
+  departments?: {
+    design?: DesignDepartmentData;
+    pattern?: PatternDepartmentData;
+    production?: ProductionDepartmentData;
+    sourcing?: SourcingDepartmentData;
+    qc?: QCDepartmentData;
+    packaging?: PackagingDepartmentData;
+  };
+
+  // Legacy flat fields (for backward compatibility)
+  sampleSize?: string;
   materialComposition?: Array<{
     fiber: string;
     percentage: number;
@@ -14,21 +374,104 @@ export interface TechPackExtractionResult {
   }>;
   dyeLot?: string;
   productionQuantity?: number;
-  colorInformation?: {
-    mainColor?: string;
-    colorVariants?: string[];
-    pantoneReferences?: string[];
-  };
+  colorways?: Array<{
+    name: string;
+    pantone?: string;
+    fabric?: { name: string; weight?: string; finish?: string };
+    thread?: { color: string; type?: string };
+    trim?: { description: string; color?: string };
+    isMain?: boolean;
+  }>;
   sizeSpecifications?: Array<{
     size: string;
     measurements: Record<string, number>;
   }>;
-  technicalSpecs?: {
-    fabricWeight?: string;
-    fabricConstruction?: string;
-    washCareInstructions?: string[];
-    finishingDetails?: string[];
-  };
+  measurementTolerances?: Record<string, number>;
+  grading?: Array<{
+    measurement: string;
+    sizes: Record<string, number>;
+  }>;
+  constructionDetails?: Array<{
+    area: string;
+    description: string;
+    stitchType?: string;
+    stitchCode?: string;
+    needleType?: string;
+    seamsPerInch?: number;
+    notes?: string;
+  }>;
+  artwork?: Array<{
+    type: string;
+    placement: string;
+    width?: string;
+    height?: string;
+    colors?: string[];
+    pantones?: string[];
+    technique?: string;
+    imageUrl?: string;  // Cropped image of the artwork
+    notes?: string;
+  }>;
+  fabricMap?: Array<{
+    zone: string;
+    fabricType: string;
+    areas: string[];
+  }>;
+  labels?: Array<{
+    type: string;
+    width?: string;
+    height?: string;
+    material?: string;
+    placement?: string;
+    content?: string;
+    colors?: string[];
+    imageUrl?: string;  // Cropped image of the label
+    notes?: string;
+  }>;
+  hangTags?: Array<{
+    width?: string;
+    height?: string;
+    material?: string;
+    content?: string;
+    colors?: string[];
+    frontImageUrl?: string;  // Front side cropped image
+    backImageUrl?: string;   // Back side cropped image
+    imageUrl?: string;       // Generic image URL
+    notes?: string;
+  }>;
+  packaging?: Array<{
+    type: string;
+    width?: string;
+    height?: string;
+    material?: string;
+    frontImageUrl?: string;  // Front side cropped image
+    backImageUrl?: string;   // Back side cropped image
+    imageUrl?: string;       // Generic image URL
+    notes?: string;
+  }>;
+  foldingInstructions?: Array<{
+    step: number;
+    description: string;
+    imageUrl?: string;  // Cropped diagram for this step
+  }>;
+  careInstructions?: Array<{
+    language: string;
+    instructions: string[];
+  }>;
+  billOfMaterials?: Array<{
+    category: string;
+    description: string;
+    supplier?: string;
+    articleNo?: string;
+    color?: string;
+    size?: string;
+    placement?: string;
+    cost?: number;
+    quantity?: number;
+    swatchImageUrl?: string;  // Cropped image of material swatch
+    notes?: string;
+  }>;
+
+  // Raw data for debugging
   rawExtractedData?: Record<string, any>;
 }
 
@@ -143,6 +586,91 @@ Be thorough in extracting ALL measurements mentioned in the document.`;
     return this.formatExtractionResult(extractedData);
   }
 
+  /**
+   * Convert PDF pages to images using pdftoppm (from poppler-utils)
+   */
+  private async convertPdfPagesToImages(buffer: Buffer, dpi: number = 150): Promise<Array<{ pageNumber: number; base64: string; width: number; height: number }>> {
+    const images: Array<{ pageNumber: number; base64: string; width: number; height: number }> = [];
+
+    // Check if pdftoppm is available
+    if (!pdftoppmAvailable) {
+      console.log("pdftoppm not available, skipping PDF page image conversion");
+      return images;
+    }
+
+    // Create a temp directory for the conversion
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-'));
+    const pdfPath = path.join(tempDir, 'input.pdf');
+    const outputPrefix = path.join(tempDir, 'page');
+
+    try {
+      // Write PDF buffer to temp file
+      fs.writeFileSync(pdfPath, buffer);
+
+      // Convert PDF to PNG images using pdftoppm
+      // -png: output PNG format
+      // -r: resolution (DPI)
+      const result = spawnSync('pdftoppm', [
+        '-png',
+        '-r', dpi.toString(),
+        pdfPath,
+        outputPrefix,
+      ], { timeout: 60000 });
+
+      if (result.error) {
+        console.error('pdftoppm error:', result.error);
+        return images;
+      }
+
+      if (result.status !== 0) {
+        console.error('pdftoppm failed:', result.stderr?.toString());
+        return images;
+      }
+
+      // Read all generated PNG files
+      const files = fs.readdirSync(tempDir)
+        .filter(f => f.startsWith('page-') && f.endsWith('.png'))
+        .sort();
+
+      console.log(`PDF converted to ${files.length} images`);
+
+      for (let i = 0; i < files.length; i++) {
+        const filePath = path.join(tempDir, files[i]);
+        const imageBuffer = fs.readFileSync(filePath);
+        const base64 = imageBuffer.toString('base64');
+
+        // Get image dimensions by reading PNG header
+        // PNG signature + IHDR chunk contains width (bytes 16-19) and height (bytes 20-23)
+        const width = imageBuffer.readUInt32BE(16);
+        const height = imageBuffer.readUInt32BE(20);
+
+        images.push({
+          pageNumber: i + 1,
+          base64,
+          width,
+          height,
+        });
+
+        console.log(`Loaded page ${i + 1}/${files.length} (${width}x${height})`);
+      }
+    } catch (error) {
+      console.error('Error converting PDF to images:', error);
+    } finally {
+      // Cleanup temp files
+      try {
+        const tempFiles = fs.readdirSync(tempDir);
+        for (const file of tempFiles) {
+          fs.unlinkSync(path.join(tempDir, file));
+        }
+        fs.rmdirSync(tempDir);
+      } catch (cleanupError) {
+        console.error('Cleanup error:', cleanupError);
+      }
+    }
+
+    return images;
+  }
+
   private async extractFromPDFDirect(
     buffer: Buffer,
     fileName: string,
@@ -152,101 +680,437 @@ Be thorough in extracting ALL measurements mentioned in the document.`;
     }
 
     try {
-      // Extract text from PDF
-      console.log(`Processing PDF: ${fileName}, size: ${buffer.length} bytes`);
-      const textContent = await this.extractTextFromPDF(buffer);
+      console.log(`Processing PDF with Vision: ${fileName}, size: ${buffer.length} bytes`);
 
-      console.log(`Extracted ${textContent.length} characters from PDF`);
+      // Convert PDF pages to images using pdftoppm
+      const pageImages = await this.convertPdfPagesToImages(buffer, 150); // 150 DPI for good quality
 
-      if (!textContent || textContent.trim().length < 10) {
-        throw new Error("Could not extract meaningful text from PDF. The PDF might be image-based or corrupted.");
+      // If pdftoppm is not available, fall back to text-based extraction with Assistants API
+      if (pageImages.length === 0) {
+        console.log("pdftoppm not available, falling back to Assistants API extraction...");
+        return await this.extractFromPDFWithAssistants(buffer, fileName);
       }
 
-      const prompt = `You are a tech pack analyzer for garment manufacturing. Extract the following information from this tech pack PDF document:
+      console.log(`Converted ${pageImages.length} pages to images, analyzing with GPT-4 Vision...`);
 
-1. Style Reference/SKU
-2. Product Name/Description
-3. Season
-4. Factory Name
-5. Material Composition (fiber types and percentages for each component like Body, Lining, Trim)
-6. Dye Lot information
-7. Production Quantities
-8. Color Information (main colors, variants, Pantone references)
-9. Size Specifications and Measurements (CRITICAL - extract ALL measurements for EVERY size)
-10. Fabric Weight
-11. Wash Care Instructions
-12. Certifications
+      // Prepare image content for GPT-4 Vision
+      // Process in batches to avoid token limits (max ~4-5 pages per request)
+      const batchSize = 4;
+      const allExtractedData: any[] = [];
 
-Tech Pack Content:
-${textContent}
+      for (let i = 0; i < pageImages.length; i += batchSize) {
+        const batch = pageImages.slice(i, i + batchSize);
+        const batchNum = Math.floor(i / batchSize) + 1;
+        const totalBatches = Math.ceil(pageImages.length / batchSize);
 
-Return a JSON object with the extracted information in this EXACT format:
+        console.log(`Processing batch ${batchNum}/${totalBatches} (pages ${i + 1}-${Math.min(i + batchSize, pageImages.length)})`);
+
+        const imageContent: any[] = batch.map((img, idx) => ({
+          type: "image_url",
+          image_url: {
+            url: `data:image/png;base64,${img.base64}`,
+            detail: "high",
+          },
+        }));
+
+        const prompt = `You are an expert tech pack analyzer for garment manufacturing. Analyze these tech pack pages (pages ${i + 1}-${Math.min(i + batchSize, pageImages.length)} of ${pageImages.length}).
+
+INSTRUCTIONS:
+1. Extract ALL information visible in the document - be thorough and comprehensive
+2. Translate ALL descriptive text to PORTUGUESE (Brazilian Portuguese)
+3. Keep codes/references unchanged (SKUs, article numbers, Pantone codes, stitch codes, size labels like XS/S/M/L/XL/XXL or numeric 36/38/40/42)
+4. Keep numeric measurements exactly as shown with their units
+
+Return a JSON object. Use these field names when applicable, but extract ANY additional data you find:
+
 {
-  "styleReference": "string",
-  "productName": "string",
-  "season": "string",
-  "factoryName": "string",
-  "dyeLot": "string",
-  "fabricWeight": "string",
-  "productionQuantity": number,
-  "materialComposition": [
-    {
-      "component": "Body/Lining/etc",
-      "composition": "65% Cotton, 35% Polyester"
-    }
-  ],
-  "colors": [
-    {
-      "name": "Navy Blue",
-      "pantone": "19-4023 TCX"
-    }
-  ],
+  "styleReference": "style number, SKU, article number, or product code",
+  "productName": "product name or description",
+  "productType": "type of garment",
+  "season": "season or collection",
+  "brand": "brand name",
+  "designer": "designer, factory, or manufacturer name",
+
+  "colorways": [{"name": "nome da cor", "colorCode": "código", "pantone": "código Pantone", "hex": "#RRGGBB", "fabric": "cor do tecido", "thread": "cor da linha"}],
+
+  "sizeRange": ["all size labels found in the document"],
   "sizeSpecifications": [
+    {"size": "size label exactly as shown", "measurements": {"measurement_name": value, ...}}
+  ],
+  "measurementUnit": "unit used (inches, cm, mm)",
+
+  "constructionDetails": [
+    {"area": "área da peça", "description": "descrição completa", "stitchType": "tipo de ponto", "stitchCode": "código", "seam": "tipo de costura", "notes": "observações"}
+  ],
+
+  "billOfMaterials": [
     {
-      "size": "S",
-      "measurements": {
-        "chest": 96,
-        "length": 68,
-        "sleeve": 60,
-        "shoulder": 44
-      }
+      "category": "categoria do material (Fabric, Trim, Label, Hardware, Thread, Elastic, Zipper, Button, Interlining, Packaging, etc.)",
+      "itemName": "nome do item",
+      "itemCode": "código, artigo, ou referência",
+      "supplier": "fornecedor",
+      "composition": "composição do material",
+      "color": "cor",
+      "pantone": "código Pantone",
+      "size": "dimensões ou tamanho",
+      "placement": "posição na peça",
+      "quantity": "quantidade",
+      "cost": "custo",
+      "notes": "notas ou observações"
     }
   ],
-  "washCareInstructions": ["instruction1", "instruction2"],
-  "certifications": ["cert1", "cert2"]
+
+  "materialComposition": [{"fiber": "tipo de fibra", "percentage": número}],
+
+  "labels": [{"type": "tipo de etiqueta", "placement": "posição", "material": "material", "content": "conteúdo completo", "size": "dimensões"}],
+  "hangTags": [{"type": "tipo", "material": "material", "content": "conteúdo", "size": "dimensões", "attachment": "forma de fixação"}],
+  "foldingInstructions": [{"step": número, "description": "descrição do passo", "imageRef": "referência à imagem se houver"}],
+  "careInstructions": ["todas as instruções de cuidado traduzidas para português"],
+  "packaging": [{"type": "tipo de embalagem", "material": "material", "dimensions": "dimensões", "quantity": "quantidade"}],
+
+  "artwork": [{"type": "tipo de arte", "placement": "posição", "technique": "técnica (serigrafia, bordado, transfer, etc.)", "colors": ["cores utilizadas"], "dimensions": "dimensões"}],
+
+  "imageRegions": [
+    {
+      "pageNumber": ${i + 1},
+      "type": "tipo de imagem (sketch, measurement_diagram, label, hangtag, artwork, folding_diagram, fabric_swatch, color_reference, pattern, etc.)",
+      "description": "descrição do que mostra a imagem",
+      "boundingBox": {"x": 0, "y": 0, "width": 100, "height": 100},
+      "associatedField": "campo relacionado como foldingInstructions[0]"
+    }
+  ],
+
+  "additionalInfo": {}
 }
 
-Be thorough and extract ALL information present in the document. If a field is not found, omit it from the JSON.`;
+CRITICAL EXTRACTION RULES:
+1. SIZE SPECIFICATIONS: Extract EVERY size found (XS, S, M, L, XL, XXL, or numeric sizes like 36, 38, 40, 42, 44). Include ALL measurements for EACH size - do not skip any sizes or measurements visible in the document.
+2. BILL OF MATERIALS: Extract EVERY item from trim lists, material lists, BOM tables. Use the actual category names shown in the document.
+3. MEASUREMENTS: Use the exact measurement names as shown in the document (e.g., "waist", "cintura", "front rise", "gancho frente", "inseam", "entrepernas").
+4. BE THOROUGH: If you see data that doesn't fit the standard fields, add it to "additionalInfo".
+5. TRANSLATIONS: Translate descriptions, notes, and instructions to Portuguese. Keep technical codes, brand names, and size labels unchanged.
+6. Include only fields that have actual data - do not include empty arrays or null values.`;
 
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: "You are a technical expert in garment manufacturing and tech pack analysis. Extract complete and accurate structured data from tech pack documents.",
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0,
-        max_tokens: 4096,
-      });
+        const completion = await this.openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "text", text: prompt },
+                ...imageContent,
+              ],
+            },
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0,
+          max_tokens: 4096,
+        });
 
-      const extractedData = JSON.parse(
-        response.choices[0]?.message?.content || "{}",
-      );
+        const responseText = completion.choices[0]?.message?.content || "{}";
 
-      console.log('OpenAI PDF extraction result:', JSON.stringify(extractedData, null, 2));
+        try {
+          const batchData = JSON.parse(responseText);
+          allExtractedData.push(batchData);
+          console.log(`Batch ${batchNum} extracted:`, Object.keys(batchData).length, 'fields');
+        } catch (parseError) {
+          console.error(`Error parsing batch ${batchNum} response:`, parseError);
+        }
+      }
 
-      // Return the properly formatted result
-      return this.formatExtractionResult(extractedData);
+      // Merge all batch results
+      const mergedData = this.mergeBatchResults(allExtractedData);
+
+      // Add page images to the result (for region cropping)
+      mergedData.pageImages = pageImages;
+
+      // Add extracted images (full page images)
+      mergedData.extractedImages = pageImages.map(img => ({
+        base64: img.base64,
+        mimeType: 'image/png',
+        pageNumber: img.pageNumber,
+        width: img.width,
+        height: img.height,
+      }));
+
+      console.log('Final merged extraction result:', JSON.stringify({
+        ...mergedData,
+        extractedImages: `[${mergedData.extractedImages?.length || 0} images]`,
+      }, null, 2));
+
+      return this.formatExtractionResult(mergedData);
     } catch (error) {
-      console.error('PDF extraction error:', error);
+      console.error('PDF Vision extraction error:', error);
       throw new Error(`Failed to extract tech pack data from PDF: ${error.message}`);
     }
+  }
+
+  /**
+   * Merge results from multiple batch extractions
+   */
+  private mergeBatchResults(batches: any[]): any {
+    if (batches.length === 0) return {};
+    if (batches.length === 1) return batches[0];
+
+    const merged: any = {};
+
+    // Merge header fields - take first non-empty value
+    merged.header = {};
+    const headerFields = ['styleReference', 'productName', 'productType', 'season', 'brand', 'designer'];
+    for (const field of headerFields) {
+      for (const batch of batches) {
+        const value = batch.header?.[field] || batch[field];
+        if (value) {
+          merged.header[field] = value;
+          break;
+        }
+      }
+    }
+
+    // Legacy simple fields - take first non-empty value (for backward compatibility)
+    const simpleFields = ['styleReference', 'productName', 'productType', 'season', 'designer', 'sampleSize'];
+    for (const field of simpleFields) {
+      for (const batch of batches) {
+        if (batch[field]) {
+          merged[field] = batch[field];
+          break;
+        }
+      }
+    }
+
+    // Merge department data
+    this.mergeDepartments(batches, merged);
+
+    // Legacy array fields - merge and deduplicate (for backward compatibility)
+    // Also include imageRegions for cropping visual elements
+    const arrayFields = [
+      'sizeRange', 'colorways', 'sizeSpecifications', 'constructionDetails',
+      'artwork', 'fabricMap', 'labels', 'hangTags', 'packaging',
+      'careInstructions', 'billOfMaterials', 'materialComposition', 'pageContents',
+      'imageRegions', 'foldingInstructions'
+    ];
+
+    for (const field of arrayFields) {
+      const allItems: any[] = [];
+      for (const batch of batches) {
+        if (Array.isArray(batch[field])) {
+          allItems.push(...batch[field]);
+        }
+      }
+      if (allItems.length > 0) {
+        // Simple deduplication based on JSON string
+        const seen = new Set<string>();
+        merged[field] = allItems.filter(item => {
+          const key = JSON.stringify(item);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      }
+    }
+
+    // Object fields - merge (deep merge for nested objects)
+    const objectFields = ['measurementTolerances', 'additionalInfo', 'grading'];
+    for (const field of objectFields) {
+      merged[field] = {};
+      for (const batch of batches) {
+        if (batch[field] && typeof batch[field] === 'object' && !Array.isArray(batch[field])) {
+          Object.assign(merged[field], batch[field]);
+        }
+      }
+      if (Object.keys(merged[field]).length === 0) {
+        delete merged[field];
+      }
+    }
+
+    return merged;
+  }
+
+  /**
+   * Merge department data from multiple batch extractions
+   */
+  private mergeDepartments(batches: any[], merged: any): void {
+    const departments = ['designDepartment', 'patternDepartment', 'productionDepartment',
+                         'sourcingDepartment', 'qcDepartment', 'packagingDepartment'];
+
+    for (const dept of departments) {
+      const deptData: any = {};
+
+      for (const batch of batches) {
+        if (!batch[dept]) continue;
+
+        // Merge each field in the department
+        for (const [key, value] of Object.entries(batch[dept])) {
+          if (value === null || value === undefined) continue;
+
+          if (Array.isArray(value)) {
+            // Merge arrays with deduplication
+            if (!deptData[key]) {
+              deptData[key] = [];
+            }
+            const seen = new Set(deptData[key].map((item: any) => JSON.stringify(item)));
+            for (const item of value) {
+              const itemKey = JSON.stringify(item);
+              if (!seen.has(itemKey)) {
+                seen.add(itemKey);
+                deptData[key].push(item);
+              }
+            }
+          } else if (typeof value === 'object') {
+            // Merge objects deeply
+            if (!deptData[key]) {
+              deptData[key] = {};
+            }
+            Object.assign(deptData[key], value);
+          } else {
+            // Simple fields - take first non-empty value
+            if (!deptData[key]) {
+              deptData[key] = value;
+            }
+          }
+        }
+      }
+
+      if (Object.keys(deptData).length > 0) {
+        merged[dept] = deptData;
+      }
+    }
+  }
+
+  /**
+   * Fallback method using OpenAI Assistants API for text-based extraction
+   * Used when canvas is not available for Vision-based extraction
+   */
+  private async extractFromPDFWithAssistants(
+    buffer: Buffer,
+    fileName: string,
+  ): Promise<TechPackExtractionResult> {
+    if (!this.openai) {
+      throw new Error("OpenAI API key not configured");
+    }
+
+    // Extract text from PDF
+    let textContent = "";
+    try {
+      textContent = await this.extractTextFromPDF(buffer);
+      console.log(`Extracted ${textContent.length} characters from PDF text`);
+    } catch (e) {
+      console.log("Could not extract text from PDF");
+    }
+
+    // Upload file to OpenAI
+    const file = await this.openai.files.create({
+      file: await OpenAI.toFile(buffer, fileName, { type: "application/pdf" }),
+      purpose: "assistants",
+    });
+
+    console.log(`Uploaded PDF to OpenAI: ${file.id}`);
+
+    // Create an assistant
+    const assistant = await this.openai.beta.assistants.create({
+      name: "Tech Pack Analyzer",
+      instructions: `You are an expert tech pack analyzer for garment manufacturing. Analyze tech pack PDF documents thoroughly and extract all information.
+ALWAYS respond with a valid JSON object containing the extracted data.`,
+      model: "gpt-4o",
+      tools: [{ type: "file_search" }],
+    });
+
+    // Create thread with file
+    const thread = await this.openai.beta.threads.create({
+      messages: [
+        {
+          role: "user",
+          content: `Analyze this tech pack PDF thoroughly and extract ALL information into a JSON object with these fields:
+- styleReference, productName, productType, season, designer, sampleSize, sizeRange
+- colorways (array with name, pantone, hex, fabric, thread details)
+- sizeSpecifications (array with size and measurements object)
+- measurementTolerances, grading
+- constructionDetails (array with area, description, stitchType, stitchCode, notes)
+- artwork (array with type, placement, dimensions, colors, pantones, technique)
+- fabricMap (array with zone, fabricType, areas)
+- labels, hangTags, packaging (arrays with type, dimensions, material, placement)
+- careInstructions (array with language and instructions array)
+- billOfMaterials (array with category, item, description, supplier, color, quantity)
+- materialComposition (array with fiber and percentage)
+
+Be thorough - extract EVERY measurement, color, and detail.
+
+${textContent ? `\nExtracted text:\n${textContent.substring(0, 8000)}` : ""}`,
+          attachments: [
+            {
+              file_id: file.id,
+              tools: [{ type: "file_search" }],
+            },
+          ],
+        },
+      ],
+    });
+
+    const threadId = thread.id;
+    if (!threadId) {
+      throw new Error(`Thread creation returned no id`);
+    }
+
+    let run = await this.openai.beta.threads.runs.create(threadId, {
+      assistant_id: assistant.id,
+    });
+
+    // Wait for completion
+    const startTime = Date.now();
+    const timeout = 120000;
+
+    while (run.status === "in_progress" || run.status === "queued") {
+      if (Date.now() - startTime > timeout) {
+        throw new Error("PDF processing timeout");
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      run = await this.openai.beta.threads.runs.retrieve(run.id, { thread_id: threadId });
+    }
+
+    if (run.status !== "completed") {
+      throw new Error(`Run failed with status: ${run.status}`);
+    }
+
+    // Get messages
+    const messages = await this.openai.beta.threads.messages.list(threadId);
+    const assistantMessage = messages.data.find(m => m.role === "assistant");
+
+    // Cleanup
+    try {
+      await this.openai.beta.assistants.delete(assistant.id);
+      await this.openai.files.delete(file.id);
+    } catch (e) {
+      console.log("Cleanup error:", e);
+    }
+
+    if (!assistantMessage) {
+      throw new Error("No response from assistant");
+    }
+
+    let responseText = "";
+    for (const content of assistantMessage.content) {
+      if (content.type === "text") {
+        responseText += content.text.value;
+      }
+    }
+
+    // Parse JSON
+    let jsonStr = responseText;
+    const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      jsonStr = jsonMatch[1];
+    }
+
+    const jsonStartIdx = jsonStr.indexOf("{");
+    const jsonEndIdx = jsonStr.lastIndexOf("}");
+    if (jsonStartIdx !== -1 && jsonEndIdx !== -1) {
+      jsonStr = jsonStr.substring(jsonStartIdx, jsonEndIdx + 1);
+    }
+
+    const extractedData = JSON.parse(jsonStr);
+    console.log('Assistants API extraction result:', JSON.stringify(extractedData, null, 2).substring(0, 500));
+
+    return this.formatExtractionResult(extractedData);
   }
 
   private async extractFromExcel(
@@ -342,46 +1206,226 @@ Return as JSON with size specifications in this format:
   }
 
   private formatExtractionResult(data: any): TechPackExtractionResult {
-    // First, ensure the raw data is properly structured for the UI
-    const structuredData = {
-      styleReference: data.styleReference || data.styleRef || data.StyleReference_SKU || data.sku,
-      productName: data.productName || data.productDescription,
-      season: data.season,
-      factoryName: data.factoryName || data.factory,
+    // Extract header data (from new format or legacy flat fields)
+    const header = data.header || {};
+
+    // Build comprehensive extraction result
+    const result: TechPackExtractionResult = {
+      // Basic Info (from header or legacy flat fields)
+      styleRef: header.styleReference || data.styleReference || data.styleRef || data.StyleReference_SKU || data.sku,
+      productName: header.productName || data.productName || data.productDescription,
+      productType: header.productType || data.productType,
+      season: header.season || data.season,
+      designer: header.designer || data.designer || data.factoryName || data.factory,
+      brand: header.brand || data.brand,
+      sampleSize: data.sampleSize,
+
+      // Extracted Images from PDF pages
+      extractedImages: data.extractedImages,
+
+      // Image regions for cropping (from GPT-4 Vision detection)
+      imageRegions: data.imageRegions,
+
+      // Page images with dimensions (for cropping)
+      pageImages: data.pageImages,
+
+      // Department-Organized Data (new structure)
+      departments: this.formatDepartments(data),
+
+      // Legacy flat fields (for backward compatibility)
+      materialComposition: this.parseMaterialComposition(data),
       dyeLot: data.dyeLot || data.DyeLotInformation?.BodyColor || data.dyeLotNumber,
-      fabricWeight: data.fabricWeight || data.TechnicalSpecifications?.FabricWeight || data.technicalSpecs?.fabricWeight,
       productionQuantity: this.parseNumber(data.productionQuantity) || this.calculateTotalFromSizes(data.ProductionQuantities || data.productionQuantities),
-      materialComposition: this.formatMaterialCompositionForUI(data),
-      colors: this.formatColorsForUI(data),
-      sizeSpecifications: this.formatSizeSpecificationsForUI(data),
-      washCareInstructions: this.formatWashCareForUI(data),
-      certifications: data.certifications || [],
-      technicalSpecs: data.technicalSpecs || {},
+
+      // Colors (from designDepartment or legacy)
+      colorways: data.designDepartment?.colorways || data.colorways || this.formatColorwaysFromColors(data),
+
+      // Size & Measurements (from patternDepartment or legacy)
+      sizeSpecifications: data.patternDepartment?.sizeChart || this.parseSizeSpecifications(data),
+      measurementTolerances: data.measurementTolerances,
+      grading: data.grading,
+
+      // Construction (from productionDepartment or legacy)
+      constructionDetails: data.productionDepartment?.constructionDetails || data.constructionDetails,
+
+      // Artwork (from designDepartment or legacy)
+      artwork: data.designDepartment?.artwork || data.artwork,
+
+      // Fabric Map (from productionDepartment or legacy)
+      fabricMap: data.productionDepartment?.fabricMap || data.fabricMap,
+
+      // Labels & Packaging (from packagingDepartment or legacy)
+      labels: data.packagingDepartment?.labels || data.labels,
+      hangTags: data.packagingDepartment?.hangTags || data.hangTags,
+      packaging: data.packagingDepartment?.packaging || data.packaging,
+      foldingInstructions: data.packagingDepartment?.foldingInstructions || data.foldingInstructions,
+
+      // Care & BOM (from packagingDepartment/sourcingDepartment or legacy)
+      careInstructions: this.formatCareInstructionsFromPackaging(data) || data.careInstructions || this.formatCareInstructionsFromWashCare(data),
+      billOfMaterials: data.sourcingDepartment?.billOfMaterials || data.billOfMaterials,
+
+      // Raw data for UI (include everything, but exclude large base64 images)
+      rawExtractedData: {
+        ...data,
+        extractedImages: data.extractedImages?.length ? `[${data.extractedImages.length} images]` : undefined,
+      },
     };
 
-    return {
-      styleRef: structuredData.styleReference,
-      materialComposition: this.parseMaterialComposition(data),
-      dyeLot: structuredData.dyeLot,
-      productionQuantity: structuredData.productionQuantity,
-      colorInformation: {
-        mainColor: data.mainColor || data.color,
-        colorVariants: data.colorVariants || data.colors || [],
-        pantoneReferences: data.pantoneReferences || data.pantones || [],
-      },
-      sizeSpecifications: this.parseSizeSpecifications(data),
-      technicalSpecs: {
-        fabricWeight: structuredData.fabricWeight,
-        fabricConstruction: data.fabricConstruction || data.technicalSpecs?.fabricConstruction,
-        washCareInstructions: Array.isArray(data.washCare)
-          ? data.washCare
-          : data.washCareInstructions || [],
-        finishingDetails: Array.isArray(data.finishing)
-          ? data.finishing
-          : data.finishingDetails || [],
-      },
-      rawExtractedData: structuredData, // Use the structured data for the UI
-    };
+    // Remove undefined values
+    Object.keys(result).forEach(key => {
+      if (result[key as keyof TechPackExtractionResult] === undefined) {
+        delete result[key as keyof TechPackExtractionResult];
+      }
+    });
+
+    return result;
+  }
+
+  /**
+   * Format department data from GPT-4 extraction into structured interface
+   */
+  private formatDepartments(data: any): TechPackExtractionResult['departments'] {
+    const departments: TechPackExtractionResult['departments'] = {};
+
+    // Design Department
+    if (data.designDepartment) {
+      departments.design = {
+        silhouette: data.designDepartment.silhouette,
+        fitType: data.designDepartment.fitType,
+        garmentCategory: data.designDepartment.garmentCategory,
+        colorways: data.designDepartment.colorways,
+        artwork: data.designDepartment.artwork,
+        sketches: data.designDepartment.sketches,
+        technicalDrawings: data.designDepartment.technicalDrawings,
+      };
+      this.cleanUndefinedFields(departments.design);
+    }
+
+    // Pattern/Grading Department
+    if (data.patternDepartment) {
+      departments.pattern = {
+        baseSize: data.patternDepartment.baseSize,
+        measurementUnit: data.patternDepartment.measurementUnit,
+        sizeRange: data.patternDepartment.sizeRange,
+        pointsOfMeasure: data.patternDepartment.pointsOfMeasure,
+        sizeChart: data.patternDepartment.sizeChart,
+        gradeRules: data.patternDepartment.gradeRules,
+        tolerances: data.patternDepartment.tolerances,
+      };
+      this.cleanUndefinedFields(departments.pattern);
+    }
+
+    // Production Department
+    if (data.productionDepartment) {
+      departments.production = {
+        constructionDetails: data.productionDepartment.constructionDetails,
+        fabricMap: data.productionDepartment.fabricMap,
+        assemblySequence: data.productionDepartment.assemblySequence,
+        specialOperations: data.productionDepartment.specialOperations,
+      };
+      this.cleanUndefinedFields(departments.production);
+    }
+
+    // Sourcing Department
+    if (data.sourcingDepartment) {
+      departments.sourcing = {
+        billOfMaterials: data.sourcingDepartment.billOfMaterials,
+        fabricSpecs: data.sourcingDepartment.fabricSpecs,
+        trimSpecs: data.sourcingDepartment.trimSpecs,
+      };
+      this.cleanUndefinedFields(departments.sourcing);
+    }
+
+    // QC Department
+    if (data.qcDepartment) {
+      departments.qc = {
+        inspectionPoints: data.qcDepartment.inspectionPoints,
+        aqlSettings: data.qcDepartment.aqlSettings,
+        visualStandards: data.qcDepartment.visualStandards,
+        testingRequirements: data.qcDepartment.testingRequirements,
+      };
+      this.cleanUndefinedFields(departments.qc);
+    }
+
+    // Packaging Department
+    if (data.packagingDepartment) {
+      departments.packaging = {
+        labels: data.packagingDepartment.labels,
+        hangTags: data.packagingDepartment.hangTags,
+        careInstructions: data.packagingDepartment.careInstructions,
+        packaging: data.packagingDepartment.packaging,
+        foldingInstructions: data.packagingDepartment.foldingInstructions,
+        cartonSpecs: data.packagingDepartment.cartonSpecs,
+      };
+      this.cleanUndefinedFields(departments.packaging);
+    }
+
+    // Only return departments if there's data
+    return Object.keys(departments).length > 0 ? departments : undefined;
+  }
+
+  /**
+   * Remove undefined fields from an object
+   */
+  private cleanUndefinedFields(obj: any): void {
+    for (const key of Object.keys(obj)) {
+      if (obj[key] === undefined || obj[key] === null) {
+        delete obj[key];
+      } else if (Array.isArray(obj[key]) && obj[key].length === 0) {
+        delete obj[key];
+      } else if (typeof obj[key] === 'object' && !Array.isArray(obj[key]) && Object.keys(obj[key]).length === 0) {
+        delete obj[key];
+      }
+    }
+  }
+
+  /**
+   * Format care instructions from packaging department data
+   */
+  private formatCareInstructionsFromPackaging(data: any): TechPackExtractionResult['careInstructions'] {
+    const packagingCare = data.packagingDepartment?.careInstructions;
+    if (!packagingCare) return undefined;
+
+    // If already in the legacy format, return as-is
+    if (Array.isArray(packagingCare)) {
+      return packagingCare;
+    }
+
+    // Convert from new structure
+    const result: TechPackExtractionResult['careInstructions'] = [];
+
+    if (packagingCare.instructions && Array.isArray(packagingCare.instructions)) {
+      for (const instr of packagingCare.instructions) {
+        result.push({
+          language: instr.language || 'English',
+          instructions: Array.isArray(instr.text) ? instr.text : [instr.text],
+        });
+      }
+    }
+
+    return result.length > 0 ? result : undefined;
+  }
+
+  private formatColorwaysFromColors(data: any): TechPackExtractionResult['colorways'] {
+    // Convert old color format to new colorways format
+    const colors = data.colors || this.formatColorsForUI(data);
+    if (!colors || colors.length === 0) return undefined;
+
+    return colors.map((color: any, index: number) => ({
+      name: color.name || color,
+      pantone: color.pantone,
+      isMain: index === 0,
+    }));
+  }
+
+  private formatCareInstructionsFromWashCare(data: any): TechPackExtractionResult['careInstructions'] {
+    const washCare = this.formatWashCareForUI(data);
+    if (!washCare || washCare.length === 0) return undefined;
+
+    return [{
+      language: 'English',
+      instructions: washCare,
+    }];
   }
 
   private formatMaterialCompositionForUI(data: any): any[] {
@@ -664,5 +1708,299 @@ Return as JSON with size specifications in this format:
         }
       });
     });
+  }
+
+  /**
+   * Download an image from URL and upload to S3
+   */
+  async downloadAndUploadImage(
+    imageUrl: string,
+    tenantId: string,
+    techPackId: string,
+    imageIndex: number,
+  ): Promise<{
+    url: string;
+    key: string;
+  } | null> {
+    try {
+      console.log(`Downloading image from: ${imageUrl}`);
+
+      const response = await fetch(imageUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to download image: ${response.status}`);
+      }
+
+      const contentType = response.headers.get("content-type") || "image/png";
+      const extension = contentType.includes("jpeg") || contentType.includes("jpg") ? "jpg" : "png";
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      const key = `tech-packs/${tenantId}/${techPackId}/image-${imageIndex}.${extension}`;
+
+      await this.storageService.uploadFileWithKey(
+        key,
+        buffer,
+        contentType,
+        "photos",
+      );
+
+      const url = await this.storageService.getPresignedDownloadUrl(key, "photos");
+      console.log(`Uploaded image to ${key}`);
+
+      return { url, key };
+    } catch (error) {
+      console.error(`Error downloading/uploading image:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Upload base64 image to S3
+   */
+  async uploadBase64Image(
+    base64Data: string,
+    mimeType: string,
+    tenantId: string,
+    techPackId: string,
+    imageIndex: number,
+  ): Promise<{
+    url: string;
+    key: string;
+  } | null> {
+    try {
+      // Remove data URL prefix if present
+      const base64Clean = base64Data.replace(/^data:image\/\w+;base64,/, "");
+      const buffer = Buffer.from(base64Clean, "base64");
+
+      const extension = mimeType.includes("jpeg") || mimeType.includes("jpg") ? "jpg" : "png";
+      const key = `tech-packs/${tenantId}/${techPackId}/image-${imageIndex}.${extension}`;
+
+      await this.storageService.uploadFileWithKey(
+        key,
+        buffer,
+        mimeType,
+        "photos",
+      );
+
+      const url = await this.storageService.getPresignedDownloadUrl(key, "photos");
+      console.log(`Uploaded base64 image to ${key}`);
+
+      return { url, key };
+    } catch (error) {
+      console.error(`Error uploading base64 image:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Crop a region from an image using bounding box percentages
+   * @param imageBase64 Base64 encoded image
+   * @param boundingBox Bounding box as percentages (0-100)
+   * @param imageWidth Original image width in pixels
+   * @param imageHeight Original image height in pixels
+   * @returns Cropped image as base64
+   */
+  async cropImageRegion(
+    imageBase64: string,
+    boundingBox: { x: number; y: number; width: number; height: number },
+    imageWidth: number,
+    imageHeight: number,
+  ): Promise<string | null> {
+    try {
+      const buffer = Buffer.from(imageBase64, 'base64');
+
+      // Convert percentage to pixels
+      const left = Math.round((boundingBox.x / 100) * imageWidth);
+      const top = Math.round((boundingBox.y / 100) * imageHeight);
+      const width = Math.round((boundingBox.width / 100) * imageWidth);
+      const height = Math.round((boundingBox.height / 100) * imageHeight);
+
+      // Validate dimensions
+      const safeLeft = Math.max(0, Math.min(left, imageWidth - 1));
+      const safeTop = Math.max(0, Math.min(top, imageHeight - 1));
+      const safeWidth = Math.min(width, imageWidth - safeLeft);
+      const safeHeight = Math.min(height, imageHeight - safeTop);
+
+      if (safeWidth < 10 || safeHeight < 10) {
+        console.log('Region too small to crop:', { safeWidth, safeHeight });
+        return null;
+      }
+
+      const croppedBuffer = await sharp(buffer)
+        .extract({
+          left: safeLeft,
+          top: safeTop,
+          width: safeWidth,
+          height: safeHeight,
+        })
+        .png()
+        .toBuffer();
+
+      return croppedBuffer.toString('base64');
+    } catch (error) {
+      console.error('Error cropping image region:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Process image regions: crop and upload to S3
+   * @param pageImages Array of page images with base64 and dimensions
+   * @param imageRegions Array of detected image regions with bounding boxes
+   * @param tenantId Tenant ID for S3 path
+   * @param techPackId Tech Pack ID for S3 path
+   * @returns Map of associatedField to uploaded image URL
+   */
+  async processImageRegions(
+    pageImages: Array<{ pageNumber: number; base64: string; width: number; height: number }>,
+    imageRegions: ImageRegion[],
+    tenantId: string,
+    techPackId: string,
+  ): Promise<Map<string, string>> {
+    const fieldToUrlMap = new Map<string, string>();
+
+    if (!imageRegions || imageRegions.length === 0) {
+      console.log('No image regions to process');
+      return fieldToUrlMap;
+    }
+
+    console.log(`Processing ${imageRegions.length} image regions...`);
+
+    let imageIndex = 0;
+    for (const region of imageRegions) {
+      // Find the page image for this region
+      const pageImage = pageImages.find(p => p.pageNumber === region.pageNumber);
+      if (!pageImage) {
+        console.log(`Page ${region.pageNumber} not found for region: ${region.description}`);
+        continue;
+      }
+
+      // Crop the region
+      const croppedBase64 = await this.cropImageRegion(
+        pageImage.base64,
+        region.boundingBox,
+        pageImage.width,
+        pageImage.height,
+      );
+
+      if (!croppedBase64) {
+        console.log(`Failed to crop region: ${region.description}`);
+        continue;
+      }
+
+      // Generate a descriptive key for the image
+      const regionType = region.type.replace(/_/g, '-');
+      const key = `tech-packs/${tenantId}/${techPackId}/${regionType}-${imageIndex}.png`;
+
+      try {
+        // Upload to S3
+        await this.storageService.uploadFileWithKey(
+          key,
+          Buffer.from(croppedBase64, 'base64'),
+          'image/png',
+          'photos',
+        );
+
+        const url = await this.storageService.getPresignedDownloadUrl(key, 'photos');
+        console.log(`Uploaded cropped region (${region.type}): ${region.description} -> ${key}`);
+
+        // Map the associated field to the URL
+        if (region.associatedField) {
+          fieldToUrlMap.set(region.associatedField, url);
+        }
+
+        imageIndex++;
+      } catch (error) {
+        console.error(`Error uploading cropped region:`, error);
+      }
+    }
+
+    console.log(`Processed ${imageIndex} image regions, mapped ${fieldToUrlMap.size} fields`);
+    return fieldToUrlMap;
+  }
+
+  /**
+   * Associate image URLs with department data fields
+   */
+  associateImageUrls(
+    departments: TechPackExtractionResult['departments'],
+    fieldToUrlMap: Map<string, string>,
+  ): void {
+    if (!departments || fieldToUrlMap.size === 0) return;
+
+    for (const [field, url] of fieldToUrlMap.entries()) {
+      // Parse the field path, e.g., "foldingInstructions[0]", "hangTags[0].front", "labels[2]"
+      const match = field.match(/^(\w+)\[(\d+)\](?:\.(\w+))?$/);
+      if (!match) {
+        console.log(`Could not parse field path: ${field}`);
+        continue;
+      }
+
+      const [, arrayName, indexStr, subField] = match;
+      const index = parseInt(indexStr, 10);
+
+      // Find the right department and field
+      if (arrayName === 'foldingInstructions' && departments.packaging?.foldingInstructions) {
+        if (departments.packaging.foldingInstructions[index]) {
+          departments.packaging.foldingInstructions[index].imageUrl = url;
+        }
+      } else if (arrayName === 'hangTags' && departments.packaging?.hangTags) {
+        if (departments.packaging.hangTags[index]) {
+          if (subField === 'front') {
+            departments.packaging.hangTags[index].frontImageUrl = url;
+          } else if (subField === 'back') {
+            departments.packaging.hangTags[index].backImageUrl = url;
+          }
+        }
+      } else if (arrayName === 'labels' && departments.packaging?.labels) {
+        if (departments.packaging.labels[index]) {
+          departments.packaging.labels[index].imageUrl = url;
+        }
+      } else if (arrayName === 'packaging' && departments.packaging?.packaging) {
+        if (departments.packaging.packaging[index]) {
+          if (subField === 'front') {
+            departments.packaging.packaging[index].frontImageUrl = url;
+          } else if (subField === 'back') {
+            departments.packaging.packaging[index].backImageUrl = url;
+          }
+        }
+      } else if (arrayName === 'billOfMaterials' && departments.sourcing?.billOfMaterials) {
+        if (departments.sourcing.billOfMaterials[index]) {
+          departments.sourcing.billOfMaterials[index].swatchImageUrl = url;
+        }
+      } else if (arrayName === 'colorways' && departments.design?.colorways) {
+        if (departments.design.colorways[index]) {
+          departments.design.colorways[index].swatchImageUrl = url;
+        }
+      } else if (arrayName === 'artwork' && departments.design?.artwork) {
+        if (departments.design.artwork[index]) {
+          departments.design.artwork[index].artworkImageUrl = url;
+        }
+      } else if (arrayName === 'fabricSpecs' && departments.sourcing?.fabricSpecs) {
+        if (departments.sourcing.fabricSpecs[index]) {
+          departments.sourcing.fabricSpecs[index].swatchImageUrl = url;
+        }
+      } else if (arrayName === 'trimSpecs' && departments.sourcing?.trimSpecs) {
+        if (departments.sourcing.trimSpecs[index]) {
+          departments.sourcing.trimSpecs[index].imageUrl = url;
+        }
+      } else if (arrayName === 'technicalDrawings' && departments.design?.technicalDrawings) {
+        if (departments.design.technicalDrawings[index]) {
+          departments.design.technicalDrawings[index].imageUrl = url;
+        }
+      } else if (arrayName === 'sketches' && departments.design) {
+        // Handle sketches.front, sketches.back
+        if (!departments.design.sketches) {
+          departments.design.sketches = {};
+        }
+        if (subField === 'front') {
+          departments.design.sketches.frontUrl = url;
+        } else if (subField === 'back') {
+          departments.design.sketches.backUrl = url;
+        } else if (subField === 'side') {
+          departments.design.sketches.sideUrl = url;
+        }
+      }
+    }
   }
 }
