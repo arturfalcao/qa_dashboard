@@ -72,7 +72,7 @@ export class TechPack {
     properties?: Record<string, any>;
   }> | null;
 
-  // Colorways
+  // Colorways (flexible type to support various tech pack formats)
   @Column({
     name: "colorways",
     type: "jsonb",
@@ -80,9 +80,11 @@ export class TechPack {
   })
   colorways: Array<{
     name: string;
+    colorCode?: string;
     pantone?: string;
-    fabric?: { name: string; weight?: string; finish?: string };
-    thread?: { color: string; type?: string };
+    hex?: string;
+    fabric?: { name: string; weight?: string; finish?: string } | string;
+    thread?: { color: string; type?: string } | string;
     trim?: { description: string; color?: string };
     isMain?: boolean;
   }> | null;
@@ -95,7 +97,8 @@ export class TechPack {
   })
   sizeSpecifications: Array<{
     size: string;
-    measurements: Record<string, number>;
+    measurements: Record<string, number>;  // Standardized measurement names
+    rawMeasurements?: Record<string, number>;  // Original measurement names from tech pack
   }> | null;
 
   @Column({
@@ -235,7 +238,7 @@ export class TechPack {
     instructions: string[];
   }> | null;
 
-  // Bill of Materials
+  // Bill of Materials (expanded for comprehensive extraction)
   @Column({
     name: "bill_of_materials",
     type: "jsonb",
@@ -243,16 +246,121 @@ export class TechPack {
   })
   billOfMaterials: Array<{
     category: string;
-    description: string;
+    itemName?: string;
+    description?: string;
+    itemCode?: string;
+    articleNumber?: string;
     supplier?: string;
-    articleNo?: string;
+    supplierCode?: string;
+    composition?: string;
+    weight?: string;
     color?: string;
+    colorCode?: string;
+    pantone?: string;
+    articleNo?: string;
     size?: string;
     placement?: string;
-    cost?: number;
     quantity?: number;
+    unit?: string;
+    cost?: number;
+    moq?: number;
+    leadTime?: string;
+    swatchImageUrl?: string;
     notes?: string;
   }> | null;
+
+  // === QC-SPECIFIC FIELDS ===
+
+  // Points of Measure with POM codes and tolerances
+  @Column({
+    name: "points_of_measure",
+    type: "jsonb",
+    nullable: true,
+  })
+  pointsOfMeasure: Array<{
+    pomCode: string;
+    name: string;
+    description?: string;
+    tolerancePlus?: number;
+    toleranceMinus?: number;
+    category?: string;
+  }> | null;
+
+  // Label sequence for QC verification
+  @Column({
+    name: "label_sequence",
+    type: "jsonb",
+    nullable: true,
+  })
+  labelSequence: Array<{
+    position: string;
+    sequence: string[];
+    notes?: string;
+  }> | null;
+
+  // Packaging instructions (step-by-step, separate from folding)
+  @Column({
+    name: "packaging_instructions",
+    type: "jsonb",
+    nullable: true,
+  })
+  packagingInstructions: Array<{
+    step: number;
+    description: string;
+    material?: string;
+    dimensions?: string;
+    notes?: string;
+  }> | null;
+
+  // Care symbols (wash, dry, iron, bleach, etc.)
+  @Column({
+    name: "care_symbols",
+    type: "jsonb",
+    nullable: true,
+  })
+  careSymbols: string[] | null;
+
+  // Sample review data (actual vs target measurements)
+  @Column({
+    name: "sample_review",
+    type: "jsonb",
+    nullable: true,
+  })
+  sampleReview: Array<{
+    pomCode?: string;
+    pomName: string;
+    targetValue?: number;
+    actualValue?: number;
+    tolerance?: string;
+    status?: string;
+    notes?: string;
+  }> | null;
+
+  // Fit comments from sample review
+  @Column({
+    name: "fit_comments",
+    type: "jsonb",
+    nullable: true,
+  })
+  fitComments: string[] | null;
+
+  // Measurement unit (inches, cm, mm)
+  @Column({
+    name: "measurement_unit",
+    type: "varchar",
+    length: 20,
+    nullable: true,
+  })
+  measurementUnit: string | null;
+
+  // Document revision
+  @Column({
+    name: "revision",
+    type: "varchar",
+    length: 50,
+    nullable: true,
+  })
+  revision: string | null;
 
   // Extracted Images from the tech pack
   @Column({

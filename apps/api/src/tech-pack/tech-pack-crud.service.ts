@@ -261,25 +261,43 @@ export class TechPackCrudService {
       await this.techPackRepository.update(techPackId, {
         status: "completed",
         processedAt: new Date(),
+        // Basic info
         styleRef: extractedData.styleRef || undefined,
         productName: extractedData.productName || undefined,
         season: extractedData.season || undefined,
         designer: extractedData.designer || undefined,
         sampleSize: extractedData.sampleSize || undefined,
+        sizeRange: extractedData.sizeRange || undefined,
+        revision: extractedData.revision || undefined,
+        measurementUnit: extractedData.measurementUnit || undefined,
+        // Materials
         materialComposition: extractedData.materialComposition || undefined,
         colorways: extractedData.colorways || undefined,
+        // Size & Measurements
         sizeSpecifications: extractedData.sizeSpecifications || undefined,
         measurementTolerances: extractedData.measurementTolerances || undefined,
         grading: extractedData.grading || undefined,
+        // QC-specific fields
+        pointsOfMeasure: extractedData.pointsOfMeasure || undefined,
+        sampleReview: extractedData.sampleReview || undefined,
+        fitComments: extractedData.fitComments || undefined,
+        // Construction
         constructionDetails: extractedData.constructionDetails || undefined,
         artwork: extractedData.artwork || undefined,
         fabricMap: extractedData.fabricMap || undefined,
+        // Labels & Packaging
         labels: extractedData.labels || undefined,
+        labelSequence: extractedData.labelSequence || undefined,
         hangTags: extractedData.hangTags || undefined,
         packaging: extractedData.packaging || undefined,
+        packagingInstructions: extractedData.packagingInstructions || undefined,
         foldingInstructions: extractedData.foldingInstructions || undefined,
+        // Care
         careInstructions: extractedData.careInstructions || undefined,
+        careSymbols: extractedData.careSymbols || undefined,
+        // BOM
         billOfMaterials: extractedData.billOfMaterials || undefined,
+        // Raw data and images
         rawExtractedData: extractedData.rawExtractedData || undefined,
         images: images && images.length > 0 ? images : undefined,
       });

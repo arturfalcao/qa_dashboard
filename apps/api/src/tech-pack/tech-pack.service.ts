@@ -26,6 +26,87 @@ try {
   console.log("pdftoppm not available - PDF page image extraction may be limited");
 }
 
+// ============================================
+// STANDARD MEASUREMENT SCHEMA
+// ============================================
+// These are the standardized measurement names used in the database.
+// OpenAI will map various tech pack naming conventions to these standards.
+
+export const STANDARD_MEASUREMENTS = {
+  // === LENGTH MEASUREMENTS ===
+  front_length: { description: "Front length from HPS to hem", category: "length", unit: "inches" },
+  back_length: { description: "Back length from HPS to hem", category: "length", unit: "inches" },
+  cb_length: { description: "Center back length", category: "length", unit: "inches" },
+  cf_length: { description: "Center front length", category: "length", unit: "inches" },
+  side_length: { description: "Side seam length", category: "length", unit: "inches" },
+
+  // === SLEEVE MEASUREMENTS ===
+  sleeve_length: { description: "Sleeve length from shoulder point", category: "sleeve", unit: "inches" },
+  sleeve_length_cb: { description: "Sleeve length from center back neck", category: "sleeve", unit: "inches" },
+  sleeve_bicep: { description: "Sleeve width at bicep/underarm", category: "sleeve", unit: "inches" },
+  sleeve_elbow: { description: "Sleeve width at elbow", category: "sleeve", unit: "inches" },
+  sleeve_cuff: { description: "Sleeve opening/cuff width", category: "sleeve", unit: "inches" },
+  sleeve_cuff_height: { description: "Cuff/rib height", category: "sleeve", unit: "inches" },
+
+  // === CHEST/BODY WIDTH ===
+  chest_width: { description: "Chest width 1\" below armhole", category: "width", unit: "inches" },
+  bust_width: { description: "Bust width at fullest point", category: "width", unit: "inches" },
+  body_width: { description: "Body width at sweep/hem", category: "width", unit: "inches" },
+  waist_width: { description: "Waist width", category: "width", unit: "inches" },
+  hip_width: { description: "Hip width", category: "width", unit: "inches" },
+  hem_width: { description: "Bottom hem width", category: "width", unit: "inches" },
+  rib_hem_width: { description: "Rib hem width (stretched)", category: "width", unit: "inches" },
+
+  // === SHOULDER ===
+  shoulder_width: { description: "Shoulder to shoulder width (back)", category: "shoulder", unit: "inches" },
+  shoulder_slope: { description: "Shoulder slope/drop", category: "shoulder", unit: "inches" },
+  shoulder_seam_position: { description: "Shoulder seam moved forward/backward", category: "shoulder", unit: "inches" },
+  across_front: { description: "Across front chest measurement", category: "shoulder", unit: "inches" },
+  across_back: { description: "Across back measurement", category: "shoulder", unit: "inches" },
+
+  // === NECK ===
+  neck_width: { description: "Neck opening width", category: "neck", unit: "inches" },
+  neck_depth_front: { description: "Front neck drop from HPS", category: "neck", unit: "inches" },
+  neck_depth_back: { description: "Back neck drop from HPS", category: "neck", unit: "inches" },
+  neck_circumference: { description: "Neck circumference/stretch minimum", category: "neck", unit: "inches" },
+  collar_height: { description: "Collar/neckband height", category: "neck", unit: "inches" },
+  collar_width: { description: "Collar width", category: "neck", unit: "inches" },
+
+  // === ARMHOLE ===
+  armhole_depth: { description: "Armhole depth from shoulder", category: "armhole", unit: "inches" },
+  armhole_width: { description: "Armhole width/opening", category: "armhole", unit: "inches" },
+  armhole_circumference: { description: "Armhole circumference", category: "armhole", unit: "inches" },
+
+  // === HEM/RIB ===
+  hem_height: { description: "Hem/rib band height", category: "hem", unit: "inches" },
+  hem_circumference: { description: "Hem circumference", category: "hem", unit: "inches" },
+
+  // === PANTS/BOTTOMS ===
+  waist: { description: "Waist measurement (pants)", category: "pants", unit: "inches" },
+  front_rise: { description: "Front rise (crotch to waist)", category: "pants", unit: "inches" },
+  back_rise: { description: "Back rise (crotch to waist)", category: "pants", unit: "inches" },
+  inseam: { description: "Inseam length", category: "pants", unit: "inches" },
+  outseam: { description: "Outseam length", category: "pants", unit: "inches" },
+  thigh_width: { description: "Thigh width 1\" from crotch", category: "pants", unit: "inches" },
+  knee_width: { description: "Knee width", category: "pants", unit: "inches" },
+  leg_opening: { description: "Leg opening/hem width", category: "pants", unit: "inches" },
+  waistband_height: { description: "Waistband height", category: "pants", unit: "inches" },
+
+  // === POCKETS ===
+  pocket_width: { description: "Pocket width", category: "detail", unit: "inches" },
+  pocket_height: { description: "Pocket height/depth", category: "detail", unit: "inches" },
+  pocket_placement_hps: { description: "Pocket placement from HPS", category: "detail", unit: "inches" },
+  pocket_placement_cf: { description: "Pocket placement from CF", category: "detail", unit: "inches" },
+
+  // === OTHER ===
+  placket_width: { description: "Placket width", category: "detail", unit: "inches" },
+  placket_length: { description: "Placket length", category: "detail", unit: "inches" },
+  hood_height: { description: "Hood height", category: "detail", unit: "inches" },
+  hood_width: { description: "Hood width", category: "detail", unit: "inches" },
+} as const;
+
+export type StandardMeasurementKey = keyof typeof STANDARD_MEASUREMENTS;
+
 export interface ExtractedImage {
   base64: string;
   mimeType: string;
@@ -345,6 +426,8 @@ export interface TechPackExtractionResult {
   season?: string;
   designer?: string;
   brand?: string;
+  revision?: string;
+  date?: string;
 
   // Extracted Images (base64 to be uploaded to S3 later)
   extractedImages?: ExtractedImage[];
@@ -365,7 +448,52 @@ export interface TechPackExtractionResult {
     packaging?: PackagingDepartmentData;
   };
 
-  // Legacy flat fields (for backward compatibility)
+  // === NEW QC FIELDS ===
+
+  // Points of Measure with POM codes and tolerances
+  pointsOfMeasure?: Array<{
+    pomCode: string;
+    name: string;
+    description?: string;
+    tolerancePlus?: number;
+    toleranceMinus?: number;
+    category?: string;
+  }>;
+
+  // Label sequence for QC verification
+  labelSequence?: Array<{
+    position: string;
+    sequence: string[];
+    notes?: string;
+  }>;
+
+  // Packaging instructions (separate from folding)
+  packagingInstructions?: Array<{
+    step: number;
+    description: string;
+    material?: string;
+    dimensions?: string;
+    notes?: string;
+  }>;
+
+  // Care symbols
+  careSymbols?: string[];
+
+  // Sample review data for QC
+  sampleReview?: Array<{
+    pomCode?: string;
+    pomName: string;
+    targetValue?: number;
+    actualValue?: number;
+    tolerance?: string;
+    status?: string;
+    notes?: string;
+  }>;
+
+  // Fit comments from sample review
+  fitComments?: string[];
+
+  // === LEGACY FLAT FIELDS (for backward compatibility) ===
   sampleSize?: string;
   materialComposition?: Array<{
     fiber: string;
@@ -376,17 +504,22 @@ export interface TechPackExtractionResult {
   productionQuantity?: number;
   colorways?: Array<{
     name: string;
+    colorCode?: string;
     pantone?: string;
-    fabric?: { name: string; weight?: string; finish?: string };
-    thread?: { color: string; type?: string };
+    hex?: string;
+    fabric?: { name: string; weight?: string; finish?: string } | string;
+    thread?: { color: string; type?: string } | string;
     trim?: { description: string; color?: string };
     isMain?: boolean;
   }>;
   sizeSpecifications?: Array<{
     size: string;
     measurements: Record<string, number>;
+    rawMeasurements?: Record<string, number>;
   }>;
   measurementTolerances?: Record<string, number>;
+  measurementUnit?: string;
+  sizeRange?: string[];
   grading?: Array<{
     measurement: string;
     sizes: Record<string, number>;
@@ -398,13 +531,18 @@ export interface TechPackExtractionResult {
     stitchCode?: string;
     needleType?: string;
     seamsPerInch?: number;
+    seamAllowance?: string;
+    seam?: string;
     notes?: string;
   }>;
   artwork?: Array<{
     type: string;
+    name?: string;
     placement: string;
+    placementBySize?: Record<string, string>;
     width?: string;
     height?: string;
+    dimensions?: string;
     colors?: string[];
     pantones?: string[];
     technique?: string;
@@ -418,20 +556,28 @@ export interface TechPackExtractionResult {
   }>;
   labels?: Array<{
     type: string;
+    sequence?: number;
     width?: string;
     height?: string;
+    size?: string;
     material?: string;
     placement?: string;
     content?: string;
+    foldType?: string;
+    attachmentMethod?: string;
     colors?: string[];
     imageUrl?: string;  // Cropped image of the label
     notes?: string;
   }>;
   hangTags?: Array<{
+    type?: string;
     width?: string;
     height?: string;
+    size?: string;
     material?: string;
     content?: string;
+    attachment?: string;
+    attachmentPosition?: string;
     colors?: string[];
     frontImageUrl?: string;  // Front side cropped image
     backImageUrl?: string;   // Back side cropped image
@@ -442,7 +588,9 @@ export interface TechPackExtractionResult {
     type: string;
     width?: string;
     height?: string;
+    dimensions?: string;
     material?: string;
+    quantity?: number;
     frontImageUrl?: string;  // Front side cropped image
     backImageUrl?: string;   // Back side cropped image
     imageUrl?: string;       // Generic image URL
@@ -451,7 +599,9 @@ export interface TechPackExtractionResult {
   foldingInstructions?: Array<{
     step: number;
     description: string;
+    dimensions?: string;
     imageUrl?: string;  // Cropped diagram for this step
+    notes?: string;
   }>;
   careInstructions?: Array<{
     language: string;
@@ -459,14 +609,25 @@ export interface TechPackExtractionResult {
   }>;
   billOfMaterials?: Array<{
     category: string;
-    description: string;
+    itemName?: string;
+    description?: string;
+    itemCode?: string;
+    articleNumber?: string;
     supplier?: string;
-    articleNo?: string;
+    supplierCode?: string;
+    composition?: string;
+    weight?: string;
     color?: string;
+    colorCode?: string;
+    pantone?: string;
+    articleNo?: string;
     size?: string;
     placement?: string;
-    cost?: number;
     quantity?: number;
+    unit?: string;
+    cost?: number;
+    moq?: number;
+    leadTime?: string;
     swatchImageUrl?: string;  // Cropped image of material swatch
     notes?: string;
   }>;
@@ -487,6 +648,182 @@ export class TechPackService {
     if (apiKey) {
       this.openai = new OpenAI({ apiKey });
     }
+  }
+
+  /**
+   * Map raw measurements from tech pack to standardized measurement names using OpenAI.
+   * This handles variations in naming conventions across different tech pack formats.
+   *
+   * @param rawMeasurements Object with raw measurement names and values
+   * @param garmentType Optional garment type to help with context (e.g., "top", "pants", "dress")
+   * @returns Object with standardized measurement names and values, plus original names for reference
+   */
+  async mapMeasurementsToStandard(
+    rawMeasurements: Record<string, number>,
+    garmentType?: string,
+  ): Promise<{
+    standardized: Record<string, number>;
+    mapping: Record<string, { standardName: string | null; originalName: string; value: number }>;
+  }> {
+    if (!this.openai) {
+      console.log("OpenAI not configured, returning raw measurements");
+      return {
+        standardized: rawMeasurements,
+        mapping: Object.fromEntries(
+          Object.entries(rawMeasurements).map(([k, v]) => [k, { standardName: null, originalName: k, value: v }])
+        ),
+      };
+    }
+
+    // Build the standard measurements reference for the prompt
+    const standardMeasurementsRef = Object.entries(STANDARD_MEASUREMENTS)
+      .map(([key, info]) => `  "${key}": "${info.description}"`)
+      .join(",\n");
+
+    const prompt = `You are a garment measurement expert. Map these raw measurement names from a tech pack to the standardized names.
+
+RAW MEASUREMENTS FROM TECH PACK:
+${JSON.stringify(rawMeasurements, null, 2)}
+
+${garmentType ? `GARMENT TYPE: ${garmentType}` : ""}
+
+STANDARD MEASUREMENT NAMES (use ONLY these exact keys):
+{
+${standardMeasurementsRef}
+}
+
+INSTRUCTIONS:
+1. For each raw measurement, find the BEST matching standard name from the list above
+2. Consider common variations and translations (English, Portuguese, French, Italian, Spanish)
+3. If a measurement clearly doesn't match any standard, use null
+4. Be smart about context - "length" alone on a top is likely "front_length", on pants it's "outseam"
+
+COMMON VARIATIONS TO CONSIDER:
+- "HPS" = High Point Shoulder
+- "CB" = Center Back
+- "CF" = Center Front
+- "1\" below armhole" = chest measurement
+- "sweep" = hem/body width
+- "opening" = cuff or hem opening
+- Portuguese: "comprimento" = length, "largura" = width, "manga" = sleeve, "peito" = chest
+- French: "longueur" = length, "largeur" = width, "manche" = sleeve, "poitrine" = chest
+
+Return a JSON object where keys are the ORIGINAL measurement names and values are the STANDARD names:
+{
+  "originalMeasurementName": "standard_measurement_name_or_null",
+  ...
+}
+
+Only return the JSON object, no explanation.`;
+
+    try {
+      const completion = await this.openai.chat.completions.create({
+        model: "gpt-4o-mini", // Use mini for cost efficiency - this is a simple mapping task
+        messages: [
+          {
+            role: "system",
+            content: "You are a garment measurement expert. Map measurement names accurately. Return only valid JSON.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0,
+        max_tokens: 2000,
+      });
+
+      const mappingResult = JSON.parse(completion.choices[0]?.message?.content || "{}");
+      console.log("Measurement mapping result:", mappingResult);
+
+      // Build the standardized measurements object
+      const standardized: Record<string, number> = {};
+      const mapping: Record<string, { standardName: string | null; originalName: string; value: number }> = {};
+
+      for (const [originalName, value] of Object.entries(rawMeasurements)) {
+        const standardName = mappingResult[originalName] as string | null;
+
+        mapping[originalName] = {
+          standardName: standardName || null,
+          originalName,
+          value: value as number,
+        };
+
+        if (standardName && standardName in STANDARD_MEASUREMENTS) {
+          standardized[standardName] = value as number;
+        } else if (standardName) {
+          // If OpenAI returned a name not in our schema, keep it anyway
+          standardized[standardName] = value as number;
+        }
+      }
+
+      return { standardized, mapping };
+    } catch (error) {
+      console.error("Error mapping measurements:", error);
+      // Fallback to raw measurements
+      return {
+        standardized: rawMeasurements,
+        mapping: Object.fromEntries(
+          Object.entries(rawMeasurements).map(([k, v]) => [k, { standardName: null, originalName: k, value: v }])
+        ),
+      };
+    }
+  }
+
+  /**
+   * Map size specifications array to standardized measurements
+   */
+  async mapSizeSpecificationsToStandard(
+    sizeSpecs: Array<{ size: string; measurements: Record<string, number> }>,
+    garmentType?: string,
+  ): Promise<Array<{ size: string; measurements: Record<string, number>; rawMeasurements?: Record<string, number> }>> {
+    if (!sizeSpecs || sizeSpecs.length === 0) {
+      return sizeSpecs;
+    }
+
+    // Get all unique measurement names across all sizes
+    const allMeasurementNames = new Set<string>();
+    for (const spec of sizeSpecs) {
+      if (spec.measurements) {
+        Object.keys(spec.measurements).forEach(k => allMeasurementNames.add(k));
+      }
+    }
+
+    // Create a sample measurements object for mapping (use first non-empty size)
+    const sampleMeasurements: Record<string, number> = {};
+    for (const name of allMeasurementNames) {
+      for (const spec of sizeSpecs) {
+        if (spec.measurements?.[name] !== undefined) {
+          sampleMeasurements[name] = spec.measurements[name];
+          break;
+        }
+      }
+    }
+
+    // Get the mapping once for all sizes
+    const { mapping } = await this.mapMeasurementsToStandard(sampleMeasurements, garmentType);
+
+    // Apply the mapping to all sizes
+    return sizeSpecs.map(spec => {
+      const standardizedMeasurements: Record<string, number> = {};
+
+      for (const [originalName, value] of Object.entries(spec.measurements || {})) {
+        const mappedInfo = mapping[originalName];
+        if (mappedInfo?.standardName) {
+          standardizedMeasurements[mappedInfo.standardName] = value;
+        } else {
+          // Keep unmapped measurements with original name
+          standardizedMeasurements[originalName] = value;
+        }
+      }
+
+      return {
+        size: spec.size,
+        measurements: standardizedMeasurements,
+        rawMeasurements: spec.measurements, // Keep original for reference
+      };
+    });
   }
 
   async extractFromFile(
@@ -713,67 +1050,192 @@ Be thorough in extracting ALL measurements mentioned in the document.`;
           },
         }));
 
-        const prompt = `You are an expert tech pack analyzer for garment manufacturing. Analyze these tech pack pages (pages ${i + 1}-${Math.min(i + batchSize, pageImages.length)} of ${pageImages.length}).
+        const prompt = `You are an expert tech pack analyzer for garment manufacturing QC systems. Analyze these tech pack pages (pages ${i + 1}-${Math.min(i + batchSize, pageImages.length)} of ${pageImages.length}).
 
 INSTRUCTIONS:
 1. Extract ALL information visible in the document - be thorough and comprehensive
 2. Translate ALL descriptive text to PORTUGUESE (Brazilian Portuguese)
-3. Keep codes/references unchanged (SKUs, article numbers, Pantone codes, stitch codes, size labels like XS/S/M/L/XL/XXL or numeric 36/38/40/42)
+3. Keep codes/references unchanged (SKUs, article numbers, Pantone codes, stitch codes, POM codes, size labels like XS/S/M/L/XL/XXL or numeric 36/38/40/42)
 4. Keep numeric measurements exactly as shown with their units
+5. PAY SPECIAL ATTENTION to measurement tables, tolerance tables, BOM tables, and folding/packing diagrams
 
 Return a JSON object. Use these field names when applicable, but extract ANY additional data you find:
 
 {
   "styleReference": "style number, SKU, article number, or product code",
   "productName": "product name or description",
-  "productType": "type of garment",
-  "season": "season or collection",
+  "productType": "type of garment (e.g., JACKET, PANTS, SHIRT, DRESS)",
+  "season": "season or collection (e.g., S2026, FW24)",
   "brand": "brand name",
   "designer": "designer, factory, or manufacturer name",
+  "revision": "document revision number if shown",
+  "date": "document date if shown",
 
   "colorways": [{"name": "nome da cor", "colorCode": "código", "pantone": "código Pantone", "hex": "#RRGGBB", "fabric": "cor do tecido", "thread": "cor da linha"}],
 
-  "sizeRange": ["all size labels found in the document"],
+  "sizeRange": ["all size labels found in the document - MUST include ALL sizes"],
+
+  "pointsOfMeasure": [
+    {
+      "pomCode": "código POM (ex: LT018, CH002B, SL001)",
+      "name": "nome da medida exatamente como mostrado",
+      "description": "descrição de como medir (traduzida para português)",
+      "tolerancePlus": "valor de tolerância positiva (número)",
+      "toleranceMinus": "valor de tolerância negativa (número)",
+      "category": "categoria (Length, Width, Circumference, Opening, etc.)"
+    }
+  ],
+
   "sizeSpecifications": [
-    {"size": "size label exactly as shown", "measurements": {"measurement_name": value, ...}}
+    {
+      "size": "size label exactly as shown",
+      "measurements": {
+        "EXACT_MEASUREMENT_NAME_FROM_DOCUMENT": "value as number"
+      }
+    }
   ],
   "measurementUnit": "unit used (inches, cm, mm)",
 
   "constructionDetails": [
-    {"area": "área da peça", "description": "descrição completa", "stitchType": "tipo de ponto", "stitchCode": "código", "seam": "tipo de costura", "notes": "observações"}
+    {
+      "area": "área da peça",
+      "description": "descrição completa",
+      "stitchType": "tipo de ponto",
+      "stitchCode": "código de ponto (ex: 301, 401, 504)",
+      "seam": "tipo de costura",
+      "seamAllowance": "margem de costura",
+      "needleType": "tipo de agulha",
+      "seamsPerInch": "pontos por polegada",
+      "notes": "observações"
+    }
   ],
 
   "billOfMaterials": [
     {
-      "category": "categoria do material (Fabric, Trim, Label, Hardware, Thread, Elastic, Zipper, Button, Interlining, Packaging, etc.)",
+      "category": "categoria EXATA do documento (Main Fabric, Lining, Trim, Label, Zipper, Button, Thread, Elastic, Interlining, Packaging, Hardware, etc.)",
       "itemName": "nome do item",
-      "itemCode": "código, artigo, ou referência",
-      "supplier": "fornecedor",
+      "itemCode": "código/artigo do item (ex: 63200036-600, BC-TT-01)",
+      "articleNumber": "número do artigo se diferente do itemCode",
+      "supplier": "nome do fornecedor",
+      "supplierCode": "código do fornecedor (ex: CG NOM, VP, CG SUP)",
       "composition": "composição do material",
+      "weight": "peso (ex: 20D, 300GSM)",
       "color": "cor",
+      "colorCode": "código da cor",
       "pantone": "código Pantone",
       "size": "dimensões ou tamanho",
       "placement": "posição na peça",
       "quantity": "quantidade",
+      "unit": "unidade (m, cm, pcs, yds)",
       "cost": "custo",
+      "moq": "quantidade mínima de pedido",
+      "leadTime": "prazo de entrega",
       "notes": "notas ou observações"
     }
   ],
 
-  "materialComposition": [{"fiber": "tipo de fibra", "percentage": número}],
+  "materialComposition": [{"fiber": "tipo de fibra", "percentage": "número"}],
 
-  "labels": [{"type": "tipo de etiqueta", "placement": "posição", "material": "material", "content": "conteúdo completo", "size": "dimensões"}],
-  "hangTags": [{"type": "tipo", "material": "material", "content": "conteúdo", "size": "dimensões", "attachment": "forma de fixação"}],
-  "foldingInstructions": [{"step": número, "description": "descrição do passo", "imageRef": "referência à imagem se houver"}],
-  "careInstructions": ["todas as instruções de cuidado traduzidas para português"],
+  "labels": [
+    {
+      "type": "tipo de etiqueta (Main Label, Care Label, Size Label, Content Label, Flag Label, etc.)",
+      "sequence": "número de sequência/ordem (1, 2, 3...)",
+      "placement": "posição (inside back neck, side seam, etc.)",
+      "material": "material",
+      "content": "conteúdo completo",
+      "size": "dimensões",
+      "foldType": "tipo de dobra (end fold, center fold, etc.)",
+      "attachmentMethod": "método de fixação",
+      "notes": "observações"
+    }
+  ],
+
+  "labelSequence": [
+    {
+      "position": "posição (ex: Back Neck)",
+      "sequence": ["Label 1 type", "Label 2 type", "..."],
+      "notes": "observações sobre a sequência"
+    }
+  ],
+
+  "hangTags": [
+    {
+      "type": "tipo",
+      "material": "material",
+      "content": "conteúdo",
+      "size": "dimensões (W x H)",
+      "attachment": "forma de fixação (string, plastic loop, etc.)",
+      "attachmentPosition": "posição do furo/fixação",
+      "notes": "observações"
+    }
+  ],
+
+  "foldingInstructions": [
+    {
+      "step": "número do passo (1, 2, 3...)",
+      "description": "descrição detalhada do passo em português",
+      "dimensions": "dimensões resultantes se especificadas",
+      "notes": "notas adicionais"
+    }
+  ],
+
+  "packagingInstructions": [
+    {
+      "step": "número do passo",
+      "description": "descrição do passo de embalagem",
+      "material": "material usado (polybag, tissue, etc.)",
+      "dimensions": "dimensões",
+      "notes": "notas"
+    }
+  ],
+
+  "careInstructions": [
+    {
+      "language": "idioma (English, Portuguese, French, etc.)",
+      "instructions": ["lista de instruções"]
+    }
+  ],
+
+  "careSymbols": ["símbolos de cuidado (wash, dry, iron, bleach, etc.)"],
+
   "packaging": [{"type": "tipo de embalagem", "material": "material", "dimensions": "dimensões", "quantity": "quantidade"}],
 
-  "artwork": [{"type": "tipo de arte", "placement": "posição", "technique": "técnica (serigrafia, bordado, transfer, etc.)", "colors": ["cores utilizadas"], "dimensions": "dimensões"}],
+  "artwork": [
+    {
+      "type": "tipo de arte (Print, Embroidery, Patch, Heat Transfer, etc.)",
+      "name": "nome/descrição da arte",
+      "placement": "posição",
+      "placementBySize": {
+        "S": "posição para tamanho S",
+        "M": "posição para tamanho M",
+        "L": "posição para tamanho L"
+      },
+      "technique": "técnica",
+      "colors": ["cores utilizadas"],
+      "pantones": ["códigos Pantone"],
+      "dimensions": "dimensões",
+      "notes": "observações"
+    }
+  ],
+
+  "sampleReview": [
+    {
+      "pomCode": "código POM",
+      "pomName": "nome da medida",
+      "targetValue": "valor esperado",
+      "actualValue": "valor medido na amostra",
+      "tolerance": "tolerância",
+      "status": "status (OK, Fail, Adjust)",
+      "notes": "observações/comentários de fit"
+    }
+  ],
+
+  "fitComments": ["comentários de fit e ajustes necessários"],
 
   "imageRegions": [
     {
       "pageNumber": ${i + 1},
-      "type": "tipo de imagem (sketch, measurement_diagram, label, hangtag, artwork, folding_diagram, fabric_swatch, color_reference, pattern, etc.)",
+      "type": "tipo de imagem (sketch, measurement_diagram, label, hangtag, artwork, folding_diagram, fabric_swatch, color_reference, pattern, construction_detail, packing_diagram, etc.)",
       "description": "descrição do que mostra a imagem",
       "boundingBox": {"x": 0, "y": 0, "width": 100, "height": 100},
       "associatedField": "campo relacionado como foldingInstructions[0]"
@@ -784,12 +1246,40 @@ Return a JSON object. Use these field names when applicable, but extract ANY add
 }
 
 CRITICAL EXTRACTION RULES:
-1. SIZE SPECIFICATIONS: Extract EVERY size found (XS, S, M, L, XL, XXL, or numeric sizes like 36, 38, 40, 42, 44). Include ALL measurements for EACH size - do not skip any sizes or measurements visible in the document.
-2. BILL OF MATERIALS: Extract EVERY item from trim lists, material lists, BOM tables. Use the actual category names shown in the document.
-3. MEASUREMENTS: Use the exact measurement names as shown in the document (e.g., "waist", "cintura", "front rise", "gancho frente", "inseam", "entrepernas").
-4. BE THOROUGH: If you see data that doesn't fit the standard fields, add it to "additionalInfo".
-5. TRANSLATIONS: Translate descriptions, notes, and instructions to Portuguese. Keep technical codes, brand names, and size labels unchanged.
-6. Include only fields that have actual data - do not include empty arrays or null values.`;
+
+1. SIZE SPECIFICATIONS & MEASUREMENTS:
+   - Extract EVERY size found (2XS, XS, S, M, L, XL, XXL, 3XL, or numeric sizes)
+   - Include ALL measurements for EACH size - do not skip any sizes or measurements
+   - Use the EXACT measurement names as shown in the document
+   - If measurements have POM codes (like LT018, CH002B), extract them to "pointsOfMeasure"
+
+2. TOLERANCES:
+   - Extract tolerance values (+/-) for each measurement if shown
+   - If there's a tolerance table, capture ALL tolerances
+   - Format: tolerancePlus (positive number), toleranceMinus (positive number representing the absolute value)
+
+3. BILL OF MATERIALS:
+   - Extract EVERY item from trim lists, material lists, BOM tables
+   - Include article/item codes, supplier codes, and supplier names
+   - Use the actual category names shown in the document
+   - Include weights, quantities, and units where shown
+
+4. FOLDING & PACKING:
+   - Extract ALL folding steps in order (step 1, 2, 3...)
+   - Include dimensions for each fold step if specified
+   - Extract packaging instructions separately
+
+5. LABELS:
+   - Extract the label sequence/order (which labels go first)
+   - Include label types, sizes, materials, and placement
+
+6. SAMPLE REVIEW:
+   - If sample measurements are shown, extract actual vs target values
+   - Include fit comments and adjustments
+
+7. BE THOROUGH: If you see data that doesn't fit the standard fields, add it to "additionalInfo".
+8. TRANSLATIONS: Translate descriptions, notes, and instructions to Portuguese. Keep technical codes, brand names, size labels, and POM codes unchanged.
+9. Include only fields that have actual data - do not include empty arrays or null values.`;
 
         const completion = await this.openai.chat.completions.create({
           model: "gpt-4o",
@@ -804,7 +1294,7 @@ CRITICAL EXTRACTION RULES:
           ],
           response_format: { type: "json_object" },
           temperature: 0,
-          max_tokens: 4096,
+          max_tokens: 16384,
         });
 
         const responseText = completion.choices[0]?.message?.content || "{}";
@@ -815,6 +1305,31 @@ CRITICAL EXTRACTION RULES:
           console.log(`Batch ${batchNum} extracted:`, Object.keys(batchData).length, 'fields');
         } catch (parseError) {
           console.error(`Error parsing batch ${batchNum} response:`, parseError);
+          // Retry the batch once with a smaller request
+          console.log(`Retrying batch ${batchNum}...`);
+          try {
+            const retryCompletion = await this.openai.chat.completions.create({
+              model: "gpt-4o",
+              messages: [
+                {
+                  role: "user",
+                  content: [
+                    { type: "text", text: prompt },
+                    ...imageContent,
+                  ],
+                },
+              ],
+              response_format: { type: "json_object" },
+              temperature: 0,
+              max_tokens: 16384,
+            });
+            const retryText = retryCompletion.choices[0]?.message?.content || "{}";
+            const retryData = JSON.parse(retryText);
+            allExtractedData.push(retryData);
+            console.log(`Batch ${batchNum} retry succeeded:`, Object.keys(retryData).length, 'fields');
+          } catch (retryError) {
+            console.error(`Batch ${batchNum} retry also failed:`, retryError);
+          }
         }
       }
 
@@ -837,6 +1352,22 @@ CRITICAL EXTRACTION RULES:
         ...mergedData,
         extractedImages: `[${mergedData.extractedImages?.length || 0} images]`,
       }, null, 2));
+
+      // Map size specifications to standardized measurement names
+      if (mergedData.sizeSpecifications && Array.isArray(mergedData.sizeSpecifications) && mergedData.sizeSpecifications.length > 0) {
+        console.log('Mapping size specifications to standard measurement names...');
+        const garmentType = mergedData.productType || mergedData.garmentCategory;
+        try {
+          mergedData.sizeSpecifications = await this.mapSizeSpecificationsToStandard(
+            mergedData.sizeSpecifications,
+            garmentType,
+          );
+          console.log('Size specifications mapped successfully');
+        } catch (mappingError) {
+          console.error('Error mapping size specifications:', mappingError);
+          // Continue with unmapped measurements
+        }
+      }
 
       return this.formatExtractionResult(mergedData);
     } catch (error) {
@@ -883,11 +1414,15 @@ CRITICAL EXTRACTION RULES:
 
     // Legacy array fields - merge and deduplicate (for backward compatibility)
     // Also include imageRegions for cropping visual elements
+    // Added new QC fields: pointsOfMeasure, labelSequence, packagingInstructions, sampleReview, fitComments, careSymbols
     const arrayFields = [
       'sizeRange', 'colorways', 'sizeSpecifications', 'constructionDetails',
       'artwork', 'fabricMap', 'labels', 'hangTags', 'packaging',
       'careInstructions', 'billOfMaterials', 'materialComposition', 'pageContents',
-      'imageRegions', 'foldingInstructions'
+      'imageRegions', 'foldingInstructions',
+      // New QC fields
+      'pointsOfMeasure', 'labelSequence', 'packagingInstructions', 'sampleReview',
+      'fitComments', 'careSymbols'
     ];
 
     for (const field of arrayFields) {
@@ -1218,6 +1753,8 @@ Return as JSON with size specifications in this format:
       season: header.season || data.season,
       designer: header.designer || data.designer || data.factoryName || data.factory,
       brand: header.brand || data.brand,
+      revision: data.revision,
+      date: data.date,
       sampleSize: data.sampleSize,
 
       // Extracted Images from PDF pages
@@ -1231,6 +1768,31 @@ Return as JSON with size specifications in this format:
 
       // Department-Organized Data (new structure)
       departments: this.formatDepartments(data),
+
+      // === NEW QC FIELDS ===
+      // Points of Measure with POM codes and tolerances
+      pointsOfMeasure: data.pointsOfMeasure,
+
+      // Label sequence for QC verification
+      labelSequence: data.labelSequence,
+
+      // Packaging instructions (separate from folding)
+      packagingInstructions: data.packagingInstructions,
+
+      // Care symbols
+      careSymbols: data.careSymbols,
+
+      // Sample review data for QC
+      sampleReview: data.sampleReview,
+
+      // Fit comments from sample review
+      fitComments: data.fitComments,
+
+      // Size range
+      sizeRange: data.sizeRange,
+
+      // Measurement unit
+      measurementUnit: data.measurementUnit,
 
       // Legacy flat fields (for backward compatibility)
       materialComposition: this.parseMaterialComposition(data),
