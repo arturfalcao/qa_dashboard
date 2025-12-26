@@ -81,3 +81,6 @@ ai_withllm/models/
 ai_withllm/fashion_keypoint_model_package/
 ai_mesurement/models/
 *.weights
+
+# Tech pack files (PDFs and extracted data)
+techpacks/
