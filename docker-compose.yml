@@ -56,23 +56,22 @@ services:
       dockerfile: apps/api/Dockerfile
     ports:
       - "3001:3001"
+    env_file:
+      - .env
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/qa_dashboard
-      JWT_SECRET: your-jwt-secret-key-change-in-production
-      JWT_REFRESH_SECRET: your-jwt-refresh-secret-key-change-in-production
-      MINIO_ENDPOINT: minio
-      MINIO_PORT: 9000
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin
-      MINIO_PHOTOS_BUCKET: pp-photos
-      MINIO_REPORTS_BUCKET: pp-reports
       NODE_ENV: development
+      NODE_TLS_REJECT_UNAUTHORIZED: 0
+
     depends_on:
-      postgres:
-        condition: service_healthy
       minio-setup:
         condition: service_completed_successfully
     command: pnpm start:prod
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3001/health || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
   web:
     build:
